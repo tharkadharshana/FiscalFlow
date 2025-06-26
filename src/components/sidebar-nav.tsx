@@ -28,12 +28,14 @@ import {
   CalendarDays,
   PiggyBank,
   Landmark,
+  Briefcase,
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/app-context';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/transactions', label: 'Transactions', icon: Wallet },
+  { href: '/dashboard/investments', label: 'Investments', icon: Briefcase },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText },
   { href: '/dashboard/budgets', label: 'Budgets', icon: Target },
   { href: '/dashboard/savings', label: 'Savings Goals', icon: PiggyBank },

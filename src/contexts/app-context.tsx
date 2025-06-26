@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -59,6 +59,10 @@ interface AppContextType {
   addSavingsGoal: (goal: Omit<SavingsGoal, 'id' | 'userId' | 'createdAt' | 'currentAmount' | 'badges'>) => Promise<void>;
   updateSavingsGoal: (goalId: string, data: Partial<Omit<SavingsGoal, 'id'>>) => Promise<void>;
   deleteSavingsGoal: (goalId: string) => Promise<void>;
+  investments: Investment[];
+  addInvestment: (investment: Omit<Investment, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateInvestment: (investmentId: string, data: Partial<Omit<Investment, 'id'>>) => Promise<void>;
+  deleteInvestment: (investmentId: string) => Promise<void>;
   formatCurrency: (amount: number) => string;
 }
 
@@ -73,6 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [financialPlans, setFinancialPlans] = useState<FinancialPlan[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -162,6 +167,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSavingsGoals(userGoals);
       });
 
+      const qInvestments = query(collection(db, 'users', user.uid, 'investments'), orderBy('createdAt', 'desc'));
+      const unsubscribeInvestments = onSnapshot(qInvestments, (snapshot) => {
+        const userInvestments: Investment[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(), 
+            purchaseDate: (doc.data().purchaseDate as Timestamp).toDate().toISOString(),
+            createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as Investment));
+        setInvestments(userInvestments);
+      });
+
 
       return () => {
         unsubscribeProfile();
@@ -170,6 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unsubscribePlans();
         unsubscribeRecurring();
         unsubscribeGoals();
+        unsubscribeInvestments();
       };
     } else {
       setUserProfile(null);
@@ -178,6 +194,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setFinancialPlans([]);
       setRecurringTransactions([]);
       setSavingsGoals([]);
+      setInvestments([]);
     }
   }, [user]);
 
@@ -499,6 +516,49 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
 
+  const addInvestment = async (investment: Omit<Investment, 'id' | 'userId' | 'createdAt'>) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'investments'), {
+            ...investment,
+            userId: user.uid,
+            purchaseDate: Timestamp.fromDate(new Date(investment.purchaseDate)),
+            createdAt: serverTimestamp(),
+        });
+        toast({ title: 'Investment Added' });
+    } catch (error) {
+        console.error('Error adding investment:', error);
+        toast({ variant: 'destructive', title: 'Error adding investment' });
+    }
+  };
+
+  const updateInvestment = async (investmentId: string, data: Partial<Omit<Investment, 'id'>>) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    const { purchaseDate, ...restData } = data;
+    const updateData: any = { ...restData };
+    if (purchaseDate) updateData.purchaseDate = Timestamp.fromDate(new Date(purchaseDate));
+
+    try {
+        await updateDoc(doc(db, 'users', user.uid, 'investments', investmentId), updateData);
+        toast({ title: 'Investment Updated' });
+    } catch (error) {
+        console.error('Error updating investment:', error);
+        toast({ variant: 'destructive', title: 'Error updating investment' });
+    }
+  };
+
+  const deleteInvestment = async (investmentId: string) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'investments', investmentId));
+        toast({ title: 'Investment Deleted' });
+    } catch (error) {
+        console.error('Error deleting investment:', error);
+        toast({ variant: 'destructive', title: 'Error deleting investment' });
+    }
+  };
+
+
   const calculateNewBadges = (goal: SavingsGoal, newCurrentAmount: number): Badge[] => {
     const newBadges: Badge[] = [];
     const now = new Date().toISOString();
@@ -574,7 +634,9 @@ const deleteTransaction = async (transactionId: string) => {
         financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan,
         updateUserPreferences, recurringTransactions, addRecurringTransaction,
         updateRecurringTransaction, deleteRecurringTransaction, savingsGoals,
-        addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, formatCurrency,
+        addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
+        investments, addInvestment, updateInvestment, deleteInvestment,
+        formatCurrency,
       }}
     >
       {children}

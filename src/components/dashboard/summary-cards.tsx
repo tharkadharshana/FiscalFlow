@@ -7,7 +7,7 @@ import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useMemo } from 'react';
 
 export function SummaryCards() {
-  const { transactions, formatCurrency } = useAppContext();
+  const { transactions, investments, formatCurrency } = useAppContext();
 
   const { totalIncome, totalExpenses, balance } = useMemo(() => {
     const income = transactions
@@ -22,6 +22,12 @@ export function SummaryCards() {
       balance: income - expenses,
     };
   }, [transactions]);
+
+  const totalInvestmentValue = useMemo(() => {
+    return investments.reduce((sum, inv) => sum + inv.quantity * inv.currentPrice, 0);
+  }, [investments]);
+
+  const netWorth = balance + totalInvestmentValue;
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
@@ -47,12 +53,12 @@ export function SummaryCards() {
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Remaining Budget</CardTitle>
+          <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
           <Wallet className="h-4 w-4 text-blue-500" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
-          <p className="text-xs text-muted-foreground">Balance</p>
+          <div className="text-2xl font-bold">{formatCurrency(netWorth)}</div>
+          <p className="text-xs text-muted-foreground">Cash + Investments</p>
         </CardContent>
       </Card>
     </div>

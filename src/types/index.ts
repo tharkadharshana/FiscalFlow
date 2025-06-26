@@ -1,4 +1,5 @@
 
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -100,6 +101,19 @@ export interface SavingsGoal {
   isRoundupGoal?: boolean;
   badges: Badge[];
 }
+
+export interface Investment {
+    id: string;
+    userId: string;
+    name: string; // e.g. Apple Inc.
+    symbol: string; // e.g. AAPL
+    assetType: 'Stock' | 'ETF' | 'Crypto' | 'Mutual Fund' | 'Other';
+    quantity: number;
+    purchasePrice: number;
+    currentPrice: number;
+    purchaseDate: string; // ISO string
+    createdAt: any;
+  }
 
 export interface TaxLiability {
   taxType: string;

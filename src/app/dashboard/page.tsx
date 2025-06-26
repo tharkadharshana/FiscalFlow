@@ -1,3 +1,4 @@
+
 import { Header } from '@/components/dashboard/header';
 import { SummaryCards } from '@/components/dashboard/summary-cards';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
@@ -5,6 +6,7 @@ import { SpendChart } from '@/components/dashboard/spend-chart';
 import { SmartInsights } from '@/components/dashboard/smart-insights';
 import { TopCategories } from '@/components/dashboard/top-categories';
 import { CarbonFootprintCard } from '@/components/dashboard/carbon-footprint-card';
+import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
 
 export default function DashboardPage() {
   return (
@@ -25,6 +27,7 @@ export default function DashboardPage() {
             <RecentTransactions />
           </div>
           <div className="lg:col-span-3 space-y-6">
+            <PortfolioOverview />
             <SmartInsights />
             <CarbonFootprintCard />
           </div>
