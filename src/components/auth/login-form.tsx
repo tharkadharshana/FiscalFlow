@@ -12,6 +12,7 @@ import { auth, db } from '@/lib/firebase';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -30,6 +31,7 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const { toast } = useToast();
 
   const handlePasswordReset = async (e: React.FormEvent) => {
@@ -149,6 +151,54 @@ export function LoginForm() {
     }
   };
 
+  const handleAppleLogin = async () => {
+    setIsAppleLoading(true);
+    try {
+      const provider = new OAuthProvider('apple.com');
+      const result = await signInWithPopup(auth, provider);
+      const additionalInfo = getAdditionalUserInfo(result);
+      
+      // If it's a new user, create a document in Firestore
+      if (additionalInfo?.isNewUser) {
+        await setDoc(doc(db, 'users', result.user.uid), {
+          displayName: result.user.displayName,
+          email: result.user.email,
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          currencyPreference: 'USD',
+          darkModeBanner: false,
+          notificationPreferences: {
+            budgetThreshold: true,
+            recurringPayment: true,
+          },
+          profilePictureURL: result.user.photoURL,
+        });
+        toast({
+          title: 'Welcome!',
+          description: 'Your account has been created successfully.',
+        });
+      }
+      
+      router.push('/dashboard');
+    } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user') {
+          toast({
+              variant: 'default',
+              title: 'Sign-in Cancelled',
+              description: 'The sign-in window was closed before completion.',
+          });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Apple Login Failed',
+          description: error.message,
+        });
+      }
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
+
   const renderHeader = () => {
     switch (authMode) {
       case 'login':
@@ -242,7 +292,7 @@ export function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              <Button type="submit" className="w-full font-bold" disabled={isLoading || isGoogleLoading}>
+              <Button type="submit" className="w-full font-bold" disabled={isLoading || isGoogleLoading || isAppleLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {authMode === 'login' ? 'Log In' : 'Sign Up'}
               </Button>
@@ -256,12 +306,12 @@ export function LoginForm() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading}>
+              <Button variant="outline" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
                 {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.google className="mr-2 h-4 w-4" />}
                 Google
               </Button>
-              <Button variant="outline" disabled={true}>
-                <Icons.apple className="mr-2 h-4 w-4" />
+              <Button variant="outline" onClick={handleAppleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
+                {isAppleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.apple className="mr-2 h-4 w-4" />}
                 Apple
               </Button>
             </div>
