@@ -11,4 +11,6 @@ export interface Transaction {
   tags?: string[];
   ocrParsed?: boolean;
   isRecurring?: boolean;
+  paymentMethod?: string;
+  invoiceNumber?: string;
 }

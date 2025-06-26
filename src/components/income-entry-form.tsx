@@ -34,14 +34,16 @@ const formSchema = z.object({
   source: z.string().min(2, 'Source must be at least 2 characters.'),
   category: z.string({ required_error: 'Please select a category.' }),
   date: z.date({ required_error: 'Please select a date.' }),
+  paymentMethod: z.string().optional(),
+  invoiceNumber: z.string().optional(),
   notes: z.string().optional(),
 });
 
-type ManualEntryFormProps = {
+type IncomeEntryFormProps = {
   onFormSubmit: () => void;
 }
 
-export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
+export function IncomeEntryForm({ onFormSubmit }: IncomeEntryFormProps) {
   const { addTransaction } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,13 +52,15 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
       source: '',
       notes: '',
       date: new Date(),
+      paymentMethod: '',
+      invoiceNumber: '',
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     addTransaction({
       ...values,
-      type: 'expense',
+      type: 'income',
       date: values.date.toISOString(),
     });
     onFormSubmit();
@@ -65,7 +69,7 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="amount"
@@ -121,15 +125,15 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
             )}
             />
         </div>
-
+        
         <FormField
           control={form.control}
           name="source"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Store / Vendor</FormLabel>
+              <FormLabel>Source / Payer</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Starbucks, Amazon" {...field} />
+                <Input placeholder="e.g. Acme Inc, Client Name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -145,11 +149,11 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder="Select an income category" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {defaultCategories.map((cat) => (
+                  {defaultCategories.filter(c => !["Groceries", "Food", "Transport", "Rent", "Clothing", "Gifts", "Entertainment", "Utilities", "Public Transport"].includes(c)).map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
                     </SelectItem>
@@ -161,6 +165,48 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
           )}
         />
 
+        <div className="grid grid-cols-2 gap-4">
+            <FormField
+            control={form.control}
+            name="paymentMethod"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Payment Method</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a method" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Check">Check</SelectItem>
+                        <SelectItem value="PayPal">PayPal</SelectItem>
+                        <SelectItem value="Stripe">Stripe</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField
+            control={form.control}
+            name="invoiceNumber"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Invoice/Ref #</FormLabel>
+                <FormControl>
+                    <Input placeholder="INV-12345" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+        </div>
+
+
         <FormField
           control={form.control}
           name="notes"
@@ -168,14 +214,14 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
             <FormItem>
               <FormLabel>Notes (Optional)</FormLabel>
               <FormControl>
-                <Textarea placeholder="e.g. Coffee with friends" {...field} />
+                <Textarea placeholder="e.g. Q2 Project Bonus" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <Button type="submit" className="w-full font-bold">Add Expense</Button>
+        <Button type="submit" className="w-full font-bold">Add Income</Button>
       </form>
     </Form>
   );

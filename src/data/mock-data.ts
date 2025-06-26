@@ -1,7 +1,8 @@
 import type { Transaction } from '@/types';
-import { ShoppingCart, Utensils, Fuel, Home, Shirt, Gift, Film, Bus, HeartPulse } from 'lucide-react';
+import { ShoppingCart, Utensils, Fuel, Home, Shirt, Gift, Film, Bus, HeartPulse, Briefcase, TrendingUp, Award, GitFork, DollarSign } from 'lucide-react';
 
 export const categories = {
+  // Expenses
   "Groceries": ShoppingCart,
   "Food": Utensils,
   "Transport": Fuel,
@@ -11,19 +12,26 @@ export const categories = {
   "Entertainment": Film,
   "Utilities": HeartPulse,
   "Public Transport": Bus,
-  "Salary": Home,
-  "Freelance": Home
+  // Income
+  "Salary": DollarSign,
+  "Freelance": DollarSign,
+  "Business Sale": Briefcase,
+  "Investments": TrendingUp,
+  "Bonus": Award,
+  "Side Hustle": GitFork,
+  "Gift Income": Gift,
 };
 
 export const transactions: Transaction[] = [
-  { id: '1', type: 'expense', amount: 24.50, category: 'Food', date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), description: 'Lunch at The Deli', icon: Utensils },
-  { id: '2', type: 'expense', amount: 89.99, category: 'Groceries', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), description: 'Weekly grocery shopping', icon: ShoppingCart },
-  { id: '3', type: 'income', amount: 2500, category: 'Salary', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), description: 'Monthly Salary', icon: Home },
-  { id: '4', type: 'expense', amount: 45.00, category: 'Transport', date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), description: 'Gasoline for car', icon: Fuel },
-  { id: '5', type: 'expense', amount: 120.00, category: 'Clothing', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), description: 'New Jeans', icon: Shirt },
+  { id: '1', type: 'expense', amount: 24.50, category: 'Food', date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), source: 'The Deli', notes: 'Lunch meeting', icon: Utensils },
+  { id: '2', type: 'expense', amount: 89.99, category: 'Groceries', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), source: 'SuperMart', notes: 'Weekly grocery shopping', icon: ShoppingCart },
+  { id: '3', type: 'income', amount: 2500, category: 'Salary', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), source: 'Acme Corp', notes: 'Monthly Salary', icon: Home },
+  { id: '4', type: 'expense', amount: 45.00, category: 'Transport', date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), source: 'Gas Station', notes: 'Filled up the car', icon: Fuel },
+  { id: '5', type: 'expense', amount: 120.00, category: 'Clothing', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), source: 'Style Hub', notes: 'New Jeans', icon: Shirt },
 ];
 
 export const defaultCategories = [
+    // Expenses
     "Groceries",
     "Food",
     "Transport",
@@ -33,6 +41,12 @@ export const defaultCategories = [
     "Entertainment",
     "Utilities",
     "Public Transport",
+    // Income
     "Salary",
-    "Freelance"
+    "Freelance",
+    "Business Sale",
+    "Investments",
+    "Bonus",
+    "Side Hustle",
+    "Gift Income"
 ];
