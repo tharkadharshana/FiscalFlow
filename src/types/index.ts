@@ -4,7 +4,8 @@ export interface Transaction {
   amount: number;
   category: string;
   date: string; // ISO string
-  description: string;
+  source: string;
+  notes?: string;
   icon: React.ComponentType<{ className?: string }>;
   imageURL?: string;
   tags?: string[];

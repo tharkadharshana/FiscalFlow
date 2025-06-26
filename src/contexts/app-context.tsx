@@ -95,7 +95,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       toast({
         title: `${transaction.type === 'income' ? 'Income' : 'Expense'} Added`,
-        description: `${transaction.description} - $${transaction.amount.toFixed(2)}`,
+        description: `${transaction.source} - $${transaction.amount.toFixed(2)}`,
       });
     } catch (error) {
       console.error('Error adding transaction: ', error);

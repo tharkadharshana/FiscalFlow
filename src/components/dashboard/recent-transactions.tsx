@@ -34,8 +34,13 @@ export function RecentTransactions() {
                     <Icon className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
-                  <p className="font-medium">{transaction.description}</p>
+                <div className="flex-1 overflow-hidden">
+                  <p className="font-medium truncate">{transaction.source}</p>
+                  {transaction.notes && (
+                    <p className="text-sm text-muted-foreground truncate">
+                      {transaction.notes}
+                    </p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     {format(parseISO(transaction.date), 'MMMM d, yyyy')}
                   </p>

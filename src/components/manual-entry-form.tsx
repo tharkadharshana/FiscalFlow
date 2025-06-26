@@ -33,9 +33,10 @@ import { Textarea } from './ui/textarea';
 const formSchema = z.object({
   type: z.enum(['income', 'expense'], { required_error: 'Please select a transaction type.' }),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
-  description: z.string().min(2, 'Description must be at least 2 characters.'),
+  source: z.string().min(2, 'Source must be at least 2 characters.'),
   category: z.string({ required_error: 'Please select a category.' }),
   date: z.date({ required_error: 'Please select a date.' }),
+  notes: z.string().optional(),
 });
 
 type ManualEntryFormProps = {
@@ -49,7 +50,8 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
     defaultValues: {
       type: 'expense',
       amount: 0,
-      description: '',
+      source: '',
+      notes: '',
       date: new Date(),
     },
   });
@@ -155,6 +157,20 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
 
         <FormField
           control={form.control}
+          name="source"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Source / Store</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g. Starbucks, Salary" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="category"
           render={({ field }) => (
             <FormItem>
@@ -180,10 +196,10 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
 
         <FormField
           control={form.control}
-          name="description"
+          name="notes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Notes (Optional)</FormLabel>
               <FormControl>
                 <Textarea placeholder="e.g. Coffee with friends" {...field} />
               </FormControl>

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -49,8 +49,22 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
   const { addTransaction } = useAppContext();
 
   const [amount, setAmount] = useState(8.81);
-  const [description, setDescription] = useState('Coffee at Starbucks');
+  const [source, setSource] = useState('Starbucks');
+  const [notes, setNotes] = useState('Coffee and croissant');
   const [category, setCategory] = useState('');
+
+  useEffect(() => {
+    // A simple parser to extract total and store name from sample text
+    const totalMatch = ocrText.match(/TOTAL\s+\$?([\d.]+)/i);
+    if (totalMatch) {
+      setAmount(parseFloat(totalMatch[1]));
+    }
+    const storeMatch = ocrText.match(/^(.*) STORE/i);
+    if (storeMatch) {
+        setSource(storeMatch[1].trim());
+    }
+  }, [ocrText]);
+
 
   const handleAnalyze = async () => {
     setIsLoading(true);
@@ -71,7 +85,7 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
   };
   
   const handleAddTransaction = () => {
-    if (!amount || !description || !category) {
+    if (!amount || !source || !category) {
         toast({
             variant: 'destructive',
             title: 'Missing Information',
@@ -83,7 +97,8 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
     addTransaction({
         type: 'expense',
         amount: amount,
-        description: description,
+        source: source,
+        notes: notes,
         category: category,
         date: new Date().toISOString(),
         ocrParsed: true,
@@ -133,8 +148,12 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
                 <Input id="amount" type="number" placeholder="8.81" value={amount} onChange={(e) => setAmount(parseFloat(e.target.value))} />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input id="description" placeholder="e.g. Coffee at Starbucks" value={description} onChange={(e) => setDescription(e.target.value)} />
+                <Label htmlFor="source">Source / Store</Label>
+                <Input id="source" placeholder="e.g. Starbucks" value={source} onChange={(e) => setSource(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea id="notes" placeholder="e.g. Coffee and croissant" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
             <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
