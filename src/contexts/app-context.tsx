@@ -76,6 +76,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => unsubscribeAuth();
   }, []);
 
+  // Effect to toggle dark mode
+  useEffect(() => {
+    if (typeof window !== 'undefined' && userProfile) {
+      if (userProfile.darkModeBanner) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [userProfile]);
+
   const customCategories = useMemo(() => userProfile?.customCategories || [], [userProfile]);
 
   const expenseCategories = useMemo(() => [...defaultExpenseCategories, ...customCategories].sort(), [customCategories]);
