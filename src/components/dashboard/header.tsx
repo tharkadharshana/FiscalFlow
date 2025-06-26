@@ -5,6 +5,7 @@ import { AddTransactionDialog } from '../add-transaction-dialog';
 import { VoiceAssistantDialog } from '../voice-assistant-dialog';
 import { useState } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { NotificationPopover } from '../notifications/notification-popover';
 
 type HeaderProps = {
   title: string;
@@ -26,6 +27,7 @@ export function Header({ title }: HeaderProps) {
             <Mic className="h-4 w-4" />
             <span className="sr-only">Voice Assistant</span>
           </Button>
+          <NotificationPopover />
           <Button onClick={() => setIsAddTransactionOpen(true)} className="gap-1">
             <PlusCircle className="h-4 w-4" />
             <span className="hidden sm:inline">Add Transaction</span>

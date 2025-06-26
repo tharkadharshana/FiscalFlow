@@ -1,5 +1,6 @@
 
 
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -120,4 +121,13 @@ export interface TaxLiability {
   description: string;
   amount: number;
   sourceTransactionIds?: string[];
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string; // ISO String
+  isRead: boolean;
+  type: 'success' | 'info' | 'warning' | 'error';
 }

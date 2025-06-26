@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -19,7 +20,6 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan, Sparkles, Lightbulb } from 'lucide-react';
 import { createFinancialPlanAction } from '@/lib/actions';
 import type { FinancialPlan, PlanItem } from '@/types';
@@ -50,8 +50,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanDialogProps) {
-  const { addFinancialPlan, updateFinancialPlan } = useAppContext();
-  const { toast } = useToast();
+  const { addFinancialPlan, updateFinancialPlan, showNotification } = useAppContext();
 
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
   const [transcript, setTranscript] = useState('');
@@ -88,13 +87,13 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
             if (event.error === 'not-allowed') {
-                toast({
-                    variant: 'destructive',
+                showNotification({
+                    type: 'error',
                     title: 'Microphone Access Denied',
                     description: "Please allow microphone access in your browser's site settings to use this feature."
                 });
             } else {
-                toast({ variant: 'destructive', title: 'Speech Recognition Error', description: event.error });
+                showNotification({ type: 'error', title: 'Speech Recognition Error', description: event.error });
             }
             setIsRecording(false);
         };
@@ -103,7 +102,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         }
       }
     }
-  }, [toast]);
+  }, [showNotification]);
   
   useEffect(() => {
       // Reset state when dialog opens or planToEdit changes
@@ -124,7 +123,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
-        toast({ variant: 'destructive', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
+        showNotification({ type: 'error', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
         return;
     }
     if (isRecording) {
@@ -142,7 +141,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
     const result = await createFinancialPlanAction({ userQuery: transcript });
     
     if ('error' in result) {
-        toast({ variant: 'destructive', title: 'AI Error', description: result.error });
+        showNotification({ type: 'error', title: 'AI Error', description: result.error });
         setView('input');
     } else {
         form.reset({

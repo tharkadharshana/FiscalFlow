@@ -21,10 +21,11 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
+import { useAppContext } from '@/contexts/app-context';
 
 export function LoginForm() {
   const router = useRouter();
+  const { showNotification } = useAppContext();
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -32,21 +33,21 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
-  const { toast } = useToast();
-
+  
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({
+      showNotification({
+        type: 'success',
         title: 'Password Reset Email Sent',
         description: 'Please check your inbox for instructions to reset your password.',
       });
       setAuthMode('login');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      showNotification({
+        type: 'error',
         title: 'Reset Failed',
         description: error.message,
       });
@@ -63,8 +64,8 @@ export function LoginForm() {
         await signInWithEmailAndPassword(auth, email, password);
         router.push('/dashboard');
       } catch (error: any) {
-        toast({
-          variant: 'destructive',
+        showNotification({
+          type: 'error',
           title: 'Login Failed',
           description: error.message,
         });
@@ -93,15 +94,16 @@ export function LoginForm() {
         });
         
         await sendEmailVerification(userCredential.user);
-        toast({
+        showNotification({
+          type: 'success',
           title: 'Account Created',
           description: 'A verification email has been sent. Please check your inbox.',
         });
 
         router.push('/dashboard');
       } catch (error: any) {
-        toast({
-          variant: 'destructive',
+        showNotification({
+          type: 'error',
           title: 'Sign Up Failed',
           description: error.message,
         });
@@ -133,7 +135,8 @@ export function LoginForm() {
           },
           profilePictureURL: result.user.photoURL,
         });
-        toast({
+        showNotification({
+          type: 'success',
           title: 'Welcome!',
           description: 'Your account has been created successfully.',
         });
@@ -141,8 +144,8 @@ export function LoginForm() {
       
       router.push('/dashboard');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      showNotification({
+        type: 'error',
         title: 'Google Login Failed',
         description: error.message,
       });
@@ -173,7 +176,8 @@ export function LoginForm() {
           },
           profilePictureURL: result.user.photoURL,
         });
-        toast({
+        showNotification({
+          type: 'success',
           title: 'Welcome!',
           description: 'Your account has been created successfully.',
         });
@@ -182,14 +186,14 @@ export function LoginForm() {
       router.push('/dashboard');
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
-          toast({
-              variant: 'default',
+          showNotification({
+              type: 'info',
               title: 'Sign-in Cancelled',
               description: 'The sign-in window was closed before completion.',
           });
       } else {
-        toast({
-          variant: 'destructive',
+        showNotification({
+          type: 'error',
           title: 'Apple Login Failed',
           description: error.message,
         });

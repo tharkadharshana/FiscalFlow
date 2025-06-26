@@ -32,7 +32,6 @@ import { CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Calendar } from '../ui/calendar';
 import { Switch } from '../ui/switch';
-import { useToast } from '@/hooks/use-toast';
 
 
 const formSchema = z.object({
@@ -49,8 +48,7 @@ type AddSavingsGoalDialogProps = {
 };
 
 export function AddSavingsGoalDialog({ open, onOpenChange, goalToEdit }: AddSavingsGoalDialogProps) {
-  const { addSavingsGoal, updateSavingsGoal, savingsGoals } = useAppContext();
-  const { toast } = useToast();
+  const { addSavingsGoal, updateSavingsGoal, savingsGoals, showNotification } = useAppContext();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -90,8 +88,8 @@ export function AddSavingsGoalDialog({ open, onOpenChange, goalToEdit }: AddSavi
     // Ensure only one roundup goal can be active
     const existingRoundupGoal = savingsGoals.find(g => g.isRoundupGoal && g.id !== goalToEdit?.id);
     if (values.isRoundupGoal && existingRoundupGoal) {
-        toast({
-            variant: "destructive",
+        showNotification({
+            type: "error",
             title: "Round-up Goal Exists",
             description: `"${existingRoundupGoal.title}" is already your active round-up goal. Please disable it first if you want to assign a new one.`
         });

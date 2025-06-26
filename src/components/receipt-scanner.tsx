@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Loader2, Wand2, CheckCircle, Camera, Upload, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/app-context';
 import {
     Select,
@@ -32,8 +31,7 @@ type ReceiptScannerProps = {
 }
 
 export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
-  const { addTransaction, financialPlans } = useAppContext();
-  const { toast } = useToast();
+  const { addTransaction, financialPlans, showNotification } = useAppContext();
   
   // Component state
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -154,14 +152,15 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
     setIsLoading(false);
 
     if ('error' in result) {
-      toast({
-        variant: 'destructive',
+      showNotification({
+        type: 'error',
         title: 'Analysis Failed',
         description: result.error,
       });
     } else {
       setParsedData(result);
-      toast({
+      showNotification({
+        type: 'success',
         title: 'Analysis Complete',
         description: 'Please review the extracted information.',
       });
@@ -171,8 +170,8 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
   const handleAddTransaction = () => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (!numericAmount || !source || !category || !date) {
-        toast({
-            variant: 'destructive',
+        showNotification({
+            type: 'error',
             title: 'Missing Information',
             description: 'Please fill out amount, source, category, and date.',
         });

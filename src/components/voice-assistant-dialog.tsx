@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -9,7 +10,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Loader2, Sparkles, CheckCircle } from 'lucide-react';
 import { assistantAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
@@ -24,8 +24,7 @@ type VoiceAssistantDialogProps = {
 type ViewState = 'idle' | 'recording' | 'processing' | 'success' | 'error';
 
 export function VoiceAssistantDialog({ open, onOpenChange }: VoiceAssistantDialogProps) {
-  const { addTransaction, addBudget } = useAppContext();
-  const { toast } = useToast();
+  const { addTransaction, addBudget, showNotification } = useAppContext();
 
   const [view, setView] = useState<ViewState>('idle');
   const [transcript, setTranscript] = useState('');
@@ -57,8 +56,8 @@ export function VoiceAssistantDialog({ open, onOpenChange }: VoiceAssistantDialo
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          toast({
-            variant: 'destructive',
+          showNotification({
+            type: 'error',
             title: 'Microphone Access Denied',
             description: "Please allow microphone access in your browser's site settings to use this feature.",
           });
@@ -76,7 +75,7 @@ export function VoiceAssistantDialog({ open, onOpenChange }: VoiceAssistantDialo
         }
       };
     }
-  }, [toast, transcript]);
+  }, [transcript, showNotification]);
   
   // Reset state when dialog opens
   useEffect(() => {
@@ -89,7 +88,7 @@ export function VoiceAssistantDialog({ open, onOpenChange }: VoiceAssistantDialo
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
-      toast({ variant: 'destructive', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
+      showNotification({ type: 'error', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
       return;
     }
 

@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -26,6 +26,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
+import { nanoid } from 'nanoid';
+
 
 interface AppContextType {
   user: User | null;
@@ -64,6 +66,9 @@ interface AppContextType {
   updateInvestment: (investmentId: string, data: Partial<Omit<Investment, 'id'>>) => Promise<void>;
   deleteInvestment: (investmentId: string) => Promise<void>;
   formatCurrency: (amount: number) => string;
+  notifications: Notification[];
+  showNotification: (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void;
+  markAllNotificationsAsRead: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -78,7 +83,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const { toast } = useToast();
+
+  const showNotification = async (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
+    // 1. Show the visual toast
+    toast({
+        title: payload.title,
+        description: payload.description,
+        variant: payload.type === 'error' ? 'destructive' : 'default',
+    });
+
+    // 2. Add to the notification center list
+    const newNotification: Notification = {
+        id: nanoid(),
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        ...payload,
+    };
+    setNotifications(prev => [newNotification, ...prev].slice(0, 50)); // Keep last 50 notifications
+
+    // 3. Send to dummy API (as requested)
+     try {
+      const apiPayload = {
+        title: payload.title,
+        description: payload.description,
+        variant: payload.type,
+        timestamp: new Date().toISOString(),
+      };
+      console.log('Sending notification data to dummy API:', apiPayload);
+      // Actual fetch would go here
+    } catch (error) {
+      console.error('Failed to post notification to server:', error);
+    }
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(n => ({...n, isRead: true})));
+  };
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -208,7 +250,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [userProfile?.currencyPreference]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'icon'>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in.' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' }); return; }
 
     try {
       await runTransaction(db, async (firestoreTransaction) => {
@@ -253,16 +295,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           firestoreTransaction.update(planRef, { items: updatedItems, totalActualCost: newTotalActualCost });
         }
       });
-      toast({ title: `${transaction.type === 'income' ? 'Income' : 'Expense'} Added` });
+      showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
     } catch (error) {
       console.error('Error adding transaction: ', error);
       const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
-      toast({ variant: 'destructive', title: 'Error', description: errorMessage });
+      showNotification({ type: 'error', title: 'Error', description: errorMessage });
     }
   };
   
   const updateTransaction = async (transactionId: string, updatedData: Partial<Transaction>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await runTransaction(db, async (t) => {
             const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
@@ -301,15 +343,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (finalUpdateData.date) finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
             t.update(txRef, finalUpdateData);
         });
-        toast({ title: 'Transaction Updated' });
+        showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
     } catch (error) {
         console.error('Error updating transaction:', error);
-        toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+        showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
     }
 };
 
 const deleteTransaction = async (transactionId: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await runTransaction(db, async (t) => {
             const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
@@ -330,125 +372,125 @@ const deleteTransaction = async (transactionId: string) => {
             }
             t.delete(txRef);
         });
-        toast({ title: 'Transaction Deleted' });
+        showNotification({ type: 'success', title: 'Transaction Deleted', description: '' });
     } catch (error) {
         console.error('Error deleting transaction:', error);
-        toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+        showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
     }
 };
 
   const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
       const month = new Date().toISOString().slice(0, 7);
       await addDoc(collection(db, 'users', user.uid, 'budgets'), {
         ...budget, month: month, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
       });
-      toast({ title: 'Budget Added' });
+      showNotification({ type: 'success', title: 'Budget Added', description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.` });
     } catch (error) {
       console.error('Error adding budget: ', error);
-      toast({ variant: 'destructive', title: 'Error adding budget' });
+      showNotification({ type: 'error', title: 'Error adding budget', description: '' });
     }
   };
 
   const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
       await updateDoc(doc(db, 'users', user.uid, 'budgets', budgetId), data);
-      toast({ title: 'Budget Updated' });
+      showNotification({ type: 'success', title: 'Budget Updated', description: '' });
     } catch (error) {
       console.error('Error updating budget: ', error);
-      toast({ variant: 'destructive', title: 'Error updating budget' });
+      showNotification({ type: 'error', title: 'Error updating budget', description: '' });
     }
   };
 
   const deleteBudget = async (budgetId: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'budgets', budgetId));
-      toast({ title: 'Budget Deleted' });
+      showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
     } catch (error) {
       console.error('Error deleting budget: ', error);
-      toast({ variant: 'destructive', title: 'Error deleting budget' });
+      showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
     }
   };
   
   const addFinancialPlan = async (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await addDoc(collection(db, 'users', user.uid, 'financialPlans'), {
             ...plan, userId: user.uid, createdAt: serverTimestamp(),
         });
-        toast({ title: 'Financial Plan Created!' });
+        showNotification({ type: 'success', title: 'Financial Plan Created!', description: `Your new plan "${plan.title}" is ready.` });
     } catch (error) {
         console.error('Error creating plan:', error);
-        toast({ variant: 'destructive', title: 'Error creating plan' });
+        showNotification({ type: 'error', title: 'Error creating plan', description: '' });
     }
   }
 
   const updateFinancialPlan = async (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await updateDoc(doc(db, 'users', user.uid, 'financialPlans', planId), data);
-        toast({ title: 'Financial Plan Updated' });
+        showNotification({ type: 'success', title: 'Financial Plan Updated', description: '' });
     } catch (error) {
         console.error('Error updating plan:', error);
-        toast({ variant: 'destructive', title: 'Error updating plan' });
+        showNotification({ type: 'error', title: 'Error updating plan', description: '' });
     }
   };
 
   const deleteFinancialPlan = async (planId: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'financialPlans', planId));
-        toast({ title: 'Financial Plan Deleted' });
+        showNotification({ type: 'success', title: 'Financial Plan Deleted', description: '' });
     } catch (error) {
         console.error('Error deleting plan:', error);
-        toast({ variant: 'destructive', title: 'Error deleting plan' });
+        showNotification({ type: 'error', title: 'Error deleting plan', description: '' });
     }
   };
 
   const addRecurringTransaction = async (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await addDoc(collection(db, 'users', user.uid, 'recurringTransactions'), {
             ...transaction, userId: user.uid, isActive: true,
             startDate: Timestamp.fromDate(new Date(transaction.startDate)), createdAt: serverTimestamp(),
         });
-        toast({ title: 'Recurring Transaction Added' });
+        showNotification({ type: 'success', title: 'Recurring Transaction Added', description: `Scheduled "${transaction.title}".` });
     } catch (error) {
         console.error('Error adding recurring item:', error);
-        toast({ variant: 'destructive', title: 'Error adding recurring item' });
+        showNotification({ type: 'error', title: 'Error adding recurring item', description: '' });
     }
   };
 
   const updateRecurringTransaction = async (transactionId: string, data: Partial<Omit<RecurringTransaction, 'id'>>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     const { startDate, ...restData } = data;
     const updateData: any = { ...restData };
     if (startDate) updateData.startDate = Timestamp.fromDate(new Date(startDate));
     try {
         await updateDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId), updateData);
-        toast({ title: 'Recurring Transaction Updated' });
+        showNotification({ type: 'success', title: 'Recurring Transaction Updated', description: '' });
     } catch (error) {
         console.error('Error updating recurring item:', error);
-        toast({ variant: 'destructive', title: 'Error updating recurring item' });
+        showNotification({ type: 'error', title: 'Error updating recurring item', description: '' });
     }
   };
 
   const deleteRecurringTransaction = async (transactionId: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId));
-        toast({ title: 'Recurring Transaction Deleted' });
+        showNotification({ type: 'success', title: 'Recurring Transaction Deleted', description: '' });
     } catch (error) {
         console.error('Error deleting recurring item:', error);
-        toast({ variant: 'destructive', title: 'Error deleting recurring item' });
+        showNotification({ type: 'error', title: 'Error deleting recurring item', description: '' });
     }
   };
 
   const addSavingsGoal = async (goal: Omit<SavingsGoal, 'id' | 'userId' | 'createdAt' | 'currentAmount' | 'badges'>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         const goalsCollection = collection(db, 'users', user.uid, 'savingsGoals');
         const batch = writeBatch(db);
@@ -469,15 +511,15 @@ const deleteTransaction = async (transactionId: string) => {
         });
         
         await batch.commit();
-        toast({ title: "Savings Goal Created!" });
+        showNotification({ type: 'success', title: 'Savings Goal Created!', description: `You're on your way to saving for "${goal.title}".` });
     } catch (error) {
         console.error('Error adding savings goal:', error);
-        toast({ variant: 'destructive', title: 'Error creating goal' });
+        showNotification({ type: 'error', title: 'Error creating goal', description: '' });
     }
   };
 
   const updateSavingsGoal = async (goalId: string, data: Partial<Omit<SavingsGoal, 'id'>>) => {
-     if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         const goalsCollection = collection(db, 'users', user.uid, 'savingsGoals');
         const batch = writeBatch(db);
@@ -498,26 +540,26 @@ const deleteTransaction = async (transactionId: string) => {
 
         batch.update(goalRef, finalData);
         await batch.commit();
-        toast({ title: "Savings Goal Updated" });
+        showNotification({ type: 'success', title: 'Savings Goal Updated', description: '' });
     } catch (error) {
         console.error('Error updating savings goal:', error);
-        toast({ variant: 'destructive', title: 'Error updating goal' });
+        showNotification({ type: 'error', title: 'Error updating goal', description: '' });
     }
   };
 
   const deleteSavingsGoal = async (goalId: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'savingsGoals', goalId));
-        toast({ title: "Savings Goal Deleted" });
+        showNotification({ type: 'success', title: 'Savings Goal Deleted', description: '' });
     } catch (error) {
         console.error('Error deleting savings goal:', error);
-        toast({ variant: 'destructive', title: 'Error deleting goal' });
+        showNotification({ type: 'error', title: 'Error deleting goal', description: '' });
     }
   };
 
   const addInvestment = async (investment: Omit<Investment, 'id' | 'userId' | 'createdAt'>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await addDoc(collection(db, 'users', user.uid, 'investments'), {
             ...investment,
@@ -525,36 +567,36 @@ const deleteTransaction = async (transactionId: string) => {
             purchaseDate: Timestamp.fromDate(new Date(investment.purchaseDate)),
             createdAt: serverTimestamp(),
         });
-        toast({ title: 'Investment Added' });
+        showNotification({ type: 'success', title: 'Investment Added', description: `Added ${investment.name} to your portfolio.` });
     } catch (error) {
         console.error('Error adding investment:', error);
-        toast({ variant: 'destructive', title: 'Error adding investment' });
+        showNotification({ type: 'error', title: 'Error adding investment', description: '' });
     }
   };
 
   const updateInvestment = async (investmentId: string, data: Partial<Omit<Investment, 'id'>>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     const { purchaseDate, ...restData } = data;
     const updateData: any = { ...restData };
     if (purchaseDate) updateData.purchaseDate = Timestamp.fromDate(new Date(purchaseDate));
 
     try {
         await updateDoc(doc(db, 'users', user.uid, 'investments', investmentId), updateData);
-        toast({ title: 'Investment Updated' });
+        showNotification({ type: 'success', title: 'Investment Updated', description: '' });
     } catch (error) {
         console.error('Error updating investment:', error);
-        toast({ variant: 'destructive', title: 'Error updating investment' });
+        showNotification({ type: 'error', title: 'Error updating investment', description: '' });
     }
   };
 
   const deleteInvestment = async (investmentId: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'investments', investmentId));
-        toast({ title: 'Investment Deleted' });
+        showNotification({ type: 'success', title: 'Investment Deleted', description: '' });
     } catch (error) {
         console.error('Error deleting investment:', error);
-        toast({ variant: 'destructive', title: 'Error deleting investment' });
+        showNotification({ type: 'error', title: 'Error deleting investment', description: '' });
     }
   };
 
@@ -589,35 +631,36 @@ const deleteTransaction = async (transactionId: string) => {
   }
 
   const updateUserPreferences = async (data: Partial<UserProfile>) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
       await updateDoc(doc(db, 'users', user.uid), data);
+      showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
     } catch (error) {
       console.error('Error updating settings: ', error);
-      toast({ variant: 'destructive', title: 'Error saving settings' });
+      showNotification({ type: 'error', title: 'Error saving settings', description: '' });
     }
   };
 
   const addCustomCategory = async (category: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
-    if (allCategories.includes(category)) { toast({ variant: 'destructive', title: 'Category already exists.'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (allCategories.includes(category)) { showNotification({ type: 'error', title: 'Category already exists.', description: '' }); return; }
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayUnion(category) });
-        toast({ title: `Category "${category}" added.` });
+        showNotification({ type: 'success', title: `Category "${category}" added.`, description: '' });
     } catch (error) {
         console.error('Error adding category:', error);
-        toast({ variant: 'destructive', title: 'Error adding category' });
+        showNotification({ type: 'error', title: 'Error adding category', description: '' });
     }
   }
 
   const deleteCustomCategory = async (category: string) => {
-    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayRemove(category) });
-        toast({ title: `Category "${category}" removed.` });
+        showNotification({ type: 'success', title: `Category "${category}" removed.`, description: '' });
     } catch (error) {
         console.error('Error deleting category:', error);
-        toast({ variant: 'destructive', title: 'Error deleting category' });
+        showNotification({ type: 'error', title: 'Error deleting category', description: '' });
     }
   }
 
@@ -637,6 +680,7 @@ const deleteTransaction = async (transactionId: string) => {
         addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
         investments, addInvestment, updateInvestment, deleteInvestment,
         formatCurrency,
+        notifications, showNotification, markAllNotificationsAsRead,
       }}
     >
       {children}

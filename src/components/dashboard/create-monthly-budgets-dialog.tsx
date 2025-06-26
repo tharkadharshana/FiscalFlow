@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -17,7 +18,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, Loader2, Wand2, Trash2 } from 'lucide-react';
 import { createMonthlyBudgetsAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
@@ -47,8 +47,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthlyBudgetsDialogProps) {
-  const { addBudget, budgets: existingBudgets } = useAppContext();
-  const { toast } = useToast();
+  const { addBudget, budgets: existingBudgets, showNotification } = useAppContext();
 
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
   const [transcript, setTranscript] = useState('');
@@ -84,13 +83,13 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
             if (event.error === 'not-allowed') {
-                toast({
-                    variant: 'destructive',
+                showNotification({
+                    type: 'error',
                     title: 'Microphone Access Denied',
                     description: "Please allow microphone access in your browser's site settings to use this feature."
                 });
             } else {
-                toast({ variant: 'destructive', title: 'Speech Recognition Error', description: event.error });
+                showNotification({ type: 'error', title: 'Speech Recognition Error', description: event.error });
             }
             setIsRecording(false);
         };
@@ -99,7 +98,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
         }
       }
     }
-  }, [toast]);
+  }, [showNotification]);
   
   useEffect(() => {
       if(open) {
@@ -111,7 +110,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
-        toast({ variant: 'destructive', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
+        showNotification({ type: 'error', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
         return;
     }
     if (isRecording) {
@@ -130,7 +129,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
     const result = await createMonthlyBudgetsAction({ userQuery: transcript, existingCategories: existingBudgetCategories });
     
     if ('error' in result) {
-        toast({ variant: 'destructive', title: 'AI Error', description: result.error });
+        showNotification({ type: 'error', title: 'AI Error', description: result.error });
         setView('input');
     } else {
         form.reset({
@@ -141,13 +140,18 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
   };
 
   const handleSaveBudgets = async (data: FormData) => {
+    let count = 0;
     for (const budget of data.budgets) {
         await addBudget(budget);
+        count++;
     }
-    toast({
-        title: `${data.budgets.length} Budget(s) Created`,
+    if (count > 0) {
+      showNotification({
+        type: 'success',
+        title: `${count} Budget(s) Created`,
         description: 'Your monthly budgets have been set.',
     });
+    }
     onOpenChange(false);
   };
 

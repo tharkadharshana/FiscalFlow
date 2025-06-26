@@ -142,37 +142,8 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-// This function is now async to handle the API call
-async function toast({ ...props }: Toast) {
+function toast({ ...props }: Toast) {
   const id = genId()
-
-  // DUMMY API POST call for every notification
-  const sendNotificationToServer = async (payload: Toast) => {
-    try {
-      const notificationData = {
-        title: payload.title,
-        description: payload.description,
-        variant: payload.variant || 'default',
-        timestamp: new Date().toISOString(),
-      };
-      console.log('Sending notification data to dummy API:', notificationData);
-      // In a real implementation, you would use fetch like this:
-      // const response = await fetch('https://api.example.com/notifications', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(notificationData),
-      // });
-      // if (!response.ok) {
-      //   throw new Error(`Server responded with ${response.status}`);
-      // }
-      // console.log('Successfully posted notification to server.');
-    } catch (error) {
-      console.error('Failed to post notification to server:', error);
-      // We don't re-throw here so the UI notification can still be shown
-    }
-  };
-
-  await sendNotificationToServer(props);
 
   const update = (props: ToasterToast) =>
     dispatch({
