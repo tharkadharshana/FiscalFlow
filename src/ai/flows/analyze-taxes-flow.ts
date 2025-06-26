@@ -18,7 +18,6 @@ const PayeInputSchema = z.object({
 const VatInputSchema = z.object({
     amount: z.number().describe('The gross amount of the transaction.'),
     category: z.string().describe('The category of the transaction (e.g., Food, Groceries, Fuel).'),
-    description: z.string().optional().describe('A description of the item purchased.'),
 });
 
 // Tool Definitions
@@ -30,29 +29,35 @@ const calculatePayeTax = ai.defineTool(
         outputSchema: z.number().describe('The total annual tax liability.'),
     },
     async ({ annualIncome }) => {
-        const brackets = [
-            { limit: 1_200_000, rate: 0 },
-            { limit: 1_700_000, rate: 0.06 },
-            { limit: 2_200_000, rate: 0.12 },
-            { limit: 2_700_000, rate: 0.18 },
-            { limit: 3_200_000, rate: 0.24 },
-            { limit: 3_700_000, rate: 0.30 },
-            { limit: Infinity, rate: 0.36 },
-        ];
-        let remainingIncome = annualIncome;
-        let totalTax = 0;
-        let previousLimit = 0;
-
-        for (const bracket of brackets) {
-            if (remainingIncome <= 0) break;
-            const taxableInBracket = Math.min(remainingIncome, bracket.limit - previousLimit);
-            if (taxableInBracket > 0) {
-                totalTax += taxableInBracket * bracket.rate;
-                remainingIncome -= taxableInBracket;
-            }
-            previousLimit = bracket.limit;
+        if (annualIncome <= 1_200_000) return 0;
+    
+        let tax = 0;
+        let incomeLeft = annualIncome;
+    
+        if (incomeLeft > 3_700_000) {
+            tax += (incomeLeft - 3_700_000) * 0.36;
+            incomeLeft = 3_700_000;
         }
-        return Math.max(0, totalTax);
+        if (incomeLeft > 3_200_000) {
+            tax += (incomeLeft - 3_200_000) * 0.30;
+            incomeLeft = 3_200_000;
+        }
+        if (incomeLeft > 2_700_000) {
+            tax += (incomeLeft - 2_700_000) * 0.24;
+            incomeLeft = 2_700_000;
+        }
+        if (incomeLeft > 2_200_000) {
+            tax += (incomeLeft - 2_200_000) * 0.18;
+            incomeLeft = 2_200_000;
+        }
+        if (incomeLeft > 1_700_000) {
+            tax += (incomeLeft - 1_700_000) * 0.12;
+            incomeLeft = 1_700_000;
+        }
+        if (incomeLeft > 1_200_000) {
+            tax += (incomeLeft - 1_200_000) * 0.06;
+        }
+        return tax;
     }
 );
 
@@ -105,36 +110,57 @@ export async function analyzeTaxes(
   return analyzeTaxesFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'analyzeTaxesPrompt',
-  input: { schema: z.object({ transactions: z.array(TransactionSchema) }) },
-  output: { schema: AnalyzeTaxesOutputSchema },
-  tools: [calculatePayeTax, calculateVat],
-  prompt: `You are an expert Sri Lankan tax accountant AI. Your task is to analyze a list of financial transactions and identify all potential direct and indirect tax liabilities for the user.
-
-Follow these steps:
-1.  **Calculate Annual Income:** Sum up all transactions of type 'income' to determine the user's gross annual income.
-2.  **Calculate PAYE:** Use the 'calculatePayeTax' tool with the total annual income to determine the Personal Income Tax liability. Add this as a single liability.
-3.  **Analyze Expenses for VAT:** For each 'expense' transaction, use the 'calculateVat' tool to determine if any Value Added Tax (VAT) was paid.
-4.  **Consolidate VAT:** Sum up all the calculated VAT amounts from individual expenses into a single, total VAT liability.
-5.  **Compile Report:** Create a final JSON object that lists all identified tax liabilities (e.g., PAYE, total VAT). For each liability, provide a clear description. For VAT, list the IDs of the transactions that contributed to it.
-
-Here are the user's transactions:
-{{#each transactions}}
-- ID: {{this.id}}, Type: {{this.type}}, Amount: {{this.amount}}, Category: {{this.category}}, Source: {{this.source}}, Date: {{this.date}}
-{{/each}}
-`,
-});
-
-
 const analyzeTaxesFlow = ai.defineFlow(
   {
     name: 'analyzeTaxesFlow',
     inputSchema: z.object({ transactions: z.array(TransactionSchema) }),
     outputSchema: AnalyzeTaxesOutputSchema,
   },
-  async (input) => {
-    const { output } = await prompt(input);
-    return output!;
+  async ({ transactions }) => {
+    const liabilities: z.infer<typeof TaxLiabilitySchema>[] = [];
+    
+    // 1. Calculate Annual Income and PAYE
+    const totalIncome = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    if (totalIncome > 0) {
+        const payeTax = await calculatePayeTax({ annualIncome: totalIncome });
+        if (payeTax > 0) {
+            liabilities.push({
+                taxType: 'PAYE (Income Tax)',
+                description: `Estimated annual income tax on a total income of ${totalIncome.toFixed(2)}.`,
+                amount: payeTax,
+            });
+        }
+    }
+
+    // 2. Calculate Total VAT from expenses
+    let totalVat = 0;
+    const vatTransactionIds: string[] = [];
+
+    for (const transaction of transactions) {
+        if (transaction.type === 'expense') {
+            const vatAmount = await calculateVat({
+                amount: transaction.amount,
+                category: transaction.category,
+            });
+            if (vatAmount > 0) {
+                totalVat += vatAmount;
+                vatTransactionIds.push(transaction.id);
+            }
+        }
+    }
+
+    if (totalVat > 0) {
+        liabilities.push({
+            taxType: 'VAT (Value Added Tax)',
+            description: 'Estimated total VAT paid on goods and services.',
+            amount: totalVat,
+            sourceTransactionIds: vatTransactionIds,
+        });
+    }
+
+    return { liabilities };
   }
 );
