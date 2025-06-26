@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +12,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,6 +31,7 @@ import { useAppContext } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import type { Transaction } from '@/types';
 import { useEffect } from 'react';
+import { Switch } from './ui/switch';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -38,6 +41,7 @@ const formSchema = z.object({
   paymentMethod: z.string().optional(),
   invoiceNumber: z.string().optional(),
   notes: z.string().optional(),
+  isTaxDeductible: z.boolean().optional(),
 });
 
 type IncomeEntryFormProps = {
@@ -53,6 +57,7 @@ const defaultValues = {
   paymentMethod: '',
   invoiceNumber: '',
   category: '',
+  isTaxDeductible: false,
 };
 
 export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntryFormProps) {
@@ -72,6 +77,7 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
         notes: transactionToEdit.notes || '',
         paymentMethod: transactionToEdit.paymentMethod || '',
         invoiceNumber: transactionToEdit.invoiceNumber || '',
+        isTaxDeductible: transactionToEdit.isTaxDeductible || false,
       });
     } else {
       form.reset(defaultValues);
@@ -232,6 +238,22 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
             )}
             />
         </div>
+
+        <FormField
+            control={form.control}
+            name="isTaxDeductible"
+            render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                        <FormLabel className="text-base">Taxable Income</FormLabel>
+                        <FormDescription>Mark this if this income is part of your taxable earnings.</FormDescription>
+                    </div>
+                    <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                </FormItem>
+            )}
+        />
 
 
         <FormField

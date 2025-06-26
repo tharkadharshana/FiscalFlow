@@ -184,10 +184,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       await runTransaction(db, async (firestoreTransaction) => {
-        const { date, financialPlanId, planItemId, ...restOfTransaction } = transaction;
+        const { date, financialPlanId, planItemId, isTaxDeductible, ...restOfTransaction } = transaction;
 
         const transactionData = { ...restOfTransaction, date: Timestamp.fromDate(new Date(date)),
           createdAt: serverTimestamp(), userId: user.uid, financialPlanId: financialPlanId || null, planItemId: planItemId || null,
+          isTaxDeductible: isTaxDeductible || false,
         };
         firestoreTransaction.set(doc(collection(db, 'users', user.uid, 'transactions')), transactionData);
 

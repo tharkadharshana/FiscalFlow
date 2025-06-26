@@ -27,6 +27,7 @@ import {
   LogOut,
   CalendarDays,
   PiggyBank,
+  Landmark,
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/app-context';
 
@@ -36,6 +37,7 @@ const menuItems = [
   { href: '/dashboard/reports', label: 'Reports', icon: FileText },
   { href: '/dashboard/budgets', label: 'Budgets', icon: Target },
   { href: '/dashboard/savings', label: 'Savings Goals', icon: PiggyBank },
+  { href: '/dashboard/tax', label: 'Tax Center', icon: Landmark },
   { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];

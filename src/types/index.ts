@@ -16,6 +16,7 @@ export interface Transaction {
   invoiceNumber?: string;
   financialPlanId?: string; // ID of the FinancialPlan
   planItemId?: string; // ID of the item within the plan
+  isTaxDeductible?: boolean;
 }
 
 export interface Budget {

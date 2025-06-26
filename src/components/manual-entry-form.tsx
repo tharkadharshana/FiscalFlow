@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +12,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,6 +31,7 @@ import { useAppContext } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import { useMemo, useEffect } from 'react';
 import type { Transaction } from '@/types';
+import { Switch } from './ui/switch';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -38,6 +41,7 @@ const formSchema = z.object({
   notes: z.string().optional(),
   financialPlanId: z.string().optional(),
   planItemId: z.string().optional(),
+  isTaxDeductible: z.boolean().optional(),
 });
 
 type ManualEntryFormProps = {
@@ -53,6 +57,7 @@ const defaultValues = {
   category: '',
   financialPlanId: undefined,
   planItemId: undefined,
+  isTaxDeductible: false,
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntryFormProps) {
@@ -72,6 +77,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntry
         notes: transactionToEdit.notes || '',
         financialPlanId: transactionToEdit.financialPlanId || undefined,
         planItemId: transactionToEdit.planItemId || undefined,
+        isTaxDeductible: transactionToEdit.isTaxDeductible || false,
       });
     } else {
       form.reset(defaultValues);
@@ -260,6 +266,22 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntry
                 />
             )}
         </div>
+        
+        <FormField
+            control={form.control}
+            name="isTaxDeductible"
+            render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                        <FormLabel className="text-base">Tax Deductible</FormLabel>
+                        <FormDescription>Mark this if it's a business or other tax-deductible expense.</FormDescription>
+                    </div>
+                    <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                </FormItem>
+            )}
+        />
 
 
         <FormField
