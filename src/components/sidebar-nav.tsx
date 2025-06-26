@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Avatar,
   AvatarFallback,
@@ -25,6 +25,7 @@ import {
   CircleHelp,
   LogOut,
 } from 'lucide-react';
+import { useAppContext } from '@/contexts/app-context';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,6 +37,13 @@ const menuItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { user, logout } = useAppContext();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  }
 
   return (
     <>
@@ -75,23 +83,21 @@ export function SidebarNav() {
                 </SidebarMenuButton>
             </SidebarMenuItem>
              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip={{children: 'Log Out'}}>
-                    <Link href="/">
-                        <LogOut />
-                        <span>Log Out</span>
-                    </Link>
+                <SidebarMenuButton onClick={handleLogout} tooltip={{children: 'Log Out'}}>
+                    <LogOut />
+                    <span>Log Out</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>
         <SidebarSeparator />
         <div className="flex items-center gap-3 px-2 py-2">
           <Avatar>
-            <AvatarImage src="https://placehold.co/100x100" alt="User" />
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarImage src={user?.photoURL || undefined} alt={user?.displayName || "User"} data-ai-hint="profile avatar" />
+            <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
           <div className="overflow-hidden group-data-[collapsible=icon]:hidden">
-            <p className="truncate font-semibold">User</p>
-            <p className="truncate text-xs text-muted-foreground">user@email.com</p>
+            <p className="truncate font-semibold">{user?.displayName || 'User'}</p>
+            <p className="truncate text-xs text-muted-foreground">{user?.email || 'user@email.com'}</p>
           </div>
         </div>
       </SidebarFooter>

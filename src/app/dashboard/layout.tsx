@@ -1,6 +1,6 @@
 import { SidebarNav } from '@/components/sidebar-nav';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
-import { AppProvider } from '@/contexts/app-context';
+import { AuthGuard } from '@/components/auth/auth-guard';
 
 export default function DashboardLayout({
   children,
@@ -8,13 +8,13 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AppProvider>
+    <AuthGuard>
       <SidebarProvider>
         <Sidebar>
           <SidebarNav />
         </Sidebar>
         <SidebarInset>{children}</SidebarInset>
       </SidebarProvider>
-    </AppProvider>
+    </AuthGuard>
   );
 }
