@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Chrome, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Icons } from '../icons';
 import { auth, db } from '@/lib/firebase';
 import {
@@ -257,7 +257,7 @@ export function LoginForm() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Button variant="outline" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading}>
-                {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Chrome className="mr-2 h-4 w-4" />}
+                {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.google className="mr-2 h-4 w-4" />}
                 Google
               </Button>
               <Button variant="outline" disabled={true}>
