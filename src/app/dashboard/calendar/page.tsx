@@ -12,9 +12,11 @@ import { cn } from '@/lib/utils';
 import type { Transaction } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { UpgradeCard } from '@/components/ui/upgrade-card';
+import { Calendar as CalendarIconLucide } from 'lucide-react';
 
 export default function CalendarPage() {
-  const { transactions, categories, formatCurrency } = useAppContext();
+  const { transactions, categories, formatCurrency, isPremium } = useAppContext();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const transactionsByDay = useMemo(() => {
@@ -63,6 +65,21 @@ export default function CalendarPage() {
       </div>
     );
   };
+  
+  if (!isPremium) {
+      return (
+          <div className="flex flex-1 flex-col">
+              <Header title="Calendar" />
+              <main className="flex-1 p-4 md:p-6">
+                  <UpgradeCard 
+                      title="Visualize Your Spending"
+                      description="Get a full calendar view of your daily transactions and spending habits. Premium only."
+                      icon={CalendarIconLucide}
+                  />
+              </main>
+          </div>
+      )
+  }
 
   return (
     <div className="flex flex-1 flex-col">

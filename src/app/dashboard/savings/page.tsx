@@ -26,9 +26,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { UpgradeCard } from '@/components/ui/upgrade-card';
 
 export default function SavingsPage() {
-  const { savingsGoals, deleteSavingsGoal } = useAppContext();
+  const { savingsGoals, deleteSavingsGoal, isPremium } = useAppContext();
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
@@ -58,6 +59,21 @@ export default function SavingsPage() {
       setGoalToEdit(null);
     }
     setIsAddGoalDialogOpen(open);
+  }
+
+  if (!isPremium) {
+    return (
+        <div className="flex flex-1 flex-col">
+            <Header title="Savings Goals" />
+            <main className="flex-1 p-4 md:p-6">
+                <UpgradeCard 
+                    title="Gamify Your Savings"
+                    description="Create goals, earn badges, and automatically save your spare change with our Round-up feature. Premium only."
+                    icon={PiggyBank}
+                />
+            </main>
+        </div>
+    )
   }
 
   return (

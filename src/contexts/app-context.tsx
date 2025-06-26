@@ -24,9 +24,9 @@ import {
   where,
   getDocs,
   writeBatch,
+  limit,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import { nanoid } from 'nanoid';
 
 
 interface AppContextType {
@@ -69,8 +69,9 @@ interface AppContextType {
   formatCurrency: (amount: number) => string;
   notifications: Notification[];
   showNotification: (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void;
-  markAllNotificationsAsRead: () => void;
+  markAllNotificationsAsRead: () => Promise<void>;
   upgradeToPremium: () => Promise<void>;
+  downgradeFromPremium: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -93,6 +94,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [userProfile]);
 
   const showNotification = async (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
+    if (!user) return; // Don't show notifications if not logged in
+
     // 1. Show the visual toast
     toast({
         title: payload.title,
@@ -100,14 +103,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         variant: payload.type === 'error' ? 'destructive' : 'default',
     });
 
-    // 2. Add to the notification center list
-    const newNotification: Notification = {
-        id: nanoid(),
-        createdAt: new Date().toISOString(),
-        isRead: false,
-        ...payload,
-    };
-    setNotifications(prev => [newNotification, ...prev].slice(0, 50)); // Keep last 50 notifications
+    // 2. Add to the notification center list in Firestore
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'notifications'), {
+            ...payload,
+            isRead: false,
+            createdAt: serverTimestamp(),
+            userId: user.uid,
+        });
+    } catch (error) {
+        console.error('Failed to save notification to Firestore:', error);
+    }
+
 
     // 3. Send to dummy API (as requested)
      try {
@@ -124,8 +131,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const markAllNotificationsAsRead = () => {
-    setNotifications(prev => prev.map(n => ({...n, isRead: true})));
+  const markAllNotificationsAsRead = async () => {
+    if (!user) return;
+    const notificationsRef = collection(db, 'users', user.uid, 'notifications');
+    const q = query(notificationsRef, where('isRead', '==', false));
+    try {
+        const querySnapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        querySnapshot.forEach((doc) => {
+            batch.update(doc.ref, { isRead: true });
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error("Error marking notifications as read:", error);
+    }
   };
 
   useEffect(() => {
@@ -225,6 +244,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setInvestments(userInvestments);
       });
 
+      const qNotifications = query(collection(db, 'users', user.uid, 'notifications'), orderBy('createdAt', 'desc'), limit(50));
+      const unsubscribeNotifications = onSnapshot(qNotifications, (snapshot) => {
+        const userNotifications: Notification[] = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as Notification));
+        setNotifications(userNotifications);
+      });
+
 
       return () => {
         unsubscribeProfile();
@@ -234,6 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unsubscribeRecurring();
         unsubscribeGoals();
         unsubscribeInvestments();
+        unsubscribeNotifications();
       };
     } else {
       setUserProfile(null);
@@ -243,6 +273,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setRecurringTransactions([]);
       setSavingsGoals([]);
       setInvestments([]);
+      setNotifications([]);
     }
   }, [user]);
 
@@ -270,7 +301,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         firestoreTransaction.set(doc(collection(db, 'users', user.uid, 'transactions')), transactionData);
 
-        if (transaction.type === 'expense' && !Number.isInteger(transaction.amount)) {
+        if (isPremium && transaction.type === 'expense' && !Number.isInteger(transaction.amount)) {
             const roundupGoalRef = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
             const roundupGoalSnap = await getDocs(roundupGoalRef);
             if (!roundupGoalSnap.empty) {
@@ -289,7 +320,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        if (financialPlanId && planItemId) {
+        if (isPremium && financialPlanId && planItemId) {
           const planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
           const planDoc = await firestoreTransaction.get(planRef);
           if (!planDoc.exists()) throw new Error("Financial plan not found!");
@@ -318,7 +349,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (!oldTxSnap.exists()) throw new Error("Transaction document not found!");
             const oldTxData = oldTxSnap.data() as Transaction;
             
-            if (oldTxData.financialPlanId && oldTxData.planItemId) {
+            if (isPremium && oldTxData.financialPlanId && oldTxData.planItemId) {
                 const oldPlanRef = doc(db, 'users', user.uid, 'financialPlans', oldTxData.financialPlanId);
                 const oldPlanSnap = await t.get(oldPlanRef);
                 if (oldPlanSnap.exists()) {
@@ -331,7 +362,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
     
             const { financialPlanId: newPlanId, planItemId: newItemId, amount: newAmount } = updatedData;
-            if (newPlanId && newItemId && newAmount) {
+            if (isPremium && newPlanId && newItemId && newAmount) {
                 const newPlanRef = doc(db, 'users', user.uid, 'financialPlans', newPlanId);
                 const newPlanSnap = await t.get(newPlanRef);
                 if (newPlanSnap.exists()) {
@@ -365,7 +396,7 @@ const deleteTransaction = async (transactionId: string) => {
             if (!txSnap.exists()) return;
             const txData = txSnap.data() as Transaction;
             
-            if (txData.financialPlanId && txData.planItemId) {
+            if (isPremium && txData.financialPlanId && txData.planItemId) {
                 const planRef = doc(db, 'users', user.uid, 'financialPlans', txData.financialPlanId);
                 const planSnap = await t.get(planRef);
                 if (planSnap.exists()) {
@@ -666,6 +697,20 @@ const deleteTransaction = async (transactionId: string) => {
       showNotification({ type: 'error', title: 'Upgrade Failed', description: 'Could not update your subscription.' });
     }
   };
+  
+  const downgradeFromPremium = async () => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        'subscription.tier': 'free',
+        'subscription.isActive': false,
+      });
+      showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
+    } catch (error) {
+        console.error('Error downgrading from premium: ', error);
+        showNotification({ type: 'error', title: 'Cancellation Failed', description: 'Could not update your subscription.' });
+    }
+  };
 
   const addCustomCategory = async (category: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
@@ -708,7 +753,7 @@ const deleteTransaction = async (transactionId: string) => {
         investments, addInvestment, updateInvestment, deleteInvestment,
         formatCurrency,
         notifications, showNotification, markAllNotificationsAsRead,
-        upgradeToPremium,
+        upgradeToPremium, downgradeFromPremium,
       }}
     >
       {children}

@@ -2,6 +2,7 @@
 
 
 
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -133,7 +134,7 @@ export interface Notification {
   id: string;
   title: string;
   description: string;
-  createdAt: string; // ISO String
+  createdAt: any; // ISO String or Firestore Timestamp
   isRead: boolean;
   type: 'success' | 'info' | 'warning' | 'error';
 }

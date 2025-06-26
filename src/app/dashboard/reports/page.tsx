@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
-import { Calendar as CalendarIcon, FileDown, AreaChart } from 'lucide-react';
+import { Calendar as CalendarIcon, FileDown, AreaChart, FileText } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { useAppContext } from '@/contexts/app-context';
@@ -23,11 +23,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
-import { useToast } from '@/hooks/use-toast';
 import type { Transaction } from '@/types';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
+import { UpgradeCard } from '@/components/ui/upgrade-card';
 
 
 type ReportType = 'monthly' | 'yearly' | 'custom';
@@ -42,8 +42,7 @@ type ReportData = {
   };
 
 export default function ReportsPage() {
-  const { transactions, allCategories, formatCurrency } = useAppContext();
-  const { toast } = useToast();
+  const { transactions, allCategories, formatCurrency, showNotification, isPremium } = useAppContext();
   
   const [reportType, setReportType] = useState<ReportType>('monthly');
   const [date, setDate] = useState<Date>(new Date());
@@ -88,8 +87,8 @@ export default function ReportsPage() {
         break;
       case 'custom':
         if (!dateRange?.from || !dateRange?.to) {
-          toast({
-            variant: "destructive",
+          showNotification({
+            type: "error",
             title: "Invalid Date Range",
             description: "Please select a start and end date for the custom report.",
           })
@@ -203,6 +202,21 @@ export default function ReportsPage() {
     
     doc.save(`report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
+  
+  if (!isPremium) {
+    return (
+        <div className="flex flex-1 flex-col">
+            <Header title="Reports" />
+            <main className="flex-1 p-4 md:p-6">
+                <UpgradeCard 
+                    title="Unlock Powerful Reports"
+                    description="Generate detailed monthly, yearly, or custom reports to understand your finances better. Premium only."
+                    icon={FileText}
+                />
+            </main>
+        </div>
+    )
+  }
 
   return (
     <div className="flex flex-1 flex-col">
