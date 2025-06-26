@@ -23,12 +23,13 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { defaultCategories } from '@/data/mock-data';
 import { useAppContext } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
+import type { Transaction } from '@/types';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -42,19 +43,41 @@ const formSchema = z.object({
 
 type ManualEntryFormProps = {
   onFormSubmit: () => void;
+  transactionToEdit?: Transaction | null;
 }
 
-export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
-  const { addTransaction, financialPlans } = useAppContext();
+const defaultValues = {
+  amount: 0,
+  source: '',
+  notes: '',
+  date: new Date(),
+  category: '',
+  financialPlanId: undefined,
+  planItemId: undefined,
+};
+
+export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntryFormProps) {
+  const { addTransaction, updateTransaction, financialPlans } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      amount: 0,
-      source: '',
-      notes: '',
-      date: new Date(),
-    },
+    defaultValues: defaultValues,
   });
+  
+  useEffect(() => {
+    if (transactionToEdit) {
+      form.reset({
+        amount: transactionToEdit.amount,
+        source: transactionToEdit.source,
+        category: transactionToEdit.category,
+        date: parseISO(transactionToEdit.date),
+        notes: transactionToEdit.notes || '',
+        financialPlanId: transactionToEdit.financialPlanId || undefined,
+        planItemId: transactionToEdit.planItemId || undefined,
+      });
+    } else {
+      form.reset(defaultValues);
+    }
+  }, [transactionToEdit, form]);
 
   const selectedPlanId = form.watch('financialPlanId');
 
@@ -65,11 +88,16 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
   }, [selectedPlanId, financialPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    addTransaction({
-      ...values,
-      type: 'expense',
-      date: values.date.toISOString(),
-    });
+    const data = {
+        ...values,
+        type: 'expense',
+        date: values.date.toISOString(),
+    };
+    if (transactionToEdit) {
+        updateTransaction(transactionToEdit.id, data as Partial<Transaction>);
+    } else {
+        addTransaction(data);
+    }
     onFormSubmit();
   }
 
@@ -153,7 +181,7 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -185,7 +213,7 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
                                 field.onChange(value === 'none' ? undefined : value);
                                 form.setValue('planItemId', undefined); // Reset item when plan changes
                             }} 
-                            defaultValue={field.value}
+                            value={field.value}
                         >
                             <FormControl>
                                 <SelectTrigger>
@@ -213,7 +241,7 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Plan Item</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger disabled={!selectedPlanId}>
                                         <SelectValue placeholder="Select a plan item" />
@@ -249,7 +277,7 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
           )}
         />
 
-        <Button type="submit" className="w-full font-bold">Add Expense</Button>
+        <Button type="submit" className="w-full font-bold">{transactionToEdit ? 'Save Changes' : 'Add Expense'}</Button>
       </form>
     </Form>
   );

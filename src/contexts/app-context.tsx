@@ -26,6 +26,8 @@ interface AppContextType {
   loading: boolean;
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'icon'>) => void;
+  updateTransaction: (transactionId: string, data: Partial<Transaction>) => Promise<void>;
+  deleteTransaction: (transactionId: string) => Promise<void>;
   logout: () => Promise<void>;
   categories: Record<string, React.ComponentType<{ className?: string }>>;
   budgets: Budget[];
@@ -237,6 +239,106 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
   
+  const updateTransaction = async (transactionId: string, updatedData: Partial<Transaction>) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+
+    try {
+        await runTransaction(db, async (firestoreTransaction) => {
+            const transactionRef = doc(db, 'users', user.uid, 'transactions', transactionId);
+            const oldTransactionSnap = await firestoreTransaction.get(transactionRef);
+            if (!oldTransactionSnap.exists()) {
+                throw new Error("Transaction document not found!");
+            }
+            const oldTransactionData = { id: oldTransactionSnap.id, ...oldTransactionSnap.data() } as Transaction;
+            
+            // --- Part 1: Revert old transaction's effect on its plan (if any) ---
+            if (oldTransactionData.financialPlanId && oldTransactionData.planItemId) {
+                const oldPlanRef = doc(db, 'users', user.uid, 'financialPlans', oldTransactionData.financialPlanId);
+                const oldPlanSnap = await firestoreTransaction.get(oldPlanRef);
+                if (oldPlanSnap.exists()) {
+                    const oldPlanData = oldPlanSnap.data() as FinancialPlan;
+                    const newTotalActualCost = (oldPlanData.totalActualCost || 0) - oldTransactionData.amount;
+                    const updatedItems = oldPlanData.items.map(item =>
+                        item.id === oldTransactionData.planItemId
+                            ? { ...item, actualCost: Math.max(0, (item.actualCost || 0) - oldTransactionData.amount) }
+                            : item
+                    );
+                    firestoreTransaction.update(oldPlanRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+                }
+            }
+    
+            // --- Part 2: Apply new transaction's effect on its plan (if any) ---
+            const { financialPlanId: newPlanId, planItemId: newItemId, amount: newAmount } = updatedData;
+            if (newPlanId && newItemId && newAmount) {
+                const newPlanRef = doc(db, 'users', user.uid, 'financialPlans', newPlanId);
+                const newPlanSnap = await firestoreTransaction.get(newPlanRef);
+                if (newPlanSnap.exists()) {
+                    const newPlanData = newPlanSnap.data() as FinancialPlan;
+                    const newTotalActualCost = (newPlanData.totalActualCost || 0) + newAmount;
+                    const updatedItems = newPlanData.items.map(item =>
+                        item.id === newItemId
+                            ? { ...item, actualCost: (item.actualCost || 0) + newAmount }
+                            : item
+                    );
+                    firestoreTransaction.update(newPlanRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+                }
+            }
+    
+            // --- Part 3: Update the transaction document itself ---
+            const finalUpdateData = { ...updatedData };
+            if (finalUpdateData.date) {
+                (finalUpdateData as any).date = Timestamp.fromDate(new Date(finalUpdateData.date));
+            }
+            firestoreTransaction.update(transactionRef, finalUpdateData);
+        });
+        toast({ title: 'Transaction Updated Successfully' });
+    } catch (error) {
+        console.error('Error updating transaction:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Could not update transaction.';
+        toast({ variant: 'destructive', title: 'Error', description: errorMessage });
+    }
+};
+
+const deleteTransaction = async (transactionId: string) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated' }); return; }
+
+    try {
+        await runTransaction(db, async (firestoreTransaction) => {
+            const transactionRef = doc(db, 'users', user.uid, 'transactions', transactionId);
+            const transactionSnap = await firestoreTransaction.get(transactionRef);
+            if (!transactionSnap.exists()) {
+                console.warn("Transaction already deleted");
+                return;
+            }
+            const transactionData = transactionSnap.data() as Transaction;
+            
+            // If linked to a financial plan, revert the cost
+            if (transactionData.financialPlanId && transactionData.planItemId) {
+                const planRef = doc(db, 'users', user.uid, 'financialPlans', transactionData.financialPlanId);
+                const planSnap = await firestoreTransaction.get(planRef);
+                if (planSnap.exists()) {
+                    const planData = planSnap.data() as FinancialPlan;
+                    const newTotalActualCost = (planData.totalActualCost || 0) - transactionData.amount;
+                    const updatedItems = planData.items.map(item =>
+                        item.id === transactionData.planItemId
+                            ? { ...item, actualCost: Math.max(0, (item.actualCost || 0) - transactionData.amount) }
+                            : item
+                    );
+                    firestoreTransaction.update(planRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+                }
+            }
+            
+            // Delete the transaction
+            firestoreTransaction.delete(transactionRef);
+        });
+        toast({ title: 'Transaction Deleted' });
+    } catch (error) {
+        console.error('Error deleting transaction:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Could not delete transaction.';
+        toast({ variant: 'destructive', title: 'Error', description: errorMessage });
+    }
+};
+
   const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId'>) => {
     if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
     try {
@@ -378,6 +480,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading,
         transactions,
         addTransaction,
+        updateTransaction,
+        deleteTransaction,
         logout,
         categories: mockCategories,
         budgets,

@@ -23,11 +23,13 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { defaultCategories } from '@/data/mock-data';
 import { useAppContext } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
+import type { Transaction } from '@/types';
+import { useEffect } from 'react';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -41,28 +43,54 @@ const formSchema = z.object({
 
 type IncomeEntryFormProps = {
   onFormSubmit: () => void;
+  transactionToEdit?: Transaction | null;
 }
 
-export function IncomeEntryForm({ onFormSubmit }: IncomeEntryFormProps) {
-  const { addTransaction } = useAppContext();
+const defaultValues = {
+  amount: 0,
+  source: '',
+  notes: '',
+  date: new Date(),
+  paymentMethod: '',
+  invoiceNumber: '',
+  category: '',
+};
+
+export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntryFormProps) {
+  const { addTransaction, updateTransaction } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      amount: 0,
-      source: '',
-      notes: '',
-      date: new Date(),
-      paymentMethod: '',
-      invoiceNumber: '',
-    },
+    defaultValues: defaultValues,
   });
 
+  useEffect(() => {
+    if (transactionToEdit) {
+      form.reset({
+        amount: transactionToEdit.amount,
+        source: transactionToEdit.source,
+        category: transactionToEdit.category,
+        date: parseISO(transactionToEdit.date),
+        notes: transactionToEdit.notes || '',
+        paymentMethod: transactionToEdit.paymentMethod || '',
+        invoiceNumber: transactionToEdit.invoiceNumber || '',
+      });
+    } else {
+      form.reset(defaultValues);
+    }
+  }, [transactionToEdit, form]);
+
   function onSubmit(values: z.infer<typeof formSchema>) {
-    addTransaction({
+    const data = {
       ...values,
       type: 'income',
       date: values.date.toISOString(),
-    });
+    };
+
+    if (transactionToEdit) {
+        updateTransaction(transactionToEdit.id, data as Partial<Transaction>);
+    } else {
+        addTransaction(data);
+    }
     onFormSubmit();
   }
 
@@ -146,7 +174,7 @@ export function IncomeEntryForm({ onFormSubmit }: IncomeEntryFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Category</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select an income category" />
@@ -172,7 +200,7 @@ export function IncomeEntryForm({ onFormSubmit }: IncomeEntryFormProps) {
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Payment Method</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a method" />
@@ -221,7 +249,7 @@ export function IncomeEntryForm({ onFormSubmit }: IncomeEntryFormProps) {
           )}
         />
 
-        <Button type="submit" className="w-full font-bold">Add Income</Button>
+        <Button type="submit" className="w-full font-bold">{transactionToEdit ? 'Save Changes' : 'Add Income'}</Button>
       </form>
     </Form>
   );
