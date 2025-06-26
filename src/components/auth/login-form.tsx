@@ -8,14 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Chrome, Loader2 } from 'lucide-react';
 import { Icons } from '../icons';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
   createUserWithEmailAndPassword,
   updateProfile,
+  sendEmailVerification,
+  getAdditionalUserInfo,
 } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export function LoginForm() {
@@ -49,6 +52,28 @@ export function LoginForm() {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
+        
+        // Create user document in Firestore
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+          displayName: name,
+          email: email,
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          currencyPreference: 'USD',
+          darkModeBanner: false,
+          notificationPreferences: {
+              budgetThreshold: true,
+              recurringPayment: true,
+          },
+          profilePictureURL: userCredential.user.photoURL || null,
+        });
+        
+        await sendEmailVerification(userCredential.user);
+        toast({
+          title: 'Account Created',
+          description: 'A verification email has been sent. Please check your inbox.',
+        });
+
         router.push('/dashboard');
       } catch (error: any) {
         toast({
@@ -66,7 +91,30 @@ export function LoginForm() {
     setIsGoogleLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const additionalInfo = getAdditionalUserInfo(result);
+      
+      // If it's a new user, create a document in Firestore
+      if (additionalInfo?.isNewUser) {
+        await setDoc(doc(db, 'users', result.user.uid), {
+          displayName: result.user.displayName,
+          email: result.user.email,
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          currencyPreference: 'USD',
+          darkModeBanner: false,
+          notificationPreferences: {
+            budgetThreshold: true,
+            recurringPayment: true,
+          },
+          profilePictureURL: result.user.photoURL,
+        });
+        toast({
+          title: 'Welcome!',
+          description: 'Your account has been created successfully.',
+        });
+      }
+      
       router.push('/dashboard');
     } catch (error: any) {
       toast({
