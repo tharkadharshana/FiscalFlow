@@ -12,6 +12,7 @@ import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
 import { useAppContext } from '@/contexts/app-context';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Briefcase, Leaf, Lightbulb } from 'lucide-react';
+import { AdBanner } from '@/components/ui/ad-banner';
 
 export default function DashboardPage() {
   const { isPremium } = useAppContext();
@@ -20,6 +21,7 @@ export default function DashboardPage() {
     <div className="flex flex-1 flex-col">
       <Header title="Dashboard" />
       <main className="flex-1 space-y-6 p-4 md:p-6">
+        {!isPremium && <AdBanner />}
         <SummaryCards />
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
           <div className="lg:col-span-4">
@@ -42,15 +44,12 @@ export default function DashboardPage() {
               </>
             ) : (
               <div className="space-y-6">
-                <UpgradeCard
-                  title="Unlock Your Full Financial Picture"
-                  description="Track investments, get AI insights, and see your carbon footprint with Premium."
-                  icon={Briefcase}
-                  features={[
-                    { text: 'Investment Portfolio Tracking', icon: Briefcase },
-                    { text: 'AI-Powered Smart Insights', icon: Lightbulb },
-                    { text: 'Carbon Footprint Analysis', icon: Leaf },
-                  ]}
+                 <PortfolioOverview />
+                 <CarbonFootprintCard />
+                 <UpgradeCard
+                  title="Unlock AI-Powered Smart Insights"
+                  description="Get personalized tips and analysis to improve your financial health with Premium."
+                  icon={Lightbulb}
                 />
               </div>
             )}

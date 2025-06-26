@@ -33,6 +33,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
+import { AdBanner } from '@/components/ui/ad-banner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function TransactionsPage() {
   const { transactions, categories, deleteTransaction, formatCurrency, isPremium } = useAppContext();
@@ -159,21 +161,39 @@ export default function TransactionsPage() {
       </Table>
     );
   }
+  
+  const RecurringTabTrigger = (
+     <TabsTrigger value="recurring" disabled={!isPremium}>
+        <Repeat className="mr-2 h-4 w-4" />Recurring
+        {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
+      </TabsTrigger>
+  );
 
   return (
     <>
       <div className="flex flex-1 flex-col">
         <Header title="Transactions" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
+        {!isPremium && <AdBanner />}
           <Tabs defaultValue="all">
-            <TabsList className="grid w-full grid-cols-4 md:w-[500px]">
+            <TabsList className="grid w-full grid-cols-4 md:w-auto">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="income">Income</TabsTrigger>
               <TabsTrigger value="expense">Expenses</TabsTrigger>
-              <TabsTrigger value="recurring" disabled={!isPremium}>
-                <Repeat className="mr-2 h-4 w-4" />Recurring
-                {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
-              </TabsTrigger>
+              {isPremium ? (
+                RecurringTabTrigger
+              ) : (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {RecurringTabTrigger}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Automate your finances with Premium.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </TabsList>
             <Card className="mt-4">
               <CardContent className="p-0">

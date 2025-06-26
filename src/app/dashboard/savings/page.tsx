@@ -11,7 +11,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { PlusCircle, PiggyBank } from 'lucide-react';
 import type { SavingsGoal } from '@/types';
 import { SavingsGoalCard } from '@/components/dashboard/savings-goal-card';
@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function SavingsPage() {
   const { savingsGoals, deleteSavingsGoal, isPremium } = useAppContext();
@@ -61,20 +62,14 @@ export default function SavingsPage() {
     setIsAddGoalDialogOpen(open);
   }
 
-  if (!isPremium) {
-    return (
-        <div className="flex flex-1 flex-col">
-            <Header title="Savings Goals" />
-            <main className="flex-1 p-4 md:p-6">
-                <UpgradeCard 
-                    title="Gamify Your Savings"
-                    description="Create goals, earn badges, and automatically save your spare change with our Round-up feature. Premium only."
-                    icon={PiggyBank}
-                />
-            </main>
-        </div>
-    )
-  }
+  const canAddGoal = isPremium || savingsGoals.length < FREE_TIER_LIMITS.savingsGoals;
+
+  const AddGoalButton = (
+     <Button onClick={() => { setGoalToEdit(null); setIsAddGoalDialogOpen(true); }} disabled={!canAddGoal}>
+        <PlusCircle className="mr-2 h-4 w-4" />
+        New Goal
+      </Button>
+  );
 
   return (
     <>
@@ -89,10 +84,18 @@ export default function SavingsPage() {
                             Track your progress towards your financial goals with gamified rewards.
                         </CardDescription>
                     </div>
-                    <Button onClick={() => { setGoalToEdit(null); setIsAddGoalDialogOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        New Goal
-                    </Button>
+                    {canAddGoal ? (
+                        AddGoalButton
+                    ) : (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>{AddGoalButton}</TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Upgrade to Premium for unlimited savings goals.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
                 </CardHeader>
                 <CardContent>
                     {savingsGoals.length > 0 ? (

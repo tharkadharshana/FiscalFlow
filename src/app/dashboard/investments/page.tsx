@@ -11,7 +11,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { PlusCircle, Briefcase, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import type { Investment } from '@/types';
 import { AddInvestmentDialog } from '@/components/dashboard/add-investment-dialog';
@@ -34,9 +34,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function InvestmentsPage() {
-  const { investments, deleteInvestment, formatCurrency } = useAppContext();
+  const { investments, deleteInvestment, formatCurrency, isPremium } = useAppContext();
   const [isAddInvestmentDialogOpen, setIsAddInvestmentDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
@@ -71,6 +72,15 @@ export default function InvestmentsPage() {
   const portfolioValue = investments.reduce((sum, inv) => sum + (inv.quantity * inv.currentPrice), 0);
   const totalCost = investments.reduce((sum, inv) => sum + (inv.quantity * inv.purchasePrice), 0);
   const totalGainLoss = portfolioValue - totalCost;
+
+  const canAddInvestment = isPremium || investments.length < FREE_TIER_LIMITS.investments;
+
+  const AddInvestmentButton = (
+    <Button onClick={() => { setInvestmentToEdit(null); setIsAddInvestmentDialogOpen(true); }} disabled={!canAddInvestment}>
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Investment
+    </Button>
+  );
 
   return (
     <>
@@ -107,10 +117,18 @@ export default function InvestmentsPage() {
                             A detailed view of your investment assets.
                         </CardDescription>
                     </div>
-                    <Button onClick={() => { setInvestmentToEdit(null); setIsAddInvestmentDialogOpen(true); }}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Add Investment
-                    </Button>
+                    {canAddInvestment ? (
+                        AddInvestmentButton
+                    ) : (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>{AddInvestmentButton}</TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Upgrade to Premium for unlimited investments.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
                 </CardHeader>
                 <CardContent>
                     {investments.length > 0 ? (

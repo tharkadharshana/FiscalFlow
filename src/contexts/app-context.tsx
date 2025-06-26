@@ -28,6 +28,20 @@ import {
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
 
+export const FREE_TIER_LIMITS = {
+    ocrScans: 3,
+    recurringTransactions: 1,
+    budgets: 3,
+    financialPlans: 1,
+    savingsGoals: 1,
+    roundups: 5,
+    taxReports: 1,
+    taxDeductibleFlags: 5,
+    voiceCommands: 5,
+    customCategories: 3,
+    investments: 1,
+  };
+
 
 interface AppContextType {
   user: User | null;
@@ -35,6 +49,7 @@ interface AppContextType {
   isPremium: boolean;
   loading: boolean;
   transactions: Transaction[];
+  deductibleTransactionsCount: number;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'icon'>) => void;
   updateTransaction: (transactionId: string, data: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
@@ -176,6 +191,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const expenseCategories = useMemo(() => [...defaultExpenseCategories, ...customCategories].sort(), [customCategories]);
   const incomeCategories = useMemo(() => [...defaultIncomeCategories, ...customCategories].sort(), [customCategories]);
   const allCategories = useMemo(() => [...new Set([...expenseCategories, ...incomeCategories])].sort(), [expenseCategories, incomeCategories]);
+  const deductibleTransactionsCount = useMemo(() => transactions.filter(t => t.isTaxDeductible).length, [transactions]);
 
   useEffect(() => {
     if (user) {
@@ -287,10 +303,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [userProfile?.currencyPreference]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'icon'>) => {
-    if (!user) { showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' }); return; }
+    if (!user || !userProfile) { showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' }); return; }
 
     try {
       await runTransaction(db, async (firestoreTransaction) => {
+        const userDocRef = doc(db, 'users', user.uid);
         const { date, financialPlanId, planItemId, isTaxDeductible, ...restOfTransaction } = transaction;
         const carbonFootprint = estimateCarbonFootprint(transaction);
 
@@ -301,7 +318,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         firestoreTransaction.set(doc(collection(db, 'users', user.uid, 'transactions')), transactionData);
 
-        if (isPremium && transaction.type === 'expense' && !Number.isInteger(transaction.amount)) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const monthlyRoundups = userProfile.subscription.monthlyRoundups;
+        const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
+        
+        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(transaction.amount)) {
             const roundupGoalRef = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
             const roundupGoalSnap = await getDocs(roundupGoalRef);
             if (!roundupGoalSnap.empty) {
@@ -316,11 +337,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         currentAmount: newCurrentAmount,
                         badges: arrayUnion(...newBadges)
                     });
+
+                    if (!isPremium) {
+                        const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
+                        firestoreTransaction.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
+                    }
                 }
             }
         }
 
-        if (isPremium && financialPlanId && planItemId) {
+        if (financialPlanId && planItemId) {
           const planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
           const planDoc = await firestoreTransaction.get(planRef);
           if (!planDoc.exists()) throw new Error("Financial plan not found!");
@@ -349,7 +375,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (!oldTxSnap.exists()) throw new Error("Transaction document not found!");
             const oldTxData = oldTxSnap.data() as Transaction;
             
-            if (isPremium && oldTxData.financialPlanId && oldTxData.planItemId) {
+            if (oldTxData.financialPlanId && oldTxData.planItemId) {
                 const oldPlanRef = doc(db, 'users', user.uid, 'financialPlans', oldTxData.financialPlanId);
                 const oldPlanSnap = await t.get(oldPlanRef);
                 if (oldPlanSnap.exists()) {
@@ -362,7 +388,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
     
             const { financialPlanId: newPlanId, planItemId: newItemId, amount: newAmount } = updatedData;
-            if (isPremium && newPlanId && newItemId && newAmount) {
+            if (newPlanId && newItemId && newAmount) {
                 const newPlanRef = doc(db, 'users', user.uid, 'financialPlans', newPlanId);
                 const newPlanSnap = await t.get(newPlanRef);
                 if (newPlanSnap.exists()) {
@@ -396,7 +422,7 @@ const deleteTransaction = async (transactionId: string) => {
             if (!txSnap.exists()) return;
             const txData = txSnap.data() as Transaction;
             
-            if (isPremium && txData.financialPlanId && txData.planItemId) {
+            if (txData.financialPlanId && txData.planItemId) {
                 const planRef = doc(db, 'users', user.uid, 'financialPlans', txData.financialPlanId);
                 const planSnap = await t.get(planRef);
                 if (planSnap.exists()) {
@@ -643,15 +669,20 @@ const deleteTransaction = async (transactionId: string) => {
     const now = new Date().toISOString();
     const existingBadgeNames = goal.badges.map(b => b.name);
 
-    const milestones: { name: Badge['name'], percent: number }[] = [
+    let milestones: { name: Badge['name'], percent: number }[] = [
         { name: 'First Saving', percent: 0 },
         { name: '25% Mark', percent: 25 },
         { name: '50% Mark', percent: 50 },
         { name: '75% Mark', percent: 75 },
         { name: 'Goal Achieved!', percent: 100 },
     ];
+
+    if (!isPremium) {
+        // Free users only get the 50% badge
+        milestones = [{ name: '50% Mark', percent: 50 }];
+    }
     
-    if (goal.currentAmount === 0 && newCurrentAmount > 0 && !existingBadgeNames.includes('First Saving')) {
+    if ((isPremium || newCurrentAmount === 0) && goal.currentAmount === 0 && newCurrentAmount > 0 && !existingBadgeNames.includes('First Saving')) {
         newBadges.push({ name: 'First Saving', dateAchieved: now });
     }
 
@@ -714,7 +745,10 @@ const deleteTransaction = async (transactionId: string) => {
 
   const addCustomCategory = async (category: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
-    if (!isPremium) { showNotification({ type: 'error', title: 'Premium Feature', description: 'Custom categories are available for premium users.' }); return; }
+    if (!isPremium && (userProfile?.customCategories?.length || 0) >= FREE_TIER_LIMITS.customCategories) { 
+        showNotification({ type: 'error', title: 'Limit Reached', description: `Free users can add up to ${FREE_TIER_LIMITS.customCategories} custom categories. Upgrade for more.` }); 
+        return; 
+    }
     if (allCategories.includes(category)) { showNotification({ type: 'error', title: 'Category already exists.', description: '' }); return; }
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayUnion(category) });
@@ -743,7 +777,7 @@ const deleteTransaction = async (transactionId: string) => {
   return (
     <AppContext.Provider
       value={{
-        user, userProfile, isPremium, loading, transactions, addTransaction, updateTransaction,
+        user, userProfile, isPremium, loading, transactions, deductibleTransactionsCount, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
         financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan,

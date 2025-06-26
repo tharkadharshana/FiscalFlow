@@ -27,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import type { Transaction } from '@/types';
 import { useEffect } from 'react';
@@ -61,7 +61,7 @@ const defaultValues = {
 };
 
 export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntryFormProps) {
-  const { addTransaction, updateTransaction, incomeCategories } = useAppContext();
+  const { addTransaction, updateTransaction, incomeCategories, isPremium, deductibleTransactionsCount } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
@@ -98,6 +98,8 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
     }
     onFormSubmit();
   }
+
+  const canFlagAsDeductible = isPremium || deductibleTransactionsCount < FREE_TIER_LIMITS.taxDeductibleFlags;
 
   return (
     <Form {...form}>
@@ -249,7 +251,7 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
                         <FormDescription>Mark this if this income is part of your taxable earnings.</FormDescription>
                     </div>
                     <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        <Switch checked={field.value} onCheckedChange={field.onChange} disabled={!field.value && !canFlagAsDeductible} />
                     </FormControl>
                 </FormItem>
             )}

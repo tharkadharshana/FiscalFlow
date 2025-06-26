@@ -11,7 +11,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { PlusCircle, DraftingCompass, Sparkles } from 'lucide-react';
 import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -66,12 +66,20 @@ export default function BudgetsPage() {
     setIsCreatePlanDialogOpen(open);
   }
 
-  const canAddBudget = isPremium || budgets.length < 5;
+  const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
+  const canAddPlan = isPremium || financialPlans.length < FREE_TIER_LIMITS.financialPlans;
 
   const AddBudgetButton = (
      <Button onClick={() => setIsCreateBudgetsDialogOpen(true)} disabled={!canAddBudget}>
         <PlusCircle className="mr-2 h-4 w-4" />
         Add Budget
+      </Button>
+  );
+
+  const CreatePlanButton = (
+     <Button onClick={() => setIsCreatePlanDialogOpen(true)} disabled={!canAddPlan}>
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Create Plan
       </Button>
   );
 
@@ -84,10 +92,10 @@ export default function BudgetsPage() {
             <div className='flex justify-between items-center mb-4'>
                 <TabsList>
                     <TabsTrigger value="monthly">Monthly Budgets</TabsTrigger>
-                    <TabsTrigger value="plans" disabled={!isPremium}>
+                    <TabsTrigger value="plans">
                       Financial Plans
                       {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
-                      </TabsTrigger>
+                    </TabsTrigger>
                 </TabsList>
             </div>
             
@@ -120,56 +128,56 @@ export default function BudgetsPage() {
             </TabsContent>
 
             <TabsContent value="plans">
-                {isPremium ? (
-                  <Card>
-                      <CardHeader className="flex flex-row items-center justify-between">
-                          <div>
-                              <CardTitle>Financial Plans</CardTitle>
-                              <CardDescription>
-                                  Plan for trips, savings goals, and large purchases with AI assistance.
-                              </CardDescription>
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                      <div>
+                          <CardTitle>Financial Plans</CardTitle>
+                          <CardDescription>
+                              Plan for trips, savings goals, and large purchases with AI assistance.
+                          </CardDescription>
+                      </div>
+                      {canAddPlan ? (
+                        CreatePlanButton
+                      ) : (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>{CreatePlanButton}</TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Upgrade to Premium for unlimited plans.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                      )}
+                  </CardHeader>
+                  <CardContent>
+                      {financialPlans.length > 0 ? (
+                          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                              {financialPlans.map((plan) => (
+                                  <FinancialPlanCard 
+                                      key={plan.id} 
+                                      plan={plan} 
+                                      onEdit={() => handleEditPlan(plan)}
+                                      onDelete={() => handleDeletePlan(plan)}
+                                  />
+                              ))}
                           </div>
-                          <Button onClick={() => setIsCreatePlanDialogOpen(true)}>
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              Create Plan
-                          </Button>
-                      </CardHeader>
-                      <CardContent>
-                          {financialPlans.length > 0 ? (
-                              <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                                  {financialPlans.map((plan) => (
-                                      <FinancialPlanCard 
-                                          key={plan.id} 
-                                          plan={plan} 
-                                          onEdit={() => handleEditPlan(plan)}
-                                          onDelete={() => handleDeletePlan(plan)}
-                                      />
-                                  ))}
-                              </div>
-                          ) : (
-                              <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
-                                  <DraftingCompass className="h-12 w-12 mb-4" />
-                                  <p className="text-lg font-semibold">No financial plans created yet.</p>
-                                  <p>Click "Create Plan" to plan your next big goal with AI.</p>
-                              </div>
-                          )}
-                      </CardContent>
-                  </Card>
-                ) : (
-                   <UpgradeCard 
-                        title="Plan for Your Future with AI"
-                        description="Create detailed, AI-assisted financial plans for your biggest goals with FiscalFlow Premium."
-                        icon={DraftingCompass}
-                    />
-                )}
+                      ) : (
+                          <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
+                              <DraftingCompass className="h-12 w-12 mb-4" />
+                              <p className="text-lg font-semibold">No financial plans created yet.</p>
+                              <p>Click "Create Plan" to plan your next big goal with AI.</p>
+                          </div>
+                      )}
+                  </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </main>
       </div>
       
       {/* Dialogs */}
-      {isPremium && <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={setIsCreateBudgetsDialogOpen} />}
-      {isPremium && <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />}
+      <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={setIsCreateBudgetsDialogOpen} />
+      <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
       
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

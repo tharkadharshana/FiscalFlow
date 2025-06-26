@@ -66,20 +66,6 @@ export default function CalendarPage() {
     );
   };
   
-  if (!isPremium) {
-      return (
-          <div className="flex flex-1 flex-col">
-              <Header title="Calendar" />
-              <main className="flex-1 p-4 md:p-6">
-                  <UpgradeCard 
-                      title="Visualize Your Spending"
-                      description="Get a full calendar view of your daily transactions and spending habits. Premium only."
-                      icon={CalendarIconLucide}
-                  />
-              </main>
-          </div>
-      )
-  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -123,17 +109,26 @@ export default function CalendarPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[calc(100vh-22rem)] pr-4">
-              {selectedDayTransactions.length > 0 ? (
-                <div className="divide-y">
-                  {selectedDayTransactions.map(t => <TransactionItem key={t.id} transaction={t} />)}
+            {isPremium ? (
+              <ScrollArea className="h-[calc(100vh-22rem)] pr-4">
+                {selectedDayTransactions.length > 0 ? (
+                  <div className="divide-y">
+                    {selectedDayTransactions.map(t => <TransactionItem key={t.id} transaction={t} />)}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-16">
+                    <p>No transactions for this day.</p>
+                  </div>
+                )}
+              </ScrollArea>
+            ) : (
+                <div className="h-full flex items-center justify-center">
+                    <UpgradeCard 
+                        title="Unlock Daily Details"
+                        description="Upgrade to Premium to see a full list of transactions for each day right here."
+                    />
                 </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-16">
-                  <p>No transactions for this day.</p>
-                </div>
-              )}
-            </ScrollArea>
+            )}
           </CardContent>
         </Card>
       </main>

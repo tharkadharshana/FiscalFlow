@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { PlusCircle, Repeat, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { AddRecurringTransactionDialog } from './add-recurring-transaction-dialog';
 import type { RecurringTransaction } from '@/types';
@@ -27,9 +27,10 @@ import {
 import { Badge } from '../ui/badge';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 export function RecurringTransactions() {
-  const { recurringTransactions, deleteRecurringTransaction, formatCurrency } = useAppContext();
+  const { recurringTransactions, deleteRecurringTransaction, formatCurrency, isPremium } = useAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<RecurringTransaction | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -59,6 +60,15 @@ export function RecurringTransactions() {
     }
     setIsDialogOpen(open);
   }
+
+  const canAddRecurring = isPremium || recurringTransactions.length < FREE_TIER_LIMITS.recurringTransactions;
+
+  const AddRecurringButton = (
+    <Button onClick={() => setIsDialogOpen(true)} disabled={!canAddRecurring}>
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Recurring
+    </Button>
+  );
 
   const RecurringTransactionCard = ({ transaction }: { transaction: RecurringTransaction }) => {
     return (
@@ -112,10 +122,18 @@ export function RecurringTransactions() {
             Manage automatic income and expenses like salaries and subscriptions.
           </CardDescription>
         </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Recurring
-        </Button>
+        {canAddRecurring ? AddRecurringButton : (
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        {AddRecurringButton}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Upgrade to Premium for more recurring transactions.</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        )}
       </CardHeader>
       <CardContent>
         {recurringTransactions.length > 0 ? (

@@ -12,7 +12,7 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -41,15 +41,15 @@ export default function TaxPage() {
     const [isDocsOpen, setIsDocsOpen] = useState(false);
 
     const taxData = useMemo(() => {
-        const taxableIncome = transactions
-            .filter(t => t.type === 'income' && t.isTaxDeductible)
+        const taxRelatedTransactions = transactions.filter(t => t.isTaxDeductible).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const taxableIncome = taxRelatedTransactions
+            .filter(t => t.type === 'income')
             .reduce((sum, t) => sum + t.amount, 0);
 
-        const deductibleExpenses = transactions
-            .filter(t => t.type === 'expense' && t.isTaxDeductible)
+        const deductibleExpenses = taxRelatedTransactions
+            .filter(t => t.type === 'expense')
             .reduce((sum, t) => sum + t.amount, 0);
-        
-        const taxRelatedTransactions = transactions.filter(t => t.isTaxDeductible).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         // Placeholder for tax calculation logic
         const estimatedTaxLiability = (taxableIncome - deductibleExpenses) * 0.15; // Simplified 15% rate
@@ -61,7 +61,7 @@ export default function TaxPage() {
         setIsAnalyzing(true);
         setAnalysisResult(null);
         setAnalysisError(null);
-
+        // NOTE: In a real app, logic to check/increment monthlyTaxReports would go in the server action
         const analysisInput: AnalyzeTaxesInput = {
             transactions: transactions.map(t => ({
                 id: t.id,
@@ -95,7 +95,7 @@ export default function TaxPage() {
                     <TabsTrigger value="overview"><FileText className="mr-2 h-4 w-4"/>Overview & Reports</TabsTrigger>
                     <TabsTrigger value="calculators"><Calculator className="mr-2 h-4 w-4"/>Calculators</TabsTrigger>
                 </TabsList>
-                <Button variant="outline"><FileDown className="mr-2 h-4 w-4"/>Export Tax Report</Button>
+                <Button variant="outline" disabled={!isPremium}><FileDown className="mr-2 h-4 w-4"/>Export Tax Report</Button>
             </div>
             
             <TabsContent value="overview">
@@ -103,7 +103,7 @@ export default function TaxPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>Taxable Income</CardTitle>
-                            <CardDescription>Total income marked as taxable this year.</CardDescription>
+                            <CardDescription>Total income marked as taxable.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <p className="text-3xl font-bold">{formatCurrency(taxData.taxableIncome)}</p>
@@ -112,7 +112,7 @@ export default function TaxPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>Deductible Expenses</CardTitle>
-                            <CardDescription>Total expenses marked as deductible this year.</CardDescription>
+                            <CardDescription>Total expenses marked as deductible.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <p className="text-3xl font-bold">{formatCurrency(taxData.deductibleExpenses)}</p>
@@ -120,11 +120,11 @@ export default function TaxPage() {
                     </Card>
                     <Card>
                         <CardHeader>
-                            <CardTitle>Estimated Tax Due</CardTitle>
-                            <CardDescription>A simplified estimate. Consult a professional.</CardDescription>
+                            <CardTitle>Flagged Transactions</CardTitle>
+                            <CardDescription>Count of manually flagged items.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-3xl font-bold text-primary">{formatCurrency(taxData.estimatedTaxLiability)}</p>
+                            <p className="text-3xl font-bold">{taxData.taxRelatedTransactions.length}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -207,7 +207,7 @@ export default function TaxPage() {
                 ) : (
                     <UpgradeCard 
                         title="AI-Powered Tax Analysis"
-                        description="Let our AI automatically detect potential tax liabilities based on your transaction history. Premium only."
+                        description={`Let our AI automatically detect potential tax liabilities. Free users get ${FREE_TIER_LIMITS.taxReports} analysis per month.`}
                         icon={Sparkles}
                     />
                 )}
@@ -215,7 +215,7 @@ export default function TaxPage() {
                     <CardHeader>
                         <CardTitle>Manually Flagged Transactions</CardTitle>
                         <CardDescription>
-                            This table shows all income and expenses you've manually flagged as tax-related using the switch in the transaction form.
+                            This table shows all income and expenses you've manually flagged as tax-related. Free users can flag up to {FREE_TIER_LIMITS.taxDeductibleFlags} items.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -258,28 +258,28 @@ export default function TaxPage() {
                     <CardHeader>
                         <CardTitle>Sri Lankan Tax Calculators</CardTitle>
                         <CardDescription>
-                           Estimate various local taxes. These calculators use simplified models and should be used for estimation purposes only. Always consult a tax professional for official advice.
+                           Estimate various local taxes. For free users, only the Income Tax calculator is available.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <Tabs defaultValue="vehicle" className="w-full">
+                       <Tabs defaultValue="income" className="w-full">
                            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
-                               <TabsTrigger value="vehicle"><Car className="mr-2 h-4 w-4" />Vehicle Import</TabsTrigger>
                                <TabsTrigger value="income"><Wallet className="mr-2 h-4 w-4" />Income Tax</TabsTrigger>
-                               <TabsTrigger value="vat"><Percent className="mr-2 h-4 w-4" />VAT</TabsTrigger>
-                               <TabsTrigger value="stamp"><Landmark className="mr-2 h-4 w-4" />Stamp Duty</TabsTrigger>
+                               <TabsTrigger value="vehicle" disabled={!isPremium}><Car className="mr-2 h-4 w-4" />Vehicle Import</TabsTrigger>
+                               <TabsTrigger value="vat" disabled={!isPremium}><Percent className="mr-2 h-4 w-4" />VAT</TabsTrigger>
+                               <TabsTrigger value="stamp" disabled={!isPremium}><Landmark className="mr-2 h-4 w-4" />Stamp Duty</TabsTrigger>
                            </TabsList>
-                           <TabsContent value="vehicle" className="pt-6">
-                                <VehicleImportCalculator />
-                           </TabsContent>
-                            <TabsContent value="income" className="pt-6">
+                           <TabsContent value="income" className="pt-6">
                                 <IncomeTaxCalculator />
                            </TabsContent>
+                           <TabsContent value="vehicle" className="pt-6">
+                                {isPremium ? <VehicleImportCalculator /> : <UpgradeCard title="Unlock Advanced Calculators" description="Upgrade to premium for access to all tax estimation tools."/>}
+                           </TabsContent>
                            <TabsContent value="vat" className="pt-6">
-                                <VatCalculator />
+                                {isPremium ? <VatCalculator /> : <UpgradeCard title="Unlock Advanced Calculators" description="Upgrade to premium for access to all tax estimation tools."/>}
                            </TabsContent>
                            <TabsContent value="stamp" className="pt-6">
-                                <StampDutyCalculator />
+                                {isPremium ? <StampDutyCalculator /> : <UpgradeCard title="Unlock Advanced Calculators" description="Upgrade to premium for access to all tax estimation tools."/>}
                            </TabsContent>
                        </Tabs>
                     </CardContent>

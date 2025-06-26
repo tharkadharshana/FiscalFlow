@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Loader2, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -73,6 +73,12 @@ export default function SettingsPage() {
     addCustomCategory(newCategory.trim());
     setNewCategory('');
   }
+
+  const canAddCategory = isPremium || (userProfile?.customCategories?.length || 0) < FREE_TIER_LIMITS.customCategories;
+
+  const AddCategoryButton = (
+    <Button type="button" onClick={handleAddCategory} disabled={!canAddCategory}>Add</Button>
+  );
   
   const CustomCategoryUI = (
       <Card>
@@ -103,9 +109,18 @@ export default function SettingsPage() {
                       placeholder="New category name..."
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value)}
-                      disabled={!isPremium}
+                      disabled={!canAddCategory}
                   />
-                  <Button type="button" onClick={handleAddCategory} disabled={!isPremium}>Add</Button>
+                  {canAddCategory ? AddCategoryButton : (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>{AddCategoryButton}</TooltipTrigger>
+                            <TooltipContent>
+                                <p>Upgrade to Premium for unlimited categories.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                  )}
               </div>
               <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Default Categories</Label>
@@ -238,16 +253,7 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    {CustomCategoryUI}
-                  </div>
-                </TooltipTrigger>
-                 {!isPremium && <TooltipContent><p>Upgrade to Premium to add custom categories.</p></TooltipContent>}
-              </Tooltip>
-            </TooltipProvider>
+            {CustomCategoryUI}
 
             <Card>
               <CardHeader>

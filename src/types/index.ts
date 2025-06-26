@@ -3,6 +3,7 @@
 
 
 
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -52,6 +53,10 @@ export interface UserProfile {
     tier: 'free' | 'premium';
     isActive: boolean;
     expiryDate: string | null;
+    monthlyOcrScans?: { count: number; month: string }; // YYYY-MM
+    monthlyRoundups?: { count: number; month: string };
+    monthlyTaxReports?: { count: number; month: string };
+    monthlyVoiceCommands?: { count: number; month: string };
   };
 }
 

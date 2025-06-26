@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { useAppContext } from '@/contexts/app-context';
+import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { AddBudgetDialog } from '@/components/dashboard/add-budget-dialog';
 import type { Budget } from '@/types';
@@ -65,7 +65,7 @@ export function MonthlyBudgets() {
     setIsDialogOpen(open);
   }
   
-  const canAddMoreBudgets = isPremium || budgets.length < 5;
+  const canAddMoreBudgets = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
 
   const BudgetCard = ({ budget }: { budget: Budget }) => {
     const spent = budget.currentSpend || 0;
@@ -123,8 +123,8 @@ export function MonthlyBudgets() {
           ))}
           {!canAddMoreBudgets && (
             <UpgradeCard 
-                title="Create Unlimited Budgets"
-                description="Take full control of your finances by creating budgets for every category."
+                title="Create More Budgets"
+                description={`Free users can create up to ${FREE_TIER_LIMITS.budgets} budgets. Upgrade for unlimited.`}
             />
           )}
         </div>
