@@ -16,11 +16,17 @@ import {
     type CreateFinancialPlanInput,
     type CreateFinancialPlanOutput,
 } from '@/ai/flows/create-financial-plan-flow';
+import {
+    createMonthlyBudgets,
+    type CreateMonthlyBudgetsInput,
+    type CreateMonthlyBudgetsOutput,
+} from '@/ai/flows/create-monthly-budgets-flow';
 
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
 type InsightsResult = GenerateInsightsOutput | { error: string };
 type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };
+type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
 
 
 export async function parseReceiptAction(
@@ -60,5 +66,17 @@ export async function createFinancialPlanAction(
     } catch (error) {
         console.error('Error in createFinancialPlanAction:', error);
         return { error: 'Failed to generate financial plan. Please try again later.' };
+    }
+}
+
+export async function createMonthlyBudgetsAction(
+    input: CreateMonthlyBudgetsInput
+): Promise<MonthlyBudgetsResult> {
+    try {
+        const result = await createMonthlyBudgets(input);
+        return result;
+    } catch (error) {
+        console.error('Error in createMonthlyBudgetsAction:', error);
+        return { error: 'Failed to generate budgets. Please try again later.' };
     }
 }

@@ -12,23 +12,21 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/app-context';
 import { PlusCircle, DraftingCompass } from 'lucide-react';
-import { AddBudgetDialog } from '@/components/dashboard/add-budget-dialog';
 import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreatePlanDialog } from '@/components/dashboard/create-plan-dialog';
 import type { FinancialPlan } from '@/types';
 import { FinancialPlanCard } from '@/components/dashboard/financial-plan-card';
+import { CreateMonthlyBudgetsDialog } from '@/components/dashboard/create-monthly-budgets-dialog';
 
 export default function BudgetsPage() {
   const { financialPlans } = useAppContext();
-  const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
+  const [isCreateBudgetsDialogOpen, setIsCreateBudgetsDialogOpen] = useState(false);
   const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
   
-  // Placeholder for edit/delete logic for Financial Plans
   const [planToEdit, setPlanToEdit] = useState<FinancialPlan | null>(null);
 
   const handleEditPlan = (plan: FinancialPlan) => {
-    // This will be used to open the dialog in edit mode in the future.
     setPlanToEdit(plan);
     setIsCreatePlanDialogOpen(true);
   };
@@ -67,7 +65,7 @@ export default function BudgetsPage() {
                       Set and track your monthly spending limits for each category.
                     </CardDescription>
                   </div>
-                  <Button onClick={() => setIsAddBudgetDialogOpen(true)}>
+                  <Button onClick={() => setIsCreateBudgetsDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Budget
                   </Button>
@@ -119,7 +117,7 @@ export default function BudgetsPage() {
       </div>
       
       {/* Dialogs */}
-      <AddBudgetDialog open={isAddBudgetDialogOpen} onOpenChange={setIsAddBudgetDialogOpen} />
+      <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={setIsCreateBudgetsDialogOpen} />
       <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
     </>
   );
