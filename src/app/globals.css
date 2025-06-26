@@ -85,4 +85,21 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+  .has-transaction {
+    position: relative;
+  }
+  .has-transaction::after {
+      content: '';
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background-color: hsl(var(--accent));
+  }
+  .day-selected.has-transaction::after {
+      background-color: hsl(var(--accent-foreground));
+  }
 }

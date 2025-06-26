@@ -24,6 +24,7 @@ import {
   Settings,
   CircleHelp,
   LogOut,
+  CalendarDays,
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/app-context';
 
@@ -32,6 +33,7 @@ const menuItems = [
   { href: '/dashboard/transactions', label: 'Transactions', icon: Wallet },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText },
   { href: '/dashboard/budgets', label: 'Budgets', icon: Target },
+  { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

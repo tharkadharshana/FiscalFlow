@@ -1,9 +1,9 @@
 import { Header } from '@/components/dashboard/header';
 import { SummaryCards } from '@/components/dashboard/summary-cards';
-import { ExpenseChart } from '@/components/dashboard/expense-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { SpendChart } from '@/components/dashboard/spend-chart';
 import { SmartInsights } from '@/components/dashboard/smart-insights';
+import { TopCategories } from '@/components/dashboard/top-categories';
 
 export default function DashboardPage() {
   return (
@@ -16,7 +16,7 @@ export default function DashboardPage() {
             <SpendChart />
           </div>
           <div className="lg:col-span-3">
-            <ExpenseChart />
+            <TopCategories />
           </div>
         </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
