@@ -1,25 +1,20 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Users can only read and update their own profile document.
+    // A user must be authenticated to create their own user document on signup.
     match /users/{userId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow read, update: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null;
     }
 
-    match /users/{userId}/transactions/{transactionId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-
-    match /users/{userId}/budgets/{budgetId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-
-    match /users/{userId}/financialPlans/{planId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-
-    match /users/{userId}/recurringTransactions/{recurringId} {
-      allow read, write: if request.auth.uid == userId;
+    // A user can only read, create, update, or delete documents (like transactions,
+    // budgets, etc.) within their own user sub-collections.
+    match /users/{userId}/{collection}/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
