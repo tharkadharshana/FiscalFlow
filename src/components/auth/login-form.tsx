@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -91,6 +92,11 @@ export function LoginForm() {
               recurringPayment: true,
           },
           profilePictureURL: userCredential.user.photoURL || null,
+          subscription: {
+            tier: 'free',
+            isActive: true,
+            expiryDate: null,
+          },
         });
         
         await sendEmailVerification(userCredential.user);
@@ -134,6 +140,11 @@ export function LoginForm() {
             recurringPayment: true,
           },
           profilePictureURL: result.user.photoURL,
+          subscription: {
+            tier: 'free',
+            isActive: true,
+            expiryDate: null,
+          },
         });
         showNotification({
           type: 'success',
@@ -175,6 +186,11 @@ export function LoginForm() {
             recurringPayment: true,
           },
           profilePictureURL: result.user.photoURL,
+          subscription: {
+            tier: 'free',
+            isActive: true,
+            expiryDate: null,
+          },
         });
         showNotification({
           type: 'success',

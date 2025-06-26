@@ -1,3 +1,4 @@
+
 'use client';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Mic } from 'lucide-react';
@@ -6,14 +7,39 @@ import { VoiceAssistantDialog } from '../voice-assistant-dialog';
 import { useState } from 'react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { NotificationPopover } from '../notifications/notification-popover';
+import { useAppContext } from '@/contexts/app-context';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 type HeaderProps = {
   title: string;
 };
 
 export function Header({ title }: HeaderProps) {
+  const { isPremium } = useAppContext();
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
+
+  const handleVoiceClick = () => {
+    if (isPremium) {
+      setIsVoiceAssistantOpen(true);
+    } else {
+      // Logic to upsell, could navigate to upgrade page
+      console.log('Upgrade to premium to use voice assistant');
+    }
+  };
+
+  const VoiceButton = (
+    <Button
+      onClick={handleVoiceClick}
+      variant="outline"
+      size="icon"
+      className="h-9 w-9"
+      disabled={!isPremium}
+    >
+      <Mic className="h-4 w-4" />
+      <span className="sr-only">Voice Assistant</span>
+    </Button>
+  );
 
   return (
     <>
@@ -23,10 +49,19 @@ export function Header({ title }: HeaderProps) {
           <h1 className="font-headline text-xl font-semibold md:text-2xl">{title}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setIsVoiceAssistantOpen(true)} variant="outline" size="icon" className="h-9 w-9">
-            <Mic className="h-4 w-4" />
-            <span className="sr-only">Voice Assistant</span>
-          </Button>
+          {isPremium ? (
+             VoiceButton
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>{VoiceButton}</TooltipTrigger>
+                <TooltipContent>
+                  <p>Upgrade to Premium to use the Voice Assistant</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
           <NotificationPopover />
           <Button onClick={() => setIsAddTransactionOpen(true)} className="gap-1">
             <PlusCircle className="h-4 w-4" />
@@ -35,7 +70,7 @@ export function Header({ title }: HeaderProps) {
         </div>
       </header>
       <AddTransactionDialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen} />
-      <VoiceAssistantDialog open={isVoiceAssistantOpen} onOpenChange={setIsVoiceAssistantOpen} />
+      {isPremium && <VoiceAssistantDialog open={isVoiceAssistantOpen} onOpenChange={setIsVoiceAssistantOpen} />}
     </>
   );
 }

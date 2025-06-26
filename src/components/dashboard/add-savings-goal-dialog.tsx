@@ -32,6 +32,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Calendar } from '../ui/calendar';
 import { Switch } from '../ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 const formSchema = z.object({
@@ -48,7 +49,7 @@ type AddSavingsGoalDialogProps = {
 };
 
 export function AddSavingsGoalDialog({ open, onOpenChange, goalToEdit }: AddSavingsGoalDialogProps) {
-  const { addSavingsGoal, updateSavingsGoal, savingsGoals, showNotification } = useAppContext();
+  const { addSavingsGoal, updateSavingsGoal, savingsGoals, showNotification, isPremium } = useAppContext();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -103,6 +104,28 @@ export function AddSavingsGoalDialog({ open, onOpenChange, goalToEdit }: AddSavi
     }
     onOpenChange(false);
   }
+  
+  const RoundupSwitch = (
+    <FormField
+        control={form.control}
+        name="isRoundupGoal"
+        render={({ field }) => (
+        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+                <FormLabel className="text-base">Micro-Savings Goal</FormLabel>
+                <FormDescription>Automatically save spare change from your expenses towards this goal. Only one goal can be active at a time.</FormDescription>
+            </div>
+            <FormControl>
+                <Switch 
+                  checked={field.value} 
+                  onCheckedChange={field.onChange}
+                  disabled={!isPremium}
+                />
+            </FormControl>
+        </FormItem>
+        )}
+    />
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -184,22 +207,19 @@ export function AddSavingsGoalDialog({ open, onOpenChange, goalToEdit }: AddSavi
                     )}
                 />
             </div>
-
-            <FormField
-                  control={form.control}
-                  name="isRoundupGoal"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                            <FormLabel className="text-base">Micro-Savings Goal</FormLabel>
-                            <FormDescription>Automatically save spare change from your expenses towards this goal. Only one goal can be active at a time.</FormDescription>
-                        </div>
-                        <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                    </FormItem>
-                  )}
-                />
+            
+            {isPremium ? RoundupSwitch : (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    {RoundupSwitch}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Upgrade to Premium to enable round-up savings.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
 
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>

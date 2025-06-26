@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { Transaction } from '@/types';
 import { RecurringTransactions } from '@/components/dashboard/recurring-transactions';
-import { Repeat, MoreVertical, Pencil, Trash2, Leaf } from 'lucide-react';
+import { Repeat, MoreVertical, Pencil, Trash2, Leaf, Sparkles } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,9 +32,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { UpgradeCard } from '@/components/ui/upgrade-card';
 
 export default function TransactionsPage() {
-  const { transactions, categories, deleteTransaction, formatCurrency } = useAppContext();
+  const { transactions, categories, deleteTransaction, formatCurrency, isPremium } = useAppContext();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -86,7 +87,7 @@ export default function TransactionsPage() {
                 <p className="hidden text-sm text-muted-foreground md:block">
                   {transaction.notes || 'No notes'}
                 </p>
-                {transaction.carbonFootprint && transaction.carbonFootprint > 0 && (
+                {isPremium && transaction.carbonFootprint && transaction.carbonFootprint > 0 && (
                   <Badge variant="outline" className="flex items-center gap-1 font-normal border-green-200 bg-green-50 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300">
                     <Leaf className="h-3 w-3" />
                     {transaction.carbonFootprint.toFixed(1)} kg CO₂e
@@ -169,7 +170,10 @@ export default function TransactionsPage() {
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="income">Income</TabsTrigger>
               <TabsTrigger value="expense">Expenses</TabsTrigger>
-              <TabsTrigger value="recurring"><Repeat className="mr-2 h-4 w-4" />Recurring</TabsTrigger>
+              <TabsTrigger value="recurring" disabled={!isPremium}>
+                <Repeat className="mr-2 h-4 w-4" />Recurring
+                {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
+              </TabsTrigger>
             </TabsList>
             <Card className="mt-4">
               <CardContent className="p-0">
@@ -183,7 +187,17 @@ export default function TransactionsPage() {
                       {renderTransactionTable(transactions.filter(t => t.type === 'expense'))}
                   </TabsContent>
                   <TabsContent value="recurring" className="m-0">
-                      <RecurringTransactions />
+                      {isPremium ? (
+                        <RecurringTransactions />
+                      ) : (
+                        <div className="p-4">
+                            <UpgradeCard 
+                                title="Automate Your Finances"
+                                description="Set up recurring transactions for salaries, bills, and subscriptions with Premium."
+                                icon={Repeat}
+                            />
+                        </div>
+                      )}
                   </TabsContent>
               </CardContent>
             </Card>

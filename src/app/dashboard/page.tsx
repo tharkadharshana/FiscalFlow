@@ -1,4 +1,6 @@
 
+'use client';
+
 import { Header } from '@/components/dashboard/header';
 import { SummaryCards } from '@/components/dashboard/summary-cards';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
@@ -7,8 +9,13 @@ import { SmartInsights } from '@/components/dashboard/smart-insights';
 import { TopCategories } from '@/components/dashboard/top-categories';
 import { CarbonFootprintCard } from '@/components/dashboard/carbon-footprint-card';
 import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
+import { useAppContext } from '@/contexts/app-context';
+import { UpgradeCard } from '@/components/ui/upgrade-card';
+import { Briefcase, Leaf, Lightbulb } from 'lucide-react';
 
 export default function DashboardPage() {
+  const { isPremium } = useAppContext();
+
   return (
     <div className="flex flex-1 flex-col">
       <Header title="Dashboard" />
@@ -27,9 +34,26 @@ export default function DashboardPage() {
             <RecentTransactions />
           </div>
           <div className="lg:col-span-3 space-y-6">
-            <PortfolioOverview />
-            <SmartInsights />
-            <CarbonFootprintCard />
+            {isPremium ? (
+              <>
+                <PortfolioOverview />
+                <SmartInsights />
+                <CarbonFootprintCard />
+              </>
+            ) : (
+              <div className="space-y-6">
+                <UpgradeCard
+                  title="Unlock Your Full Financial Picture"
+                  description="Track investments, get AI insights, and see your carbon footprint with Premium."
+                  icon={Briefcase}
+                  features={[
+                    { text: 'Investment Portfolio Tracking', icon: Briefcase },
+                    { text: 'AI-Powered Smart Insights', icon: Lightbulb },
+                    { text: 'Carbon Footprint Analysis', icon: Leaf },
+                  ]}
+                />
+              </div>
+            )}
           </div>
         </div>
       </main>

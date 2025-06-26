@@ -31,9 +31,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { UpgradeCard } from '../ui/upgrade-card';
 
 export function MonthlyBudgets() {
-  const { budgets, categories, deleteBudget, formatCurrency } = useAppContext();
+  const { budgets, categories, deleteBudget, formatCurrency, isPremium } = useAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -63,6 +64,8 @@ export function MonthlyBudgets() {
     }
     setIsDialogOpen(open);
   }
+  
+  const canAddMoreBudgets = isPremium || budgets.length < 5;
 
   const BudgetCard = ({ budget }: { budget: Budget }) => {
     const spent = budget.currentSpend || 0;
@@ -118,6 +121,12 @@ export function MonthlyBudgets() {
           {budgets.map((budget) => (
             <BudgetCard key={budget.id} budget={budget} />
           ))}
+          {!canAddMoreBudgets && (
+            <UpgradeCard 
+                title="Create Unlimited Budgets"
+                description="Take full control of your finances by creating budgets for every category."
+            />
+          )}
         </div>
       ) : (
         <div className="py-16 text-center text-muted-foreground">

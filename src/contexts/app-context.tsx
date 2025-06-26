@@ -32,6 +32,7 @@ import { nanoid } from 'nanoid';
 interface AppContextType {
   user: User | null;
   userProfile: UserProfile | null;
+  isPremium: boolean;
   loading: boolean;
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'icon'>) => void;
@@ -69,6 +70,7 @@ interface AppContextType {
   notifications: Notification[];
   showNotification: (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void;
   markAllNotificationsAsRead: () => void;
+  upgradeToPremium: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -85,6 +87,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { toast } = useToast();
+  
+  const isPremium = useMemo(() => {
+    return userProfile?.subscription?.tier === 'premium' && userProfile?.subscription?.isActive === true;
+  }, [userProfile]);
 
   const showNotification = async (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
     // 1. Show the visual toast
@@ -633,7 +639,8 @@ const deleteTransaction = async (transactionId: string) => {
   const updateUserPreferences = async (data: Partial<UserProfile>) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-      await updateDoc(doc(db, 'users', user.uid), data);
+      const { subscription, ...restData } = data; // Prevent direct subscription changes here
+      await updateDoc(doc(db, 'users', user.uid), restData);
       showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
     } catch (error) {
       console.error('Error updating settings: ', error);
@@ -641,8 +648,28 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
 
+  const upgradeToPremium = async () => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+      const newExpiry = new Date();
+      newExpiry.setFullYear(newExpiry.getFullYear() + 1);
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        'subscription.tier': 'premium',
+        'subscription.isActive': true,
+        'subscription.expiryDate': newExpiry.toISOString(),
+      });
+
+      showNotification({ type: 'success', title: 'Upgrade Successful!', description: 'Welcome to FiscalFlow Premium.' });
+    } catch (error) {
+      console.error('Error upgrading to premium: ', error);
+      showNotification({ type: 'error', title: 'Upgrade Failed', description: 'Could not update your subscription.' });
+    }
+  };
+
   const addCustomCategory = async (category: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (!isPremium) { showNotification({ type: 'error', title: 'Premium Feature', description: 'Custom categories are available for premium users.' }); return; }
     if (allCategories.includes(category)) { showNotification({ type: 'error', title: 'Category already exists.', description: '' }); return; }
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayUnion(category) });
@@ -671,7 +698,7 @@ const deleteTransaction = async (transactionId: string) => {
   return (
     <AppContext.Provider
       value={{
-        user, userProfile, loading, transactions, addTransaction, updateTransaction,
+        user, userProfile, isPremium, loading, transactions, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
         financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan,
@@ -681,6 +708,7 @@ const deleteTransaction = async (transactionId: string) => {
         investments, addInvestment, updateInvestment, deleteInvestment,
         formatCurrency,
         notifications, showNotification, markAllNotificationsAsRead,
+        upgradeToPremium,
       }}
     >
       {children}

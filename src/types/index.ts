@@ -1,6 +1,7 @@
 
 
 
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -46,6 +47,11 @@ export interface UserProfile {
   createdAt: any;
   lastLoginAt: any;
   customCategories?: string[];
+  subscription: {
+    tier: 'free' | 'premium';
+    isActive: boolean;
+    expiryDate: string | null;
+  };
 }
 
 export interface PlanItem {

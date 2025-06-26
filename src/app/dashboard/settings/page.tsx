@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -15,9 +16,9 @@ import { useAppContext } from '@/contexts/app-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Loader2, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
@@ -30,8 +31,7 @@ const settingsSchema = z.object({
 });
 
 export default function SettingsPage() {
-  const { userProfile, updateUserPreferences, loading, addCustomCategory, deleteCustomCategory } = useAppContext();
-  const { toast } = useToast();
+  const { userProfile, updateUserPreferences, loading, addCustomCategory, deleteCustomCategory, showNotification, isPremium } = useAppContext();
   const [newCategory, setNewCategory] = useState('');
 
   const form = useForm<z.infer<typeof settingsSchema>>({
@@ -63,20 +63,61 @@ export default function SettingsPage() {
 
   const onSubmit = async (data: z.infer<typeof settingsSchema>) => {
     await updateUserPreferences(data);
-    toast({
-        title: "Settings Saved",
-        description: "Your preferences have been updated successfully.",
-    })
   };
 
   const handleAddCategory = () => {
     if (newCategory.trim() === '') {
-        toast({ variant: 'destructive', title: 'Category name cannot be empty.' });
+        showNotification({ type: 'error', title: 'Category name cannot be empty.', description: '' });
         return;
     }
     addCustomCategory(newCategory.trim());
     setNewCategory('');
   }
+  
+  const CustomCategoryUI = (
+      <Card>
+          <CardHeader>
+              <CardTitle>Manage Categories</CardTitle>
+              <CardDescription>Add or remove your own custom categories for expenses and income.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+              <div>
+                  <Label className="text-xs text-muted-foreground">Custom Categories</Label>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                  {userProfile?.customCategories && userProfile.customCategories.length > 0 ? (
+                      userProfile.customCategories.map(cat => (
+                          <Badge key={cat} variant="secondary" className="pl-3 pr-1">
+                              {cat}
+                              <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => deleteCustomCategory(cat)}>
+                                  <Trash2 className="h-3 w-3" />
+                              </Button>
+                          </Badge>
+                      ))
+                  ) : (
+                      <p className="text-sm text-muted-foreground">No custom categories added yet.</p>
+                  )}
+                  </div>
+              </div>
+              <div className="flex gap-2">
+                  <Input 
+                      placeholder="New category name..."
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      disabled={!isPremium}
+                  />
+                  <Button type="button" onClick={handleAddCategory} disabled={!isPremium}>Add</Button>
+              </div>
+              <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Default Categories</Label>
+                  <div className="flex flex-wrap gap-2 text-muted-foreground">
+                      {[...defaultExpenseCategories, ...defaultIncomeCategories].map(cat => (
+                          <Badge key={cat} variant="outline">{cat}</Badge>
+                      ))}
+                  </div>
+              </div>
+          </CardContent>
+      </Card>
+  );
 
   if (loading || !userProfile) {
     return (
@@ -136,21 +177,31 @@ export default function SettingsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Currency</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a currency" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="USD">USD - United States Dollar</SelectItem>
-                          <SelectItem value="EUR">EUR - Euro</SelectItem>
-                          <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                          <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
-                          <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                        </SelectContent>
-                      </Select>
+                       <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isPremium}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a currency" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="USD">USD - United States Dollar</SelectItem>
+                                  <SelectItem value="EUR">EUR - Euro</SelectItem>
+                                  <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                                  <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                                  <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
+                                  <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </TooltipTrigger>
+                          {!isPremium && <TooltipContent><p>Upgrade to Premium to change currency.</p></TooltipContent>}
+                        </Tooltip>
+                      </TooltipProvider>
+
                       <FormDescription>This is the currency your transactions will be displayed in.</FormDescription>
                     </FormItem>
                   )}
@@ -173,48 +224,16 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Manage Categories</CardTitle>
-                    <CardDescription>Add or remove your own custom categories for expenses and income.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label className="text-xs text-muted-foreground">Custom Categories</Label>
-                        <div className="flex flex-wrap gap-2 pt-2">
-                        {userProfile.customCategories && userProfile.customCategories.length > 0 ? (
-                            userProfile.customCategories.map(cat => (
-                                <Badge key={cat} variant="secondary" className="pl-3 pr-1">
-                                    {cat}
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => deleteCustomCategory(cat)}>
-                                        <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                </Badge>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground">No custom categories added yet.</p>
-                        )}
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <Input 
-                            placeholder="New category name..."
-                            value={newCategory}
-                            onChange={(e) => setNewCategory(e.target.value)}
-                        />
-                        <Button type="button" onClick={handleAddCategory}>Add</Button>
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Default Categories</Label>
-                        <div className="flex flex-wrap gap-2 text-muted-foreground">
-                            {[...defaultExpenseCategories, ...defaultIncomeCategories].map(cat => (
-                                <Badge key={cat} variant="outline">{cat}</Badge>
-                            ))}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    {CustomCategoryUI}
+                  </div>
+                </TooltipTrigger>
+                 {!isPremium && <TooltipContent><p>Upgrade to Premium to add custom categories.</p></TooltipContent>}
+              </Tooltip>
+            </TooltipProvider>
 
             <Card>
               <CardHeader>
