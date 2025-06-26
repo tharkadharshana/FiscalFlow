@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,7 +32,7 @@ type ReceiptScannerProps = {
 }
 
 export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
-  const { addTransaction } = useAppContext();
+  const { addTransaction, financialPlans } = useAppContext();
   const { toast } = useToast();
   
   // Component state
@@ -47,6 +47,15 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
   const [notes, setNotes] = useState('');
   const [category, setCategory] = useState('');
   const [date, setDate] = useState<Date | undefined>(new Date());
+  const [financialPlanId, setFinancialPlanId] = useState<string | undefined>();
+  const [planItemId, setPlanItemId] = useState<string | undefined>();
+  
+  const selectedPlanItems = useMemo(() => {
+    if (!financialPlanId) return [];
+    const plan = financialPlans.find(p => p.id === financialPlanId);
+    return plan?.items || [];
+  }, [financialPlanId, financialPlans]);
+
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -178,6 +187,8 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
         category: category,
         date: date.toISOString(),
         ocrParsed: true,
+        financialPlanId: financialPlanId,
+        planItemId: planItemId,
     });
     onTransactionAdded();
   }
@@ -192,6 +203,8 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
     setNotes('');
     setCategory('');
     setDate(new Date());
+    setFinancialPlanId(undefined);
+    setPlanItemId(undefined);
   }
 
   // The form part of the UI, shown after analysis
@@ -254,6 +267,45 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
                         </SelectContent>
                     </Select>
                 </div>
+                
+                <div className="space-y-4 rounded-md border p-4">
+                    <h3 className="text-sm font-medium text-muted-foreground">Link to Plan (Optional)</h3>
+                    <div className="space-y-2">
+                        <Label>Financial Plan</Label>
+                        <Select onValueChange={(value) => {
+                            setFinancialPlanId(value === 'none' ? undefined : value);
+                            setPlanItemId(undefined);
+                        }} value={financialPlanId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a plan" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {financialPlans.filter(p => p.status === 'planning' || p.status === 'active').map(plan => (
+                                    <SelectItem key={plan.id} value={plan.id}>{plan.title}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {financialPlanId && (
+                        <div className="space-y-2">
+                            <Label>Plan Item</Label>
+                            <Select onValueChange={setPlanItemId} value={planItemId}>
+                                <SelectTrigger disabled={!financialPlanId}>
+                                    <SelectValue placeholder="Select an item" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {selectedPlanItems.map(item => (
+                                        <SelectItem key={item.id} value={item.id}>
+                                            {item.description} (Predicted: ${item.predictedCost})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                </div>
+
                 <div className="space-y-2">
                     <Label htmlFor="notes">Notes (from line items)</Label>
                     <Textarea id="notes" placeholder="e.g. Coffee and croissant" value={notes} onChange={(e) => setNotes(e.target.value)} rows={4}/>

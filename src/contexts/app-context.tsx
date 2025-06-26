@@ -17,6 +17,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  runTransaction,
 } from 'firebase/firestore';
 
 interface AppContextType {
@@ -147,27 +148,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { date, ...restOfTransaction } = transaction;
-
-    const transactionData = {
-      ...restOfTransaction,
-      date: Timestamp.fromDate(new Date(date)),
-      createdAt: serverTimestamp(),
-      userId: user.uid,
-    };
-
     try {
-      await addDoc(collection(db, 'users', user.uid, 'transactions'), transactionData);
+      const { date, financialPlanId, planItemId, ...restOfTransaction } = transaction;
+
+      // Firestore transaction to ensure atomicity
+      await runTransaction(db, async (firestoreTransaction) => {
+        const transactionsCollection = collection(db, 'users', user.uid, 'transactions');
+        
+        // 1. Create the new transaction document
+        const transactionData = {
+          ...restOfTransaction,
+          date: Timestamp.fromDate(new Date(date)),
+          createdAt: serverTimestamp(),
+          userId: user.uid,
+          financialPlanId: financialPlanId || null,
+          planItemId: planItemId || null,
+        };
+        firestoreTransaction.set(doc(transactionsCollection), transactionData);
+
+        // 2. If linked to a plan, update the plan
+        if (financialPlanId && planItemId) {
+          const planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
+          const planDoc = await firestoreTransaction.get(planRef);
+
+          if (!planDoc.exists()) {
+            throw new Error("Financial plan not found!");
+          }
+
+          const planData = planDoc.data() as FinancialPlan;
+          let itemUpdated = false;
+
+          const updatedItems = planData.items.map(item => {
+            if (item.id === planItemId) {
+              itemUpdated = true;
+              // Add new transaction amount to existing actual cost
+              return { ...item, actualCost: (item.actualCost || 0) + transaction.amount };
+            }
+            return item;
+          });
+
+          if (itemUpdated) {
+            const newTotalActualCost = updatedItems.reduce((sum, item) => sum + (item.actualCost || 0), 0);
+            firestoreTransaction.update(planRef, { 
+              items: updatedItems,
+              totalActualCost: newTotalActualCost 
+            });
+          }
+        }
+      });
+      
       toast({
         title: `${transaction.type === 'income' ? 'Income' : 'Expense'} Added`,
         description: `${transaction.source} - $${transaction.amount.toFixed(2)}`,
       });
+
     } catch (error) {
       console.error('Error adding transaction: ', error);
+      const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Could not add transaction.',
+        description: errorMessage,
       });
     }
   };

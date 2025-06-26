@@ -13,6 +13,8 @@ export interface Transaction {
   isRecurring?: boolean;
   paymentMethod?: string;
   invoiceNumber?: string;
+  financialPlanId?: string; // ID of the FinancialPlan
+  planItemId?: string; // ID of the item within the plan
 }
 
 export interface Budget {

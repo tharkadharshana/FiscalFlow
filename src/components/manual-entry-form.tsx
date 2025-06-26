@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { defaultCategories } from '@/data/mock-data';
 import { useAppContext } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
+import { useMemo } from 'react';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -35,6 +36,8 @@ const formSchema = z.object({
   category: z.string({ required_error: 'Please select a category.' }),
   date: z.date({ required_error: 'Please select a date.' }),
   notes: z.string().optional(),
+  financialPlanId: z.string().optional(),
+  planItemId: z.string().optional(),
 });
 
 type ManualEntryFormProps = {
@@ -42,7 +45,7 @@ type ManualEntryFormProps = {
 }
 
 export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
-  const { addTransaction } = useAppContext();
+  const { addTransaction, financialPlans } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -52,6 +55,14 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
       date: new Date(),
     },
   });
+
+  const selectedPlanId = form.watch('financialPlanId');
+
+  const selectedPlanItems = useMemo(() => {
+    if (!selectedPlanId) return [];
+    const plan = financialPlans.find(p => p.id === selectedPlanId);
+    return plan?.items || [];
+  }, [selectedPlanId, financialPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     addTransaction({
@@ -160,6 +171,69 @@ export function ManualEntryForm({ onFormSubmit }: ManualEntryFormProps) {
             </FormItem>
           )}
         />
+        
+        <div className="space-y-4 rounded-md border p-4">
+            <h3 className="text-sm font-medium text-muted-foreground">Link to Plan (Optional)</h3>
+            <FormField
+                control={form.control}
+                name="financialPlanId"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Financial Plan</FormLabel>
+                        <Select 
+                            onValueChange={(value) => {
+                                field.onChange(value === 'none' ? undefined : value);
+                                form.setValue('planItemId', undefined); // Reset item when plan changes
+                            }} 
+                            defaultValue={field.value}
+                        >
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a plan to link this expense to" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {financialPlans.filter(p => p.status === 'planning' || p.status === 'active').map((plan) => (
+                                    <SelectItem key={plan.id} value={plan.id}>
+                                    {plan.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+            
+            {selectedPlanId && (
+                <FormField
+                    control={form.control}
+                    name="planItemId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Plan Item</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger disabled={!selectedPlanId}>
+                                        <SelectValue placeholder="Select a plan item" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {selectedPlanItems.map((item) => (
+                                        <SelectItem key={item.id} value={item.id}>
+                                            {item.description} (Predicted: ${item.predictedCost})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
+        </div>
+
 
         <FormField
           control={form.control}
