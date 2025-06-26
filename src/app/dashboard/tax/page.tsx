@@ -13,11 +13,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileDown, Calculator } from 'lucide-react';
-import { TaxCalculator } from '@/components/dashboard/tax-calculator';
+import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+
+// Import Calculators
+import { VehicleImportCalculator } from '@/components/dashboard/tax/vehicle-import-calculator';
+import { IncomeTaxCalculator } from '@/components/dashboard/tax/income-tax-calculator';
+import { VatCalculator } from '@/components/dashboard/tax/vat-calculator';
+import { StampDutyCalculator } from '@/components/dashboard/tax/stamp-duty-calculator';
 
 export default function TaxPage() {
     const { transactions } = useAppContext();
@@ -31,12 +36,12 @@ export default function TaxPage() {
             .filter(t => t.type === 'expense' && t.isTaxDeductible)
             .reduce((sum, t) => sum + t.amount, 0);
         
-        const deductibleTransactions = transactions.filter(t => t.isTaxDeductible).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const taxRelatedTransactions = transactions.filter(t => t.isTaxDeductible).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         // Placeholder for tax calculation logic
         const estimatedTaxLiability = (taxableIncome - deductibleExpenses) * 0.15; // Simplified 15% rate
 
-        return { taxableIncome, deductibleExpenses, deductibleTransactions, estimatedTaxLiability: Math.max(0, estimatedTaxLiability) };
+        return { taxableIncome, deductibleExpenses, taxRelatedTransactions, estimatedTaxLiability: Math.max(0, estimatedTaxLiability) };
     }, [transactions]);
 
     const formatCurrency = (amount: number) => {
@@ -53,9 +58,9 @@ export default function TaxPage() {
         <main className="flex-1 space-y-6 p-4 md:p-6">
           <Tabs defaultValue="overview">
             <div className='flex justify-between items-center mb-4'>
-                <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="calculators">Calculators</TabsTrigger>
+                <TabsList className="grid grid-cols-2 h-auto">
+                    <TabsTrigger value="overview"><FileText className="mr-2 h-4 w-4"/>Overview & Reports</TabsTrigger>
+                    <TabsTrigger value="calculators"><Calculator className="mr-2 h-4 w-4"/>Calculators</TabsTrigger>
                 </TabsList>
                 <Button variant="outline"><FileDown className="mr-2 h-4 w-4"/>Export Tax Report</Button>
             </div>
@@ -93,7 +98,9 @@ export default function TaxPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Tax-Related Transactions</CardTitle>
-                        <CardDescription>All income and expenses you've marked for tax purposes.</CardDescription>
+                        <CardDescription>
+                            This table shows all income and expenses you've manually flagged as tax-related using the switch in the transaction form. Automatic tax detection is a future feature.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -107,14 +114,14 @@ export default function TaxPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {taxData.deductibleTransactions.length > 0 ? (
-                                    taxData.deductibleTransactions.map(t => (
+                                {taxData.taxRelatedTransactions.length > 0 ? (
+                                    taxData.taxRelatedTransactions.map(t => (
                                         <TableRow key={t.id}>
                                             <TableCell>{format(parseISO(t.date), 'MMM d, yyyy')}</TableCell>
                                             <TableCell className="font-medium">{t.source}</TableCell>
                                             <TableCell><Badge variant="outline">{t.category}</Badge></TableCell>
                                             <TableCell>
-                                                <Badge variant={t.type === 'income' ? 'secondary' : 'default'}>{t.type}</Badge>
+                                                <Badge variant={t.type === 'income' ? 'secondary' : 'default'} className={t.type === 'income' ? 'bg-green-100 text-green-700' : ''}>{t.type}</Badge>
                                             </TableCell>
                                             <TableCell className="text-right font-mono">{formatCurrency(t.amount)}</TableCell>
                                         </TableRow>
@@ -133,13 +140,32 @@ export default function TaxPage() {
             <TabsContent value="calculators">
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Calculator /> Sri Lankan Vehicle Import Tax Calculator</CardTitle>
+                        <CardTitle>Sri Lankan Tax Calculators</CardTitle>
                         <CardDescription>
-                           Estimate the total taxes and landed cost for importing a vehicle into Sri Lanka based on the latest regulations.
+                           Estimate various local taxes. These calculators use simplified models and should be used for estimation purposes only. Always consult a tax professional for official advice.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <TaxCalculator />
+                       <Tabs defaultValue="vehicle" className="w-full">
+                           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+                               <TabsTrigger value="vehicle"><Car className="mr-2 h-4 w-4" />Vehicle Import</TabsTrigger>
+                               <TabsTrigger value="income"><Wallet className="mr-2 h-4 w-4" />Income Tax</TabsTrigger>
+                               <TabsTrigger value="vat"><Percent className="mr-2 h-4 w-4" />VAT</TabsTrigger>
+                               <TabsTrigger value="stamp"><Landmark className="mr-2 h-4 w-4" />Stamp Duty</TabsTrigger>
+                           </TabsList>
+                           <TabsContent value="vehicle" className="pt-6">
+                                <VehicleImportCalculator />
+                           </TabsContent>
+                            <TabsContent value="income" className="pt-6">
+                                <IncomeTaxCalculator />
+                           </TabsContent>
+                           <TabsContent value="vat" className="pt-6">
+                                <VatCalculator />
+                           </TabsContent>
+                           <TabsContent value="stamp" className="pt-6">
+                                <StampDutyCalculator />
+                           </TabsContent>
+                       </Tabs>
                     </CardContent>
               </Card>
             </TabsContent>
