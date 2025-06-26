@@ -10,6 +10,8 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { Transaction } from '@/types';
+import { RecurringTransactions } from '@/components/dashboard/recurring-transactions';
+import { Repeat } from 'lucide-react';
 
 export default function TransactionsPage() {
   const { transactions, categories } = useAppContext();
@@ -94,10 +96,11 @@ export default function TransactionsPage() {
       <Header title="Transactions" />
       <main className="flex-1 space-y-6 p-4 md:p-6">
         <Tabs defaultValue="all">
-          <TabsList className="grid w-full grid-cols-3 md:w-[400px]">
+          <TabsList className="grid w-full grid-cols-4 md:w-[500px]">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="income">Income</TabsTrigger>
             <TabsTrigger value="expense">Expenses</TabsTrigger>
+            <TabsTrigger value="recurring"><Repeat className="mr-2 h-4 w-4" />Recurring</TabsTrigger>
           </TabsList>
           <Card className="mt-4">
             <CardContent className="p-0">
@@ -109,6 +112,9 @@ export default function TransactionsPage() {
                 </TabsContent>
                 <TabsContent value="expense" className="m-0">
                     {renderTransactionTable(transactions.filter(t => t.type === 'expense'))}
+                </TabsContent>
+                <TabsContent value="recurring" className="m-0">
+                    <RecurringTransactions />
                 </TabsContent>
             </CardContent>
           </Card>

@@ -61,3 +61,19 @@ export interface FinancialPlan {
   totalPredictedCost: number;
   totalActualCost: number;
 }
+
+export interface RecurringTransaction {
+  id: string;
+  userId: string;
+  title: string;
+  amount: number;
+  category: string;
+  type: 'income' | 'expense';
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  startDate: string; // ISO string for the start date
+  notes?: string;
+  source: string; // For expense, vendor. For income, payer.
+  isActive: boolean;
+  lastGeneratedDate?: string; // ISO string
+  createdAt: any;
+}

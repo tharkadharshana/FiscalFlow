@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { categories as mockCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -37,6 +37,10 @@ interface AppContextType {
   updateFinancialPlan: (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => Promise<void>;
   deleteFinancialPlan: (planId: string) => Promise<void>;
   updateUserPreferences: (data: Partial<UserProfile>) => Promise<void>;
+  recurringTransactions: RecurringTransaction[];
+  addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateRecurringTransaction: (transactionId: string, data: Partial<Omit<RecurringTransaction, 'id'>>) => Promise<void>;
+  deleteRecurringTransaction: (transactionId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -48,6 +52,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [financialPlans, setFinancialPlans] = useState<FinancialPlan[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -122,12 +127,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setFinancialPlans(userPlans);
       });
 
+      // Listener for recurring transactions
+      const qRecurring = query(collection(db, 'users', user.uid, 'recurringTransactions'), orderBy('createdAt', 'desc'));
+      const unsubscribeRecurring = onSnapshot(qRecurring, (snapshot) => {
+        const userRecurring: RecurringTransaction[] = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            userRecurring.push({
+                id: doc.id,
+                ...data,
+                startDate: data.startDate.toDate().toISOString(),
+                lastGeneratedDate: data.lastGeneratedDate?.toDate().toISOString(),
+                createdAt: data.createdAt?.toDate().toISOString(),
+            } as RecurringTransaction);
+        });
+        setRecurringTransactions(userRecurring);
+      });
+
 
       return () => {
         unsubscribeProfile();
         unsubscribeTransactions();
         unsubscribeBudgets();
         unsubscribePlans();
+        unsubscribeRecurring();
       };
     } else {
       // Clear all data on logout
@@ -135,6 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setBudgets([]);
       setFinancialPlans([]);
+      setRecurringTransactions([]);
     }
   }, [user]);
 
@@ -287,6 +311,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addRecurringTransaction = async (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'recurringTransactions'), {
+            ...transaction,
+            userId: user.uid,
+            isActive: true,
+            startDate: Timestamp.fromDate(new Date(transaction.startDate)),
+            createdAt: serverTimestamp(),
+        });
+        toast({ title: 'Recurring Transaction Added' });
+    } catch (error) {
+        console.error('Error adding recurring transaction:', error);
+        toast({ variant: 'destructive', title: 'Error adding recurring item' });
+    }
+  };
+
+  const updateRecurringTransaction = async (transactionId: string, data: Partial<Omit<RecurringTransaction, 'id'>>) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    const { startDate, ...restData } = data;
+    const updateData: any = { ...restData };
+    if (startDate) {
+        updateData.startDate = Timestamp.fromDate(new Date(startDate));
+    }
+    try {
+        await updateDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId), updateData);
+        toast({ title: 'Recurring Transaction Updated' });
+    } catch (error) {
+        console.error('Error updating recurring transaction:', error);
+        toast({ variant: 'destructive', title: 'Error updating recurring item' });
+    }
+  };
+
+  const deleteRecurringTransaction = async (transactionId: string) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId));
+        toast({ title: 'Recurring Transaction Deleted' });
+    } catch (error) {
+        console.error('Error deleting recurring transaction:', error);
+        toast({ variant: 'destructive', title: 'Error deleting recurring item' });
+    }
+  };
+
   const updateUserPreferences = async (data: Partial<UserProfile>) => {
     if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
     try {
@@ -321,6 +389,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateFinancialPlan,
         deleteFinancialPlan,
         updateUserPreferences,
+        recurringTransactions,
+        addRecurringTransaction,
+        updateRecurringTransaction,
+        deleteRecurringTransaction,
       }}
     >
       {children}
