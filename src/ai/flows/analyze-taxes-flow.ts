@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview An AI flow to automatically analyze transactions and identify tax liabilities.
+ * @fileOverview An AI flow to automatically analyze transactions and identify tax liabilities, with support for custom user-provided tax documentation.
  *
  * - analyzeTaxes - A function that handles the tax analysis process.
  * - AnalyzeTaxesInput - The input type for the analyzeTaxes function.
@@ -34,29 +34,12 @@ const calculatePayeTax = ai.defineTool(
         let tax = 0;
         let incomeLeft = annualIncome;
     
-        if (incomeLeft > 3_700_000) {
-            tax += (incomeLeft - 3_700_000) * 0.36;
-            incomeLeft = 3_700_000;
-        }
-        if (incomeLeft > 3_200_000) {
-            tax += (incomeLeft - 3_200_000) * 0.30;
-            incomeLeft = 3_200_000;
-        }
-        if (incomeLeft > 2_700_000) {
-            tax += (incomeLeft - 2_700_000) * 0.24;
-            incomeLeft = 2_700_000;
-        }
-        if (incomeLeft > 2_200_000) {
-            tax += (incomeLeft - 2_200_000) * 0.18;
-            incomeLeft = 2_200_000;
-        }
-        if (incomeLeft > 1_700_000) {
-            tax += (incomeLeft - 1_700_000) * 0.12;
-            incomeLeft = 1_700_000;
-        }
-        if (incomeLeft > 1_200_000) {
-            tax += (incomeLeft - 1_200_000) * 0.06;
-        }
+        if (incomeLeft > 3_700_000) { tax += (incomeLeft - 3_700_000) * 0.36; incomeLeft = 3_700_000; }
+        if (incomeLeft > 3_200_000) { tax += (incomeLeft - 3_200_000) * 0.30; incomeLeft = 3_200_000; }
+        if (incomeLeft > 2_700_000) { tax += (incomeLeft - 2_700_000) * 0.24; incomeLeft = 2_700_000; }
+        if (incomeLeft > 2_200_000) { tax += (incomeLeft - 2_200_000) * 0.18; incomeLeft = 2_200_000; }
+        if (incomeLeft > 1_700_000) { tax += (incomeLeft - 1_700_000) * 0.12; incomeLeft = 1_700_000; }
+        if (incomeLeft > 1_200_000) { tax += (incomeLeft - 1_200_000) * 0.06; }
         return tax;
     }
 );
@@ -89,7 +72,13 @@ const TransactionSchema = z.object({
     source: z.string(),
     date: z.string(),
 });
-export type AnalyzeTaxesInput = z.infer<typeof TransactionSchema>;
+
+const AnalyzeTaxesInputSchema = z.object({
+  transactions: z.array(TransactionSchema),
+  taxDocument: z.string().optional().describe('User-provided text describing tax rules and regulations. This should be treated as the primary source of truth.'),
+});
+export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
+
 
 const TaxLiabilitySchema = z.object({
     taxType: z.string().describe('The type of tax, e.g., "PAYE", "VAT".'),
@@ -105,62 +94,91 @@ export type AnalyzeTaxesOutput = z.infer<typeof AnalyzeTaxesOutputSchema>;
 
 // Main Flow Definition
 export async function analyzeTaxes(
-  input: { transactions: AnalyzeTaxesInput[] }
+  input: AnalyzeTaxesInput
 ): Promise<AnalyzeTaxesOutput> {
   return analyzeTaxesFlow(input);
 }
 
+const taxAnalysisPrompt = ai.definePrompt({
+    name: 'taxAnalysisPrompt',
+    input: { schema: AnalyzeTaxesInputSchema },
+    output: { schema: AnalyzeTaxesOutputSchema },
+    tools: [calculatePayeTax, calculateVat],
+    system: `You are an expert financial analyst specializing in Sri Lankan tax law. Your task is to analyze a list of transactions and identify all potential tax liabilities.
+
+    **Primary instructions:**
+    1.  If the user provides custom tax documentation, you MUST prioritize it over your internal knowledge or the hardcoded tool logic. Use the tools for calculation, but let the document guide your decisions on what to calculate and which rates to apply. For example, if the document specifies a different VAT rate, you should use that rate in your reasoning, though the tool itself will use its hardcoded rate. You must mention this discrepancy in your description.
+    2.  Calculate the total PAYE (income tax) on the user's total income. To do this, first sum up all 'income' type transactions and then call the \`calculatePayeTax\` tool with the total.
+    3.  Iterate through all 'expense' transactions and use the \`calculateVat\` tool to determine the VAT paid on each applicable item. Sum these amounts to get a total VAT liability.
+    4.  Aggregate the results into a final list of liabilities. Provide a clear, concise description for each liability.
+    
+    {{#if taxDocument}}
+    **User-Provided Tax Documentation (Primary Source of Truth):**
+    ---
+    {{{taxDocument}}}
+    ---
+    {{/if}}
+    `,
+});
+
+
 const analyzeTaxesFlow = ai.defineFlow(
   {
     name: 'analyzeTaxesFlow',
-    inputSchema: z.object({ transactions: z.array(TransactionSchema) }),
+    inputSchema: AnalyzeTaxesInputSchema,
     outputSchema: AnalyzeTaxesOutputSchema,
   },
-  async ({ transactions }) => {
-    const liabilities: z.infer<typeof TaxLiabilitySchema>[] = [];
+  async (input) => {
     
-    // 1. Calculate Annual Income and PAYE
-    const totalIncome = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const llmResponse = await taxAnalysisPrompt(input);
+    const output = llmResponse.output;
 
-    if (totalIncome > 0) {
-        const payeTax = await calculatePayeTax({ annualIncome: totalIncome });
-        if (payeTax > 0) {
-            liabilities.push({
-                taxType: 'PAYE (Income Tax)',
-                description: `Estimated annual income tax on a total income of ${totalIncome.toFixed(2)}.`,
-                amount: payeTax,
-            });
-        }
-    }
+    if (!output || !output.liabilities || output.liabilities.length === 0) {
+        console.log("AI did not return liabilities, running programmatic fallback.");
+        const liabilities: z.infer<typeof TaxLiabilitySchema>[] = [];
+        
+        const totalIncome = input.transactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0);
 
-    // 2. Calculate Total VAT from expenses
-    let totalVat = 0;
-    const vatTransactionIds: string[] = [];
-
-    for (const transaction of transactions) {
-        if (transaction.type === 'expense') {
-            const vatAmount = await calculateVat({
-                amount: transaction.amount,
-                category: transaction.category,
-            });
-            if (vatAmount > 0) {
-                totalVat += vatAmount;
-                vatTransactionIds.push(transaction.id);
+        if (totalIncome > 0) {
+            const payeTax = await calculatePayeTax({ annualIncome: totalIncome });
+            if (payeTax > 0) {
+                liabilities.push({
+                    taxType: 'PAYE (Income Tax)',
+                    description: `Estimated annual income tax on a total income of ${totalIncome.toFixed(2)}.`,
+                    amount: payeTax,
+                });
             }
         }
+
+        let totalVat = 0;
+        const vatTransactionIds: string[] = [];
+
+        for (const transaction of input.transactions) {
+            if (transaction.type === 'expense') {
+                const vatAmount = await calculateVat({
+                    amount: transaction.amount,
+                    category: transaction.category,
+                });
+                if (vatAmount > 0) {
+                    totalVat += vatAmount;
+                    vatTransactionIds.push(transaction.id);
+                }
+            }
+        }
+
+        if (totalVat > 0) {
+            liabilities.push({
+                taxType: 'VAT (Value Added Tax)',
+                description: 'Estimated total VAT paid on goods and services.',
+                amount: totalVat,
+                sourceTransactionIds: vatTransactionIds,
+            });
+        }
+        return { liabilities };
     }
 
-    if (totalVat > 0) {
-        liabilities.push({
-            taxType: 'VAT (Value Added Tax)',
-            description: 'Estimated total VAT paid on goods and services.',
-            amount: totalVat,
-            sourceTransactionIds: vatTransactionIds,
-        });
-    }
-
-    return { liabilities };
+    return output;
   }
 );

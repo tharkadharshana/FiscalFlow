@@ -106,7 +106,7 @@ export async function assistantAction(
 }
 
 export async function analyzeTaxesAction(
-    input: { transactions: AnalyzeTaxesInput[] }
+    input: AnalyzeTaxesInput
 ): Promise<TaxAnalysisResult> {
     try {
         const result = await analyzeTaxes(input);

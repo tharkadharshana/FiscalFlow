@@ -14,10 +14,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2 } from 'lucide-react';
+import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 // Import Calculators
 import { VehicleImportCalculator } from '@/components/dashboard/tax/vehicle-import-calculator';
@@ -33,6 +36,8 @@ export default function TaxPage() {
     const [analysisResult, setAnalysisResult] = useState<AnalyzeTaxesOutput | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisError, setAnalysisError] = useState<string | null>(null);
+    const [taxDocument, setTaxDocument] = useState<string>('');
+    const [isDocsOpen, setIsDocsOpen] = useState(false);
 
     const taxData = useMemo(() => {
         const taxableIncome = transactions
@@ -63,16 +68,19 @@ export default function TaxPage() {
         setAnalysisResult(null);
         setAnalysisError(null);
 
-        const analysisInput: AnalyzeTaxesInput[] = transactions.map(t => ({
-            id: t.id,
-            type: t.type,
-            amount: t.amount,
-            category: t.category,
-            source: t.source,
-            date: t.date,
-        }));
+        const analysisInput: AnalyzeTaxesInput = {
+            transactions: transactions.map(t => ({
+                id: t.id,
+                type: t.type,
+                amount: t.amount,
+                category: t.category,
+                source: t.source,
+                date: t.date,
+            })),
+            taxDocument: taxDocument,
+        };
 
-        const result = await analyzeTaxesAction({ transactions: analysisInput });
+        const result = await analyzeTaxesAction(analysisInput);
         
         if ('error' in result) {
             setAnalysisError(result.error);
@@ -175,7 +183,27 @@ export default function TaxPage() {
                             </div>
                         )}
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex-col items-start gap-4">
+                        <Collapsible open={isDocsOpen} onOpenChange={setIsDocsOpen} className="w-full">
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" className="w-full justify-start px-2 gap-2">
+                                    <ChevronDown className={`h-4 w-4 transition-transform ${isDocsOpen && 'rotate-180'}`} />
+                                    <BookOpen className="h-4 w-4" />
+                                    <span>Provide Custom Tax Documentation (Optional)</span>
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-2 pt-4">
+                                <Label htmlFor="tax-docs">Custom Tax Rules</Label>
+                                <Textarea 
+                                    id="tax-docs"
+                                    placeholder="Paste any custom tax rules or documentation here. For example: 'VAT is 20% on all items except for food.' The AI will use this as its primary source of truth."
+                                    value={taxDocument}
+                                    onChange={(e) => setTaxDocument(e.target.value)}
+                                    rows={6}
+                                />
+                                <p className="text-xs text-muted-foreground">The AI will prioritize these rules over its built-in knowledge.</p>
+                            </CollapsibleContent>
+                        </Collapsible>
                         <Button onClick={handleAnalyzeTaxes} disabled={isAnalyzing}>
                             {isAnalyzing ? 'Analyzing...' : 'Run AI Analysis'}
                         </Button>
