@@ -26,6 +26,11 @@ import {
     type AssistantActionInput,
     type VoiceAction
 } from '@/ai/flows/assistant-flow';
+import {
+    analyzeTaxes,
+    type AnalyzeTaxesInput,
+    type AnalyzeTaxesOutput,
+} from '@/ai/flows/analyze-taxes-flow';
 
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
@@ -33,6 +38,7 @@ type InsightsResult = GenerateInsightsOutput | { error: string };
 type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };
 type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
 type AssistantResult = VoiceAction | { error: string };
+type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
 
 
 export async function parseReceiptAction(
@@ -96,5 +102,17 @@ export async function assistantAction(
     } catch (error) {
         console.error('Error in assistantAction:', error);
         return { action: 'unknown', reason: 'An unexpected error occurred while processing your command.' };
+    }
+}
+
+export async function analyzeTaxesAction(
+    input: { transactions: AnalyzeTaxesInput[] }
+): Promise<TaxAnalysisResult> {
+    try {
+        const result = await analyzeTaxes(input);
+        return result;
+    } catch (error) {
+        console.error('Error in analyzeTaxesAction:', error);
+        return { error: 'Failed to analyze taxes. Please try again later.' };
     }
 }

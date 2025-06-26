@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Header } from '@/components/dashboard/header';
 import {
   Card,
@@ -9,11 +9,12 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet } from 'lucide-react';
+import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -23,9 +24,15 @@ import { VehicleImportCalculator } from '@/components/dashboard/tax/vehicle-impo
 import { IncomeTaxCalculator } from '@/components/dashboard/tax/income-tax-calculator';
 import { VatCalculator } from '@/components/dashboard/tax/vat-calculator';
 import { StampDutyCalculator } from '@/components/dashboard/tax/stamp-duty-calculator';
+import { analyzeTaxesAction } from '@/lib/actions';
+import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/ai/flows/analyze-taxes-flow';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function TaxPage() {
     const { transactions } = useAppContext();
+    const [analysisResult, setAnalysisResult] = useState<AnalyzeTaxesOutput | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisError, setAnalysisError] = useState<string | null>(null);
 
     const taxData = useMemo(() => {
         const taxableIncome = transactions
@@ -50,6 +57,30 @@ export default function TaxPage() {
           currency: 'USD',
         }).format(amount);
     };
+    
+    const handleAnalyzeTaxes = async () => {
+        setIsAnalyzing(true);
+        setAnalysisResult(null);
+        setAnalysisError(null);
+
+        const analysisInput: AnalyzeTaxesInput[] = transactions.map(t => ({
+            id: t.id,
+            type: t.type,
+            amount: t.amount,
+            category: t.category,
+            source: t.source,
+            date: t.date,
+        }));
+
+        const result = await analyzeTaxesAction({ transactions: analysisInput });
+        
+        if ('error' in result) {
+            setAnalysisError(result.error);
+        } else {
+            setAnalysisResult(result);
+        }
+        setIsAnalyzing(false);
+    }
 
   return (
     <>
@@ -97,9 +128,64 @@ export default function TaxPage() {
                 </div>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Tax-Related Transactions</CardTitle>
+                        <CardTitle>AI Tax Analysis Engine</CardTitle>
                         <CardDescription>
-                            This table shows all income and expenses you've manually flagged as tax-related using the switch in the transaction form. Automatic tax detection is a future feature.
+                            Automatically detect potential direct and indirect taxes based on your transaction history.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isAnalyzing ? (
+                            <div className="flex justify-center items-center h-24">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <p className="ml-4 text-muted-foreground">AI is analyzing your transactions...</p>
+                            </div>
+                        ) : analysisResult ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tax Type</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead className="text-right">Estimated Amount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {analysisResult.liabilities?.length > 0 ? (
+                                        analysisResult.liabilities.map((liability: any, index: number) => (
+                                            <TableRow key={index}>
+                                                <TableCell className="font-medium">{liability.taxType}</TableCell>
+                                                <TableCell>{liability.description}</TableCell>
+                                                <TableCell className="text-right font-mono">{formatCurrency(liability.amount)}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="text-center h-24">No tax liabilities detected.</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        ) : analysisError ? (
+                             <Alert variant="destructive">
+                                <AlertTitle>Analysis Failed</AlertTitle>
+                                <AlertDescription>{analysisError}</AlertDescription>
+                            </Alert>
+                        ) : (
+                             <div className="text-center text-muted-foreground py-10">
+                                <p>Click the button below to start the analysis.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button onClick={handleAnalyzeTaxes} disabled={isAnalyzing}>
+                            {isAnalyzing ? 'Analyzing...' : 'Run AI Analysis'}
+                        </Button>
+                    </CardFooter>
+                </Card>
+                <Card className="mt-6">
+                    <CardHeader>
+                        <CardTitle>Manually Flagged Transactions</CardTitle>
+                        <CardDescription>
+                            This table shows all income and expenses you've manually flagged as tax-related using the switch in the transaction form.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

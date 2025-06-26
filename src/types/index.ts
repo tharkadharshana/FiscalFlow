@@ -99,3 +99,10 @@ export interface SavingsGoal {
   isRoundupGoal?: boolean;
   badges: Badge[];
 }
+
+export interface TaxLiability {
+  taxType: string;
+  description: string;
+  amount: number;
+  sourceTransactionIds?: string[];
+}
