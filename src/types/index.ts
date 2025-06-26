@@ -17,6 +17,7 @@ export interface Transaction {
   financialPlanId?: string; // ID of the FinancialPlan
   planItemId?: string; // ID of the item within the plan
   isTaxDeductible?: boolean;
+  carbonFootprint?: number; // in kg CO2e
 }
 
 export interface Budget {

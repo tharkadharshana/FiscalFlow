@@ -25,6 +25,7 @@ import {
   getDocs,
   writeBatch,
 } from 'firebase/firestore';
+import { estimateCarbonFootprint } from '@/lib/carbon';
 
 interface AppContextType {
   user: User | null;
@@ -195,10 +196,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const { date, financialPlanId, planItemId, isTaxDeductible, ...restOfTransaction } = transaction;
+        const carbonFootprint = estimateCarbonFootprint(transaction);
 
         const transactionData = { ...restOfTransaction, date: Timestamp.fromDate(new Date(date)),
           createdAt: serverTimestamp(), userId: user.uid, financialPlanId: financialPlanId || null, planItemId: planItemId || null,
           isTaxDeductible: isTaxDeductible || false,
+          carbonFootprint,
         };
         firestoreTransaction.set(doc(collection(db, 'users', user.uid, 'transactions')), transactionData);
 
@@ -274,8 +277,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     });
                 }
             }
+
+            const carbonFootprint = estimateCarbonFootprint({ ...oldTxData, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
     
-            const finalUpdateData: any = { ...updatedData };
+            const finalUpdateData: any = { ...updatedData, carbonFootprint };
             if (finalUpdateData.date) finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
             t.update(txRef, finalUpdateData);
         });

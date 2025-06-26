@@ -89,7 +89,7 @@ export function SmartInsights() {
   }
 
   return (
-    <Card className="h-full">
+    <Card>
       <CardHeader>
         <CardTitle className="font-headline">Smart Insights</CardTitle>
         <CardDescription>AI-powered tips based on your spending.</CardDescription>

@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { Transaction } from '@/types';
 import { RecurringTransactions } from '@/components/dashboard/recurring-transactions';
-import { Repeat, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { Repeat, MoreVertical, Pencil, Trash2, Leaf } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,9 +82,17 @@ export default function TransactionsPage() {
             </Avatar>
             <div className="grid gap-1">
               <p className="font-medium truncate">{transaction.source}</p>
-              <p className="hidden text-sm text-muted-foreground truncate md:block">
-                {transaction.notes || 'No notes'}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="hidden text-sm text-muted-foreground md:block">
+                  {transaction.notes || 'No notes'}
+                </p>
+                {transaction.carbonFootprint && transaction.carbonFootprint > 0 && (
+                  <Badge variant="outline" className="flex items-center gap-1 font-normal border-green-200 bg-green-50 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300">
+                    <Leaf className="h-3 w-3" />
+                    {transaction.carbonFootprint.toFixed(1)} kg CO₂e
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </TableCell>

@@ -4,6 +4,7 @@ import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { SpendChart } from '@/components/dashboard/spend-chart';
 import { SmartInsights } from '@/components/dashboard/smart-insights';
 import { TopCategories } from '@/components/dashboard/top-categories';
+import { CarbonFootprintCard } from '@/components/dashboard/carbon-footprint-card';
 
 export default function DashboardPage() {
   return (
@@ -23,8 +24,9 @@ export default function DashboardPage() {
           <div className="lg:col-span-4">
             <RecentTransactions />
           </div>
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 space-y-6">
             <SmartInsights />
+            <CarbonFootprintCard />
           </div>
         </div>
       </main>
