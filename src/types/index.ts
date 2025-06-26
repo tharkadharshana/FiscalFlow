@@ -6,4 +6,8 @@ export interface Transaction {
   date: string; // ISO string
   description: string;
   icon: React.ComponentType<{ className?: string }>;
+  imageURL?: string;
+  tags?: string[];
+  ocrParsed?: boolean;
+  isRecurring?: boolean;
 }

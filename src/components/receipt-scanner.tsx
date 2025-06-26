@@ -86,6 +86,7 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
         description: description,
         category: category,
         date: new Date().toISOString(),
+        ocrParsed: true,
     });
     onTransactionAdded();
   }
