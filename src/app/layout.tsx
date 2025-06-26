@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster"
 import { AppProvider } from "@/contexts/app-context";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 
 export const metadata: Metadata = {
   title: "FiscalFlow",
@@ -27,6 +28,7 @@ export default function RootLayout({
         <AppProvider>
           {children}
           <Toaster />
+          <CookieConsentBanner />
         </AppProvider>
       </body>
     </html>

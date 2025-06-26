@@ -4,6 +4,7 @@
 
 
 
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -58,6 +59,7 @@ export interface UserProfile {
     monthlyTaxReports?: { count: number; month: string };
     monthlyVoiceCommands?: { count: number; month: string };
   };
+  hasCompletedOnboarding?: boolean;
 }
 
 export interface PlanItem {
@@ -136,7 +138,7 @@ export interface TaxLiability {
 }
 
 export interface Notification {
-  id: string;
+  id:string;
   title: string;
   description: string;
   createdAt: any; // ISO String or Firestore Timestamp

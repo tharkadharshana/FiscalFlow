@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -9,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
-import { Calendar as CalendarIcon, FileDown, AreaChart, FileText } from 'lucide-react';
+import { Calendar as CalendarIcon, FileDown, AreaChart, FileText, BarChart2 } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { useAppContext } from '@/contexts/app-context';
@@ -22,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, BarChart, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import type { Transaction } from '@/types';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -207,7 +208,7 @@ export default function ReportsPage() {
     return (
         <div className="flex flex-1 flex-col">
             <Header title="Reports" />
-            <main className="flex-1 p-4 md:p-6">
+            <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
                 <UpgradeCard 
                     title="Unlock Powerful Reports"
                     description="Generate detailed monthly, yearly, or custom reports to understand your finances better. Premium only."
@@ -324,7 +325,7 @@ export default function ReportsPage() {
                         {allCategories.map((cat) => (
                              <DropdownMenuCheckboxItem
                                 key={cat}
-                                checked={selectedCategories[cat]}
+                                checked={selectedCategories[cat] ?? true}
                                 onCheckedChange={() => handleCategoryChange(cat)}
                              >
                                 {cat}
@@ -354,7 +355,7 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
-        {generatedReport && (
+        {generatedReport ? (
             <Card>
                 <CardHeader>
                     <CardTitle>Report Summary</CardTitle>
@@ -392,7 +393,7 @@ export default function ReportsPage() {
                         <h3 className="font-headline text-lg font-semibold mb-4">Expense Breakdown by Category</h3>
                         <div className="h-[350px]">
                             <ChartContainer config={{total: { label: "Total", color: "hsl(var(--chart-1))" }}}>
-                                <BarChart data={generatedReport.chartData} layout="vertical" margin={{ left: 20 }}>
+                                <RechartsBarChart data={generatedReport.chartData} layout="vertical" margin={{ left: 20 }}>
                                     <XAxis type="number" hide />
                                     <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={120} stroke="hsl(var(--muted-foreground))"/>
                                     <RechartsTooltip 
@@ -403,13 +404,19 @@ export default function ReportsPage() {
                                         />} 
                                     />
                                     <Bar dataKey="total" fill="hsl(var(--chart-1))" radius={4} />
-                                </BarChart>
+                                </RechartsBarChart>
                             </ChartContainer>
                         </div>
                         </div>
                     )}
                 </CardContent>
             </Card>
+        ) : (
+          <div className="text-center text-muted-foreground py-16">
+            <BarChart2 className="mx-auto h-12 w-12 mb-4" />
+            <p className="text-lg font-semibold">No report generated yet.</p>
+            <p>Use the controls above to generate a new report.</p>
+          </div>
         )}
       </main>
     </div>

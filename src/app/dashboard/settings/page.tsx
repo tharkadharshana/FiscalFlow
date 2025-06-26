@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -19,6 +20,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
+import Link from 'next/link';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
@@ -134,7 +137,7 @@ export default function SettingsPage() {
       </Card>
   );
 
-  if (loading) {
+  if (loading && !userProfile) {
     return (
         <div className="flex flex-1 flex-col">
             <Header title="Settings" />
@@ -291,6 +294,21 @@ export default function SettingsPage() {
                     </FormItem>
                   )}
                 />
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Legal & Help</CardTitle>
+                <CardDescription>View our policies and get support.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col items-start gap-4">
+                <Button asChild variant="link" className="p-0 h-auto">
+                    <Link href="/terms">Terms of Service</Link>
+                </Button>
+                <Button asChild variant="link" className="p-0 h-auto">
+                    <Link href="/privacy">Privacy Policy</Link>
+                </Button>
               </CardContent>
             </Card>
 

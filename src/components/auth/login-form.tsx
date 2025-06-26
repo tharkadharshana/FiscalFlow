@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -23,6 +24,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useAppContext } from '@/contexts/app-context';
+import Link from 'next/link';
 
 export function LoginForm() {
   const router = useRouter();
@@ -57,6 +59,28 @@ export function LoginForm() {
     }
   };
 
+  const handleNewUserSetup = async (user: any) => {
+    await setDoc(doc(db, "users", user.uid), {
+        displayName: user.displayName,
+        email: user.email,
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        currencyPreference: 'USD',
+        darkModeBanner: false,
+        notificationPreferences: {
+            budgetThreshold: true,
+            recurringPayment: true,
+        },
+        profilePictureURL: user.photoURL || null,
+        subscription: {
+          tier: 'free',
+          isActive: true,
+          expiryDate: null,
+        },
+        hasCompletedOnboarding: false,
+      });
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -78,34 +102,13 @@ export function LoginForm() {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        
-        // Create user document in Firestore
-        await setDoc(doc(db, "users", userCredential.user.uid), {
-          displayName: name,
-          email: email,
-          createdAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp(),
-          currencyPreference: 'USD',
-          darkModeBanner: false,
-          notificationPreferences: {
-              budgetThreshold: true,
-              recurringPayment: true,
-          },
-          profilePictureURL: userCredential.user.photoURL || null,
-          subscription: {
-            tier: 'free',
-            isActive: true,
-            expiryDate: null,
-          },
-        });
-        
+        await handleNewUserSetup(userCredential.user);
         await sendEmailVerification(userCredential.user);
         showNotification({
           type: 'success',
           title: 'Account Created',
           description: 'A verification email has been sent. Please check your inbox.',
         });
-
         router.push('/dashboard');
       } catch (error: any) {
         showNotification({
@@ -126,26 +129,8 @@ export function LoginForm() {
       const result = await signInWithPopup(auth, provider);
       const additionalInfo = getAdditionalUserInfo(result);
       
-      // If it's a new user, create a document in Firestore
       if (additionalInfo?.isNewUser) {
-        await setDoc(doc(db, 'users', result.user.uid), {
-          displayName: result.user.displayName,
-          email: result.user.email,
-          createdAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp(),
-          currencyPreference: 'USD',
-          darkModeBanner: false,
-          notificationPreferences: {
-            budgetThreshold: true,
-            recurringPayment: true,
-          },
-          profilePictureURL: result.user.photoURL,
-          subscription: {
-            tier: 'free',
-            isActive: true,
-            expiryDate: null,
-          },
-        });
+        await handleNewUserSetup(result.user);
         showNotification({
           type: 'success',
           title: 'Welcome!',
@@ -172,26 +157,8 @@ export function LoginForm() {
       const result = await signInWithPopup(auth, provider);
       const additionalInfo = getAdditionalUserInfo(result);
       
-      // If it's a new user, create a document in Firestore
       if (additionalInfo?.isNewUser) {
-        await setDoc(doc(db, 'users', result.user.uid), {
-          displayName: result.user.displayName,
-          email: result.user.email,
-          createdAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp(),
-          currencyPreference: 'USD',
-          darkModeBanner: false,
-          notificationPreferences: {
-            budgetThreshold: true,
-            recurringPayment: true,
-          },
-          profilePictureURL: result.user.photoURL,
-          subscription: {
-            tier: 'free',
-            isActive: true,
-            expiryDate: null,
-          },
-        });
+        await handleNewUserSetup(result.user);
         showNotification({
           type: 'success',
           title: 'Welcome!',
@@ -235,118 +202,131 @@ export function LoginForm() {
   const { title, description } = renderHeader();
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="font-headline text-2xl">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {authMode === 'reset' ? (
-           <form onSubmit={handlePasswordReset} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <Button type="submit" className="w-full font-bold" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send Reset Link
-              </Button>
-               <div className="mt-6 text-center text-sm">
-                Remembered your password?{' '}
-                <button
-                    onClick={() => setAuthMode('login')}
-                    className="font-bold text-primary hover:underline"
-                    type="button"
-                >
-                    Log in
-                </button>
-              </div>
-           </form>
-        ) : (
-            <>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {authMode === 'signup' && (
+    <>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {authMode === 'reset' ? (
+            <form onSubmit={handlePasswordReset} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="name"
-                    placeholder="John Doe"
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
                     required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  {authMode === 'login' && (
-                    <button type="button" onClick={() => setAuthMode('reset')} className="text-sm font-medium text-primary hover:underline">
-                      Forgot password?
-                    </button>
-                  )}
+                <Button type="submit" className="w-full font-bold" disabled={isLoading}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Reset Link
+                </Button>
+                <div className="mt-6 text-center text-sm">
+                  Remembered your password?{' '}
+                  <button
+                      onClick={() => setAuthMode('login')}
+                      className="font-bold text-primary hover:underline"
+                      type="button"
+                  >
+                      Log in
+                  </button>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <Button type="submit" className="w-full font-bold" disabled={isLoading || isGoogleLoading || isAppleLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {authMode === 'login' ? 'Log In' : 'Sign Up'}
-              </Button>
             </form>
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+          ) : (
+              <>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {authMode === 'signup' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="John Doe"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {authMode === 'login' && (
+                      <button type="button" onClick={() => setAuthMode('reset')} className="text-sm font-medium text-primary hover:underline">
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full font-bold" disabled={isLoading || isGoogleLoading || isAppleLoading}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {authMode === 'login' ? 'Log In' : 'Sign Up'}
+                </Button>
+              </form>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              <div className="grid grid-cols-2 gap-4">
+                <Button variant="outline" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
+                  {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.google className="mr-2 h-4 w-4" />}
+                  Google
+                </Button>
+                <Button variant="outline" onClick={handleAppleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
+                  {isAppleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.apple className="mr-2 h-4 w-4" />}
+                  Apple
+                </Button>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
-                {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.google className="mr-2 h-4 w-4" />}
-                Google
-              </Button>
-              <Button variant="outline" onClick={handleAppleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
-                {isAppleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.apple className="mr-2 h-4 w-4" />}
-                Apple
-              </Button>
-            </div>
-            <div className="mt-6 text-center text-sm">
-              {authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-              <button
-                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                className="font-bold text-primary hover:underline"
-              >
-                {authMode === 'login' ? 'Sign up' : 'Log in'}
-              </button>
-            </div>
-            </>
-        )}
-      </CardContent>
-    </Card>
+              <div className="mt-6 text-center text-sm">
+                {authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                <button
+                  onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                  className="font-bold text-primary hover:underline"
+                >
+                  {authMode === 'login' ? 'Sign up' : 'Log in'}
+                </button>
+              </div>
+              </>
+          )}
+        </CardContent>
+      </Card>
+      <footer className="mt-8 text-center text-sm text-muted-foreground">
+        By continuing, you agree to our{' '}
+        <Link href="/terms" className="underline hover:text-primary">
+          Terms of Service
+        </Link>{' '}
+        and{' '}
+        <Link href="/privacy" className="underline hover:text-primary">
+          Privacy Policy
+        </Link>
+        .
+      </footer>
+    </>
   );
 }

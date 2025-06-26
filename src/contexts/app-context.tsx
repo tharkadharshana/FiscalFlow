@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
@@ -40,6 +41,9 @@ export const FREE_TIER_LIMITS = {
     voiceCommands: 5,
     customCategories: 3,
     investments: 1,
+    bankAccounts: 1,
+    bankTransactions: 10,
+    expenseSplits: 3,
   };
 
 
@@ -87,6 +91,7 @@ interface AppContextType {
   markAllNotificationsAsRead: () => Promise<void>;
   upgradeToPremium: () => Promise<void>;
   downgradeFromPremium: () => Promise<void>;
+  markOnboardingComplete: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -710,6 +715,15 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
 
+  const markOnboardingComplete = async () => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { hasCompletedOnboarding: true });
+    } catch (error) {
+      console.error('Error marking onboarding complete:', error);
+    }
+  };
+
   const upgradeToPremium = async () => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
@@ -787,7 +801,7 @@ const deleteTransaction = async (transactionId: string) => {
         investments, addInvestment, updateInvestment, deleteInvestment,
         formatCurrency,
         notifications, showNotification, markAllNotificationsAsRead,
-        upgradeToPremium, downgradeFromPremium,
+        upgradeToPremium, downgradeFromPremium, markOnboardingComplete,
       }}
     >
       {children}

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -42,7 +43,7 @@ const menuItems = [
   { href: '/dashboard/budgets', label: 'Budgets', icon: Target },
   { href: '/dashboard/savings', label: 'Savings Goals', icon: PiggyBank, premium: true },
   { href: '/dashboard/tax', label: 'Tax Center', icon: Landmark, premium: true },
-  { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays, premium: true },
+  { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -80,20 +81,19 @@ export function SidebarNav() {
         <SidebarMenu>
           {menuItems.map((item) => {
             const isItemPremium = item.premium ?? false;
-            // Hide premium items for free users, but always show settings and dashboard basics
-            if (isItemPremium && !isPremium) return null;
-
+            
             return (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
                   isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
                   tooltip={{ children: item.label }}
+                  disabled={isItemPremium && !isPremium}
                 >
                   <Link href={item.href}>
                     <item.icon />
                     <span>{item.label}</span>
-                     {isItemPremium && (
+                     {(isItemPremium && !isPremium) && (
                         <Sparkles className="ml-auto h-4 w-4 text-amber-500" />
                      )}
                   </Link>
@@ -107,9 +107,11 @@ export function SidebarNav() {
       <SidebarFooter className="p-2">
          <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton tooltip={{children: 'Help & Support'}}>
+                <SidebarMenuButton asChild tooltip={{children: 'Help & Support'}}>
+                  <a href="mailto:support@fiscalflow.app">
                     <CircleHelp />
                     <span>Help & Support</span>
+                  </a>
                 </SidebarMenuButton>
             </SidebarMenuItem>
              <SidebarMenuItem>
