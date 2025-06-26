@@ -55,7 +55,7 @@ export default function ReportsPage() {
 
   // Effect to update selected categories when allCategories from context changes
   useEffect(() => {
-    setSelectedCategories(
+    setSelectedCategories(prev => 
       allCategories.reduce((acc, cat) => ({ ...acc, [cat]: prev[cat] ?? true }), {})
     );
   }, [allCategories]);
