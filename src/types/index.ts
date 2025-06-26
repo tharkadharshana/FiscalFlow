@@ -1,3 +1,4 @@
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -79,4 +80,21 @@ export interface RecurringTransaction {
   isActive: boolean;
   lastGeneratedDate?: string; // ISO string
   createdAt: any;
+}
+
+export interface Badge {
+  name: 'First Saving' | '25% Mark' | '50% Mark' | '75% Mark' | 'Goal Achieved!';
+  dateAchieved: string; // ISO string
+}
+
+export interface SavingsGoal {
+  id: string;
+  userId: string;
+  title: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string; // ISO string
+  createdAt: any;
+  isRoundupGoal?: boolean;
+  badges: Badge[];
 }

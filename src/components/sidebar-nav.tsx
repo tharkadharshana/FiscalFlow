@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -25,6 +26,7 @@ import {
   CircleHelp,
   LogOut,
   CalendarDays,
+  PiggyBank,
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/app-context';
 
@@ -33,6 +35,7 @@ const menuItems = [
   { href: '/dashboard/transactions', label: 'Transactions', icon: Wallet },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText },
   { href: '/dashboard/budgets', label: 'Budgets', icon: Target },
+  { href: '/dashboard/savings', label: 'Savings Goals', icon: PiggyBank },
   { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
@@ -63,7 +66,7 @@ export function SidebarNav() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === item.href}
+                isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
                 tooltip={{ children: item.label }}
               >
                 <Link href={item.href}>
