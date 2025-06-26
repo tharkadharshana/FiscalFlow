@@ -87,7 +87,15 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         };
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
-            toast({ variant: 'destructive', title: 'Speech Recognition Error', description: event.error });
+            if (event.error === 'not-allowed') {
+                toast({
+                    variant: 'destructive',
+                    title: 'Microphone Access Denied',
+                    description: "Please allow microphone access in your browser's site settings to use this feature."
+                });
+            } else {
+                toast({ variant: 'destructive', title: 'Speech Recognition Error', description: event.error });
+            }
             setIsRecording(false);
         };
         recognitionRef.current.onend = () => {
