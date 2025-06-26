@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -72,7 +73,7 @@ export default function SettingsPage() {
     setNewCategory('');
   }
 
-  if (loading || !userProfile) {
+  if (loading) {
     return (
         <div className="flex flex-1 flex-col">
             <Header title="Settings" />
@@ -81,6 +82,20 @@ export default function SettingsPage() {
             </div>
       </div>
     );
+  }
+
+  if (!userProfile) {
+    return (
+        <div className="flex flex-1 flex-col">
+            <Header title="Settings" />
+            <div className="flex flex-1 items-center justify-center text-center p-4">
+                <div>
+                    <p className="text-lg font-semibold text-destructive">Could not load user profile.</p>
+                    <p className="text-muted-foreground">There was an issue fetching your settings. Please try logging out and back in.</p>
+                </div>
+            </div>
+      </div>
+    )
   }
 
   return (
