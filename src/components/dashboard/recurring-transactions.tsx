@@ -29,18 +29,11 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export function RecurringTransactions() {
-  const { recurringTransactions, deleteRecurringTransaction } = useAppContext();
+  const { recurringTransactions, deleteRecurringTransaction, formatCurrency } = useAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<RecurringTransaction | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<RecurringTransaction | null>(null);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
   
   const handleEdit = (transaction: RecurringTransaction) => {
     setTransactionToEdit(transaction);

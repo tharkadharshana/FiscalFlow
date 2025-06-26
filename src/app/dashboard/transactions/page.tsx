@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -33,7 +34,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function TransactionsPage() {
-  const { transactions, categories, deleteTransaction } = useAppContext();
+  const { transactions, categories, deleteTransaction, formatCurrency } = useAppContext();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -64,13 +65,6 @@ export default function TransactionsPage() {
       }
       setIsEditDialogOpen(open);
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   const TransactionRow = ({ transaction }: { transaction: Transaction }) => {
     const Icon = categories[transaction.category] || categories['Food'];

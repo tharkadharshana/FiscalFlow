@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -13,7 +14,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function CalendarPage() {
-  const { transactions, categories } = useAppContext();
+  const { transactions, categories, formatCurrency } = useAppContext();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const transactionsByDay = useMemo(() => {
@@ -36,13 +37,6 @@ export default function CalendarPage() {
     const dayKey = format(selectedDate, 'yyyy-MM-dd');
     return transactionsByDay[dayKey] || [];
   }, [selectedDate, transactionsByDay]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   const TransactionItem = ({ transaction }: { transaction: Transaction }) => {
     const Icon = categories[transaction.category] || categories['Food'];

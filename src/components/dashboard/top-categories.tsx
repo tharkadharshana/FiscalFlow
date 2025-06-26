@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { useMemo } from 'react';
 import { Progress } from '../ui/progress';
 
 export function TopCategories() {
-  const { transactions, categories } = useAppContext();
+  const { transactions, categories, formatCurrency } = useAppContext();
 
   const { topCategories, totalExpenses } = useMemo(() => {
     const expenseData = transactions
@@ -33,13 +34,6 @@ export function TopCategories() {
 
     return { topCategories: sortedCategories, totalExpenses: total };
   }, [transactions, categories]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
   
   if (topCategories.length === 0) {
       return (

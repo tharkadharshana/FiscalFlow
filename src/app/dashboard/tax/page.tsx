@@ -32,7 +32,7 @@ import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/ai/flows/analyze-t
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function TaxPage() {
-    const { transactions } = useAppContext();
+    const { transactions, formatCurrency } = useAppContext();
     const [analysisResult, setAnalysisResult] = useState<AnalyzeTaxesOutput | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -55,13 +55,6 @@ export default function TaxPage() {
 
         return { taxableIncome, deductibleExpenses, taxRelatedTransactions, estimatedTaxLiability: Math.max(0, estimatedTaxLiability) };
     }, [transactions]);
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD',
-        }).format(amount);
-    };
     
     const handleAnalyzeTaxes = async () => {
         setIsAnalyzing(true);

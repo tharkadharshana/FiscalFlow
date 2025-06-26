@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FinancialPlan } from "@/types";
@@ -19,6 +20,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from "../ui/progress";
+import { useAppContext } from "@/contexts/app-context";
 
 type FinancialPlanCardProps = {
   plan: FinancialPlan;
@@ -27,13 +29,7 @@ type FinancialPlanCardProps = {
 };
 
 export function FinancialPlanCard({ plan, onEdit, onDelete }: FinancialPlanCardProps) {
-  
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const { formatCurrency } = useAppContext();
   
   const progress = plan.totalPredictedCost > 0 ? (plan.totalActualCost / plan.totalPredictedCost) * 100 : 0;
   const uniqueCategories = [...new Set(plan.items.map(item => item.category))];

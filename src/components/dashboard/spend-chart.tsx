@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 
 export function SpendChart() {
-  const { transactions } = useAppContext();
+  const { transactions, formatCurrency } = useAppContext();
 
   const chartData = useMemo(() => {
     const endDate = new Date();
@@ -40,13 +41,6 @@ export function SpendChart() {
       label: 'Spent',
       color: 'hsl(var(--chart-1))',
     },
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
   };
 
   return (

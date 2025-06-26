@@ -42,7 +42,7 @@ type ReportData = {
   };
 
 export default function ReportsPage() {
-  const { transactions, allCategories } = useAppContext();
+  const { transactions, allCategories, formatCurrency } = useAppContext();
   const { toast } = useToast();
   
   const [reportType, setReportType] = useState<ReportType>('monthly');
@@ -56,7 +56,7 @@ export default function ReportsPage() {
   // Effect to update selected categories when allCategories from context changes
   useEffect(() => {
     setSelectedCategories(
-      allCategories.reduce((acc, cat) => ({ ...acc, [cat]: prev => prev[cat] ?? true }), {})
+      allCategories.reduce((acc, cat) => ({ ...acc, [cat]: prev[cat] ?? true }), {})
     );
   }, [allCategories]);
 
@@ -137,13 +137,6 @@ export default function ReportsPage() {
     });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-  
   const handleExportCSV = () => {
     if (!generatedReport) return;
     

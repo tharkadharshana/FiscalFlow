@@ -58,6 +58,7 @@ interface AppContextType {
   addSavingsGoal: (goal: Omit<SavingsGoal, 'id' | 'userId' | 'createdAt' | 'currentAmount' | 'badges'>) => Promise<void>;
   updateSavingsGoal: (goalId: string, data: Partial<Omit<SavingsGoal, 'id'>>) => Promise<void>;
   deleteSavingsGoal: (goalId: string) => Promise<void>;
+  formatCurrency: (amount: number) => string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -178,6 +179,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSavingsGoals([]);
     }
   }, [user]);
+
+  const formatCurrency = useMemo(() => {
+    return (amount: number) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: userProfile?.currencyPreference || 'USD',
+        }).format(amount);
+    }
+  }, [userProfile?.currencyPreference]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'icon'>) => {
     if (!user) { toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in.' }); return; }
@@ -559,7 +569,7 @@ const deleteTransaction = async (transactionId: string) => {
         financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan,
         updateUserPreferences, recurringTransactions, addRecurringTransaction,
         updateRecurringTransaction, deleteRecurringTransaction, savingsGoals,
-        addSavingsGoal, updateSavingsGoal, deleteSavingsGoal,
+        addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, formatCurrency,
       }}
     >
       {children}

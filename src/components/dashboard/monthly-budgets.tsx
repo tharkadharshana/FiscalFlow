@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -32,19 +33,12 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export function MonthlyBudgets() {
-  const { budgets, categories, deleteBudget } = useAppContext();
+  const { budgets, categories, deleteBudget, formatCurrency } = useAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-  
   const handleEdit = (budget: Budget) => {
     setBudgetToEdit(budget);
     setIsDialogOpen(true);

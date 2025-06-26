@@ -22,6 +22,7 @@ import {
 import { Progress } from "../ui/progress";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { useAppContext } from "@/contexts/app-context";
 
 type SavingsGoalCardProps = {
   goal: SavingsGoal;
@@ -38,13 +39,7 @@ const badgeIcons: Record<BadgeType['name'], React.ReactNode> = {
 };
 
 export function SavingsGoalCard({ goal, onEdit, onDelete }: SavingsGoalCardProps) {
-  
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const { formatCurrency } = useAppContext();
   
   const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
 

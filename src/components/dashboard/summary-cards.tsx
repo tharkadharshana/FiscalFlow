@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useMemo } from 'react';
 
 export function SummaryCards() {
-  const { transactions } = useAppContext();
+  const { transactions, formatCurrency } = useAppContext();
 
   const { totalIncome, totalExpenses, balance } = useMemo(() => {
     const income = transactions
@@ -21,13 +22,6 @@ export function SummaryCards() {
       balance: income - expenses,
     };
   }, [transactions]);
-  
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
