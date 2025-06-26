@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/app-context';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -128,7 +129,12 @@ export function SidebarNav() {
             <AvatarFallback>{user?.email?.[0].toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
           <div className="overflow-hidden group-data-[collapsible=icon]:hidden">
-            <p className="truncate font-semibold">{user?.displayName || 'User'}</p>
+            <div className="flex items-center gap-2">
+                <p className="truncate font-semibold">{user?.displayName || 'User'}</p>
+                {isPremium && (
+                    <Badge className="bg-amber-500 text-white px-1.5 py-0 text-xs">Premium</Badge>
+                )}
+            </div>
             <p className="truncate text-xs text-muted-foreground">{user?.email || 'user@email.com'}</p>
           </div>
         </div>

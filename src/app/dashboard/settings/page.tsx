@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Sparkles, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
@@ -137,6 +137,45 @@ export default function SettingsPage() {
       </Card>
   );
 
+  const SubscriptionCard = (
+    <Card>
+        <CardHeader>
+            <CardTitle>Subscription</CardTitle>
+            <CardDescription>Manage your current subscription plan.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {isPremium ? (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                        <Star className="h-8 w-8 text-amber-500" />
+                        <div>
+                            <p className="font-semibold">You are a Premium member!</p>
+                            <p className="text-sm text-muted-foreground">
+                                {userProfile?.subscription?.expiryDate 
+                                    ? `Your plan is valid until ${new Date(userProfile.subscription.expiryDate).toLocaleDateString()}.`
+                                    : 'You have access to all features.'}
+                            </p>
+                        </div>
+                    </div>
+                    <Button asChild variant="outline" className="w-full">
+                        <Link href="/dashboard/upgrade">Manage Subscription</Link>
+                    </Button>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    <p className="text-muted-foreground">You are currently on the Free plan.</p>
+                    <Button asChild className="w-full bg-gradient-to-r from-primary to-blue-600 text-white hover:opacity-90">
+                        <Link href="/dashboard/upgrade">
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Upgrade to Premium
+                        </Link>
+                    </Button>
+                </div>
+            )}
+        </CardContent>
+    </Card>
+  );
+
   if (loading && !userProfile) {
     return (
         <div className="flex flex-1 flex-col">
@@ -196,6 +235,8 @@ export default function SettingsPage() {
                 />
               </CardContent>
             </Card>
+            
+            {SubscriptionCard}
 
             <Card>
               <CardHeader>
