@@ -25,7 +25,7 @@ const CreateBudgetParamsSchema = z.object({
 });
 
 // This is the schema for the actions our AI can decide to take.
-export const VoiceActionSchema = z.union([
+const VoiceActionSchema = z.union([
   z.object({
     action: z.literal('logTransaction'),
     params: LogTransactionParamsSchema,
@@ -41,7 +41,7 @@ export const VoiceActionSchema = z.union([
 ]);
 export type VoiceAction = z.infer<typeof VoiceActionSchema>;
 
-export const AssistantActionInputSchema = z.object({
+const AssistantActionInputSchema = z.object({
   command: z.string(),
 });
 export type AssistantActionInput = z.infer<typeof AssistantActionInputSchema>;
