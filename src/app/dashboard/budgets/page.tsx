@@ -18,22 +18,42 @@ import { CreatePlanDialog } from '@/components/dashboard/create-plan-dialog';
 import type { FinancialPlan } from '@/types';
 import { FinancialPlanCard } from '@/components/dashboard/financial-plan-card';
 import { CreateMonthlyBudgetsDialog } from '@/components/dashboard/create-monthly-budgets-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function BudgetsPage() {
-  const { financialPlans } = useAppContext();
+  const { financialPlans, deleteFinancialPlan } = useAppContext();
   const [isCreateBudgetsDialogOpen, setIsCreateBudgetsDialogOpen] = useState(false);
   const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [planToEdit, setPlanToEdit] = useState<FinancialPlan | null>(null);
+  const [planToDelete, setPlanToDelete] = useState<FinancialPlan | null>(null);
 
   const handleEditPlan = (plan: FinancialPlan) => {
     setPlanToEdit(plan);
     setIsCreatePlanDialogOpen(true);
   };
   
-  const handleDeletePlan = (planId: string) => {
-    // Placeholder for delete confirmation dialog
-    console.log("Deleting plan", planId);
+  const handleDeletePlan = (plan: FinancialPlan) => {
+    setPlanToDelete(plan);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (planToDelete) {
+      await deleteFinancialPlan(planToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setPlanToDelete(null);
+    }
   };
 
   const handlePlanDialogClose = (open: boolean) => {
@@ -98,7 +118,7 @@ export default function BudgetsPage() {
                                         key={plan.id} 
                                         plan={plan} 
                                         onEdit={() => handleEditPlan(plan)}
-                                        onDelete={() => handleDeletePlan(plan.id)}
+                                        onDelete={() => handleDeletePlan(plan)}
                                     />
                                 ))}
                             </div>
@@ -119,6 +139,23 @@ export default function BudgetsPage() {
       {/* Dialogs */}
       <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={setIsCreateBudgetsDialogOpen} />
       <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
+      
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete your financial plan for "{planToDelete?.title}".
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+                Delete
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
