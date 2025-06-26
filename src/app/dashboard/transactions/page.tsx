@@ -33,7 +33,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
-import { AdBanner } from '@/components/ui/ad-banner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function TransactionsPage() {
@@ -174,7 +173,6 @@ export default function TransactionsPage() {
       <div className="flex flex-1 flex-col">
         <Header title="Transactions" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
-        {!isPremium && <AdBanner />}
           <Tabs defaultValue="all">
             <TabsList className="grid w-full grid-cols-4 md:w-auto">
               <TabsTrigger value="all">All</TabsTrigger>
