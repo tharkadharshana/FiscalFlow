@@ -21,12 +21,18 @@ import {
     type CreateMonthlyBudgetsInput,
     type CreateMonthlyBudgetsOutput,
 } from '@/ai/flows/create-monthly-budgets-flow';
+import {
+    assistantAction as assistantActionFlow,
+    type AssistantActionInput,
+    type VoiceAction
+} from '@/ai/flows/assistant-flow';
 
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
 type InsightsResult = GenerateInsightsOutput | { error: string };
 type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };
 type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
+type AssistantResult = VoiceAction | { error: string };
 
 
 export async function parseReceiptAction(
@@ -78,5 +84,17 @@ export async function createMonthlyBudgetsAction(
     } catch (error) {
         console.error('Error in createMonthlyBudgetsAction:', error);
         return { error: 'Failed to generate budgets. Please try again later.' };
+    }
+}
+
+export async function assistantAction(
+    input: AssistantActionInput
+): Promise<AssistantResult> {
+    try {
+        const result = await assistantActionFlow(input);
+        return result;
+    } catch (error) {
+        console.error('Error in assistantAction:', error);
+        return { action: 'unknown', reason: 'An unexpected error occurred while processing your command.' };
     }
 }
