@@ -11,10 +11,17 @@ import {
     type GenerateInsightsInput,
     type GenerateInsightsOutput,
 } from '@/ai/flows/generate-insights-flow';
+import {
+    createFinancialPlan,
+    type CreateFinancialPlanInput,
+    type CreateFinancialPlanOutput,
+} from '@/ai/flows/create-financial-plan-flow';
 
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
 type InsightsResult = GenerateInsightsOutput | { error: string };
+type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };
+
 
 export async function parseReceiptAction(
   input: ParseReceiptInput
@@ -41,5 +48,17 @@ export async function generateInsightsAction(
     } catch (error) {
         console.error('Error in generateInsightsAction:', error);
         return { error: 'Failed to generate insights. Please try again later.' };
+    }
+}
+
+export async function createFinancialPlanAction(
+    input: CreateFinancialPlanInput
+): Promise<FinancialPlanResult> {
+    try {
+        const result = await createFinancialPlan(input);
+        return result;
+    } catch (error) {
+        console.error('Error in createFinancialPlanAction:', error);
+        return { error: 'Failed to generate financial plan. Please try again later.' };
     }
 }

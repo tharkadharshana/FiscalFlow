@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { categories as mockCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -31,6 +31,10 @@ interface AppContextType {
   addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
   updateBudget: (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => Promise<void>;
   deleteBudget: (budgetId: string) => Promise<void>;
+  financialPlans: FinancialPlan[];
+  addFinancialPlan: (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateFinancialPlan: (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => Promise<void>;
+  deleteFinancialPlan: (planId: string) => Promise<void>;
   updateUserPreferences: (data: Partial<UserProfile>) => Promise<void>;
 }
 
@@ -42,6 +46,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [financialPlans, setFinancialPlans] = useState<FinancialPlan[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -100,17 +105,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
         setBudgets(userBudgets);
       });
+      
+      // Listener for financial plans
+      const qPlans = query(collection(db, 'users', user.uid, 'financialPlans'), orderBy('createdAt', 'desc'));
+      const unsubscribePlans = onSnapshot(qPlans, (snapshot) => {
+        const userPlans: FinancialPlan[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          userPlans.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate().toISOString(),
+          } as FinancialPlan);
+        });
+        setFinancialPlans(userPlans);
+      });
+
 
       return () => {
         unsubscribeProfile();
         unsubscribeTransactions();
         unsubscribeBudgets();
+        unsubscribePlans();
       };
     } else {
       // Clear all data on logout
       setUserProfile(null);
       setTransactions([]);
       setBudgets([]);
+      setFinancialPlans([]);
     }
   }, [user]);
 
@@ -185,6 +208,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toast({ variant: 'destructive', title: 'Error deleting budget' });
     }
   };
+  
+  const addFinancialPlan = async (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'financialPlans'), {
+            ...plan,
+            userId: user.uid,
+            createdAt: serverTimestamp(),
+        });
+        toast({ title: 'Financial Plan Created!' });
+    } catch (error) {
+        console.error('Error creating financial plan:', error);
+        toast({ variant: 'destructive', title: 'Error creating plan' });
+    }
+  }
+
+  const updateFinancialPlan = async (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    try {
+        await updateDoc(doc(db, 'users', user.uid, 'financialPlans', planId), data);
+        toast({ title: 'Financial Plan Updated' });
+    } catch (error) {
+        console.error('Error updating financial plan:', error);
+        toast({ variant: 'destructive', title: 'Error updating plan' });
+    }
+  };
+
+  const deleteFinancialPlan = async (planId: string) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'financialPlans', planId));
+        toast({ title: 'Financial Plan Deleted' });
+    } catch (error) {
+        console.error('Error deleting financial plan:', error);
+        toast({ variant: 'destructive', title: 'Error deleting plan' });
+    }
+  };
 
   const updateUserPreferences = async (data: Partial<UserProfile>) => {
     if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
@@ -215,6 +275,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addBudget,
         updateBudget,
         deleteBudget,
+        financialPlans,
+        addFinancialPlan,
+        updateFinancialPlan,
+        deleteFinancialPlan,
         updateUserPreferences,
       }}
     >

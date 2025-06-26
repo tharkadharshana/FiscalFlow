@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Header } from '@/components/dashboard/header';
 import {
   Card,
@@ -8,189 +8,119 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { useAppContext } from '@/contexts/app-context';
-import { PlusCircle, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, DraftingCompass } from 'lucide-react';
 import { AddBudgetDialog } from '@/components/dashboard/add-budget-dialog';
-import type { Budget } from '@/types';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CreatePlanDialog } from '@/components/dashboard/create-plan-dialog';
+import type { FinancialPlan } from '@/types';
+import { FinancialPlanCard } from '@/components/dashboard/financial-plan-card';
 
 export default function BudgetsPage() {
-  const { transactions, budgets, categories, deleteBudget } = useAppContext();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
-  const monthlySpending = useMemo(() => {
-    const now = new Date();
-    const start = startOfMonth(now);
-    const end = endOfMonth(now);
-
-    return transactions
-      .filter((t) => {
-        const transactionDate = parseISO(t.date);
-        return t.type === 'expense' && transactionDate >= start && transactionDate <= end;
-      })
-      .reduce((acc, t) => {
-        if (!acc[t.category]) {
-          acc[t.category] = 0;
-        }
-        acc[t.category] += t.amount;
-        return acc;
-      }, {} as Record<string, number>);
-  }, [transactions]);
+  const { financialPlans } = useAppContext();
+  const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
+  const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
   
-  const handleEdit = (budget: Budget) => {
-    setBudgetToEdit(budget);
-    setIsDialogOpen(true);
-  }
+  // Placeholder for edit/delete logic for Financial Plans
+  const [planToEdit, setPlanToEdit] = useState<FinancialPlan | null>(null);
 
-  const handleDelete = (budget: Budget) => {
-    setBudgetToDelete(budget);
-    setIsDeleteAlertOpen(true);
-  }
-
-  const confirmDelete = () => {
-    if (budgetToDelete) {
-      deleteBudget(budgetToDelete.id);
-      setIsDeleteAlertOpen(false);
-      setBudgetToDelete(null);
-    }
-  }
-
-  const handleDialogClose = (open: boolean) => {
-    if (!open) {
-      setBudgetToEdit(null);
-    }
-    setIsDialogOpen(open);
-  }
-
-  const BudgetCard = ({ budget }: { budget: Budget }) => {
-    const spent = monthlySpending[budget.category] || 0;
-    const progress = (spent / budget.limit) * 100;
-    const remaining = budget.limit - spent;
-    const Icon = categories[budget.category] || categories['Food'];
-
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between pb-4">
-          <div className='flex items-center gap-4'>
-            <Icon className="h-6 w-6 text-muted-foreground" />
-            <CardTitle className="text-xl">{budget.category}</CardTitle>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(budget)}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDelete(budget)} className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-bold">{formatCurrency(spent)}</span>
-            <span className="text-muted-foreground">/ {formatCurrency(budget.limit)}</span>
-          </div>
-          <Progress value={progress} />
-        </CardContent>
-        <CardFooter>
-          <p className={`text-sm ${remaining >= 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
-            {remaining >= 0
-              ? `${formatCurrency(remaining)} left to spend`
-              : `${formatCurrency(Math.abs(remaining))} over budget`}
-          </p>
-        </CardFooter>
-      </Card>
-    );
+  const handleEditPlan = (plan: FinancialPlan) => {
+    // This will be used to open the dialog in edit mode in the future.
+    setPlanToEdit(plan);
+    setIsCreatePlanDialogOpen(true);
   };
+  
+  const handleDeletePlan = (planId: string) => {
+    // Placeholder for delete confirmation dialog
+    console.log("Deleting plan", planId);
+  };
+
+  const handlePlanDialogClose = (open: boolean) => {
+    if (!open) {
+      setPlanToEdit(null);
+    }
+    setIsCreatePlanDialogOpen(open);
+  }
 
   return (
     <>
       <div className="flex flex-1 flex-col">
-        <Header title="Budgets" />
+        <Header title="Budgets & Plans" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Monthly Budgets</CardTitle>
-                <CardDescription>
-                  Set and track your spending limits for each category.
-                </CardDescription>
-              </div>
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Budget
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {budgets.length > 0 ? (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {budgets.map((budget) => (
-                    <BudgetCard key={budget.id} budget={budget} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-16 text-center text-muted-foreground">
-                  <p className="text-lg font-semibold">No budgets created yet.</p>
-                  <p>Click "Add Budget" to get started.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <Tabs defaultValue="monthly">
+            <div className='flex justify-between items-center mb-4'>
+                <TabsList>
+                    <TabsTrigger value="monthly">Monthly Budgets</TabsTrigger>
+                    <TabsTrigger value="plans">Financial Plans</TabsTrigger>
+                </TabsList>
+            </div>
+            
+            <TabsContent value="monthly">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Category Budgets</CardTitle>
+                    <CardDescription>
+                      Set and track your monthly spending limits for each category.
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => setIsAddBudgetDialogOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Budget
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                    <MonthlyBudgets />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="plans">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>Financial Plans</CardTitle>
+                            <CardDescription>
+                                Plan for trips, savings goals, and large purchases with AI assistance.
+                            </CardDescription>
+                        </div>
+                        <Button onClick={() => setIsCreatePlanDialogOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Create Plan
+                        </Button>
+                    </CardHeader>
+                    <CardContent>
+                        {financialPlans.length > 0 ? (
+                            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                                {financialPlans.map((plan) => (
+                                    <FinancialPlanCard 
+                                        key={plan.id} 
+                                        plan={plan} 
+                                        onEdit={() => handleEditPlan(plan)}
+                                        onDelete={() => handleDeletePlan(plan.id)}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
+                                <DraftingCompass className="h-12 w-12 mb-4" />
+                                <p className="text-lg font-semibold">No financial plans created yet.</p>
+                                <p>Click "Create Plan" to plan your next big goal with AI.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
-      <AddBudgetDialog open={isDialogOpen} onOpenChange={handleDialogClose} budgetToEdit={budgetToEdit}/>
       
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your budget for {'"'}
-                {budgetToDelete?.category}{'"'}.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+      {/* Dialogs */}
+      <AddBudgetDialog open={isAddBudgetDialogOpen} onOpenChange={setIsAddBudgetDialogOpen} />
+      <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
     </>
   );
 }

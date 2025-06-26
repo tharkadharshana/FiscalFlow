@@ -37,3 +37,25 @@ export interface UserProfile {
   createdAt: any;
   lastLoginAt: any;
 }
+
+export interface PlanItem {
+  id: string;
+  description: string;
+  category: string;
+  predictedCost: number;
+  actualCost: number | null;
+  notes?: string;
+  isAiSuggested?: boolean;
+}
+
+export interface FinancialPlan {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string; // User's initial voice input
+  status: 'planning' | 'active' | 'completed';
+  createdAt: any;
+  items: PlanItem[];
+  totalPredictedCost: number;
+  totalActualCost: number;
+}
