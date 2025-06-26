@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -24,9 +25,22 @@ import { defaultCategories } from '@/data/mock-data';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
+import type { Transaction } from '@/types';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import Papa from 'papaparse';
+
 
 type ReportType = 'monthly' | 'yearly' | 'custom';
-type TransactionTypeFilter = 'all' | 'income' | 'expense';
+type ReportData = {
+    totalIncome: number;
+    totalExpenses: number;
+    balance: number;
+    chartData: { name: string; total: number }[];
+    count: number;
+    period: string;
+    transactions: Transaction[];
+  };
 
 export default function ReportsPage() {
   const { transactions } = useAppContext();
@@ -38,7 +52,7 @@ export default function ReportsPage() {
   const [selectedCategories, setSelectedCategories] = useState<Record<string, boolean>>(
     defaultCategories.reduce((acc, cat) => ({ ...acc, [cat]: true }), {})
   );
-  const [generatedReport, setGeneratedReport] = useState<any | null>(null);
+  const [generatedReport, setGeneratedReport] = useState<ReportData | null>(null);
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategories(prev => ({
@@ -112,7 +126,8 @@ export default function ReportsPage() {
         balance,
         chartData,
         count: filteredTransactions.length,
-        period: `${format(startDate, 'LLL dd, y')} - ${format(endDate, 'LLL dd, y')}`
+        period: `${format(startDate, 'LLL dd, y')} - ${format(endDate, 'LLL dd, y')}`,
+        transactions: filteredTransactions
     });
   };
 
@@ -123,6 +138,73 @@ export default function ReportsPage() {
     }).format(amount);
   };
   
+  const handleExportCSV = () => {
+    if (!generatedReport) return;
+    
+    const csvData = generatedReport.transactions.map(t => ({
+      Date: t.date,
+      Source: t.source,
+      Category: t.category,
+      Type: t.type,
+      Amount: t.amount,
+      Notes: t.notes || ''
+    }));
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `report-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    if (!generatedReport) return;
+    
+    const doc = new jsPDF();
+    
+    doc.setFontSize(22);
+    doc.text("Financial Report", 14, 22);
+    doc.setFontSize(12);
+    doc.text(`Period: ${generatedReport.period}`, 14, 30);
+
+    (doc as any).autoTable({
+        startY: 40,
+        body: [
+            ['Total Income', formatCurrency(generatedReport.totalIncome)],
+            ['Total Expenses', formatCurrency(generatedReport.totalExpenses)],
+            ['Net Balance', formatCurrency(generatedReport.balance)],
+        ],
+        theme: 'striped'
+    });
+
+    const tableColumn = ["Date", "Source", "Category", "Type", "Amount"];
+    const tableRows: (string | number)[][] = [];
+
+    generatedReport.transactions.forEach(t => {
+      const transactionData = [
+        format(new Date(t.date), "yyyy-MM-dd"),
+        t.source,
+        t.category,
+        t.type,
+        formatCurrency(t.amount)
+      ];
+      tableRows.push(transactionData);
+    });
+
+    (doc as any).autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: (doc as any).lastAutoTable.finalY + 10
+    });
+    
+    doc.save(`report-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   return (
     <div className="flex flex-1 flex-col">
       <Header title="Reports" />
@@ -246,11 +328,11 @@ export default function ReportsPage() {
                     Generate Report
                 </Button>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="w-full" disabled={!generatedReport}>
+                    <Button variant="outline" className="w-full" disabled={!generatedReport} onClick={handleExportCSV}>
                         <FileDown className="mr-2 h-4 w-4" />
                         Export CSV
                     </Button>
-                    <Button variant="outline" className="w-full" disabled={!generatedReport}>
+                    <Button variant="outline" className="w-full" disabled={!generatedReport} onClick={handleExportPDF}>
                         <FileDown className="mr-2 h-4 w-4" />
                         Export PDF
                     </Button>
