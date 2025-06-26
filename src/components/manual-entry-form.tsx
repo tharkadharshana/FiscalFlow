@@ -25,7 +25,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { defaultCategories } from '@/data/mock-data';
 import { useAppContext } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import { useMemo, useEffect } from 'react';
@@ -57,7 +56,7 @@ const defaultValues = {
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntryFormProps) {
-  const { addTransaction, updateTransaction, financialPlans } = useAppContext();
+  const { addTransaction, updateTransaction, financialPlans, expenseCategories } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
@@ -188,7 +187,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntry
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {defaultCategories.map((cat) => (
+                  {expenseCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
                     </SelectItem>

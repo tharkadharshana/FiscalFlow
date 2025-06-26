@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -13,9 +13,11 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext } from '@/contexts/app-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
@@ -28,8 +30,9 @@ const settingsSchema = z.object({
 });
 
 export default function SettingsPage() {
-  const { userProfile, updateUserPreferences, loading } = useAppContext();
+  const { userProfile, updateUserPreferences, loading, addCustomCategory, deleteCustomCategory } = useAppContext();
   const { toast } = useToast();
+  const [newCategory, setNewCategory] = useState('');
 
   const form = useForm<z.infer<typeof settingsSchema>>({
     resolver: zodResolver(settingsSchema),
@@ -65,6 +68,15 @@ export default function SettingsPage() {
         description: "Your preferences have been updated successfully.",
     })
   };
+
+  const handleAddCategory = () => {
+    if (newCategory.trim() === '') {
+        toast({ variant: 'destructive', title: 'Category name cannot be empty.' });
+        return;
+    }
+    addCustomCategory(newCategory.trim());
+    setNewCategory('');
+  }
 
   if (loading || !userProfile) {
     return (
@@ -160,6 +172,49 @@ export default function SettingsPage() {
                 />
               </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Manage Categories</CardTitle>
+                    <CardDescription>Add or remove your own custom categories for expenses and income.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label className="text-xs text-muted-foreground">Custom Categories</Label>
+                        <div className="flex flex-wrap gap-2 pt-2">
+                        {userProfile.customCategories && userProfile.customCategories.length > 0 ? (
+                            userProfile.customCategories.map(cat => (
+                                <Badge key={cat} variant="secondary" className="pl-3 pr-1">
+                                    {cat}
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => deleteCustomCategory(cat)}>
+                                        <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                </Badge>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground">No custom categories added yet.</p>
+                        )}
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Input 
+                            placeholder="New category name..."
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                        />
+                        <Button type="button" onClick={handleAddCategory}>Add</Button>
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Default Categories</Label>
+                        <div className="flex flex-wrap gap-2 text-muted-foreground">
+                            {[...defaultExpenseCategories, ...defaultIncomeCategories].map(cat => (
+                                <Badge key={cat} variant="outline">{cat}</Badge>
+                            ))}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
 
             <Card>
               <CardHeader>

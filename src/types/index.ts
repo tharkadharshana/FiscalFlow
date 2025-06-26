@@ -38,6 +38,7 @@ export interface UserProfile {
   profilePictureURL: string | null;
   createdAt: any;
   lastLoginAt: any;
+  customCategories?: string[];
 }
 
 export interface PlanItem {

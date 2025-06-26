@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { categories as mockCategories } from '@/data/mock-data';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
+import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
 import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
@@ -18,6 +18,8 @@ import {
   updateDoc,
   deleteDoc,
   runTransaction,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 
 interface AppContextType {
@@ -30,6 +32,11 @@ interface AppContextType {
   deleteTransaction: (transactionId: string) => Promise<void>;
   logout: () => Promise<void>;
   categories: Record<string, React.ComponentType<{ className?: string }>>;
+  expenseCategories: string[];
+  incomeCategories: string[];
+  allCategories: string[];
+  addCustomCategory: (category: string) => Promise<void>;
+  deleteCustomCategory: (category: string) => Promise<void>;
   budgets: Budget[];
   addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
   updateBudget: (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => Promise<void>;
@@ -68,6 +75,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => unsubscribeAuth();
   }, []);
 
+  const customCategories = useMemo(() => userProfile?.customCategories || [], [userProfile]);
+
+  const expenseCategories = useMemo(() => [...defaultExpenseCategories, ...customCategories].sort(), [customCategories]);
+  const incomeCategories = useMemo(() => [...defaultIncomeCategories, ...customCategories].sort(), [customCategories]);
+  const allCategories = useMemo(() => [...new Set([...expenseCategories, ...incomeCategories])].sort(), [expenseCategories, incomeCategories]);
+
   useEffect(() => {
     if (user) {
       setLoading(true);
@@ -93,7 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             id: doc.id,
             ...data,
             date: data.date.toDate().toISOString(),
-            icon: mockCategories[data.category] || mockCategories['Food'],
+            icon: categoryIcons[data.category] || categoryIcons['Food'],
           } as Transaction);
         });
         setTransactions(userTransactions);
@@ -467,6 +480,35 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
 
+  const addCustomCategory = async (category: string) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    if (allCategories.includes(category)) {
+      toast({ variant: 'destructive', title: 'Category already exists.'});
+      return;
+    }
+    try {
+        await updateDoc(doc(db, 'users', user.uid), {
+            customCategories: arrayUnion(category)
+        });
+        toast({ title: `Category "${category}" added.` });
+    } catch (error) {
+        console.error('Error adding category:', error);
+        toast({ variant: 'destructive', title: 'Error adding category' });
+    }
+  }
+
+  const deleteCustomCategory = async (category: string) => {
+    if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
+    try {
+        await updateDoc(doc(db, 'users', user.uid), {
+            customCategories: arrayRemove(category)
+        });
+        toast({ title: `Category "${category}" removed.` });
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        toast({ variant: 'destructive', title: 'Error deleting category' });
+    }
+  }
 
   const logout = async () => {
     await auth.signOut();
@@ -483,7 +525,12 @@ const deleteTransaction = async (transactionId: string) => {
         updateTransaction,
         deleteTransaction,
         logout,
-        categories: mockCategories,
+        categories: categoryIcons,
+        expenseCategories,
+        incomeCategories,
+        allCategories,
+        addCustomCategory,
+        deleteCustomCategory,
         budgets,
         addBudget,
         updateBudget,

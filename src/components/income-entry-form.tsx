@@ -25,7 +25,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { defaultCategories } from '@/data/mock-data';
 import { useAppContext } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import type { Transaction } from '@/types';
@@ -57,7 +56,7 @@ const defaultValues = {
 };
 
 export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntryFormProps) {
-  const { addTransaction, updateTransaction } = useAppContext();
+  const { addTransaction, updateTransaction, incomeCategories } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
@@ -181,7 +180,7 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {defaultCategories.filter(c => !["Groceries", "Food", "Transport", "Rent", "Clothing", "Gifts", "Entertainment", "Utilities", "Public Transport"].includes(c)).map((cat) => (
+                  {incomeCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
                     </SelectItem>

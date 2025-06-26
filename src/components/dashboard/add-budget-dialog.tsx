@@ -30,7 +30,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAppContext } from '@/contexts/app-context';
-import { defaultCategories } from '@/data/mock-data';
 import type { Budget } from '@/types';
 
 const formSchema = z.object({
@@ -45,7 +44,7 @@ type AddBudgetDialogProps = {
 };
 
 export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetDialogProps) {
-  const { addBudget, updateBudget, budgets } = useAppContext();
+  const { addBudget, updateBudget, budgets, expenseCategories } = useAppContext();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -70,7 +69,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   }, [budgetToEdit, form, open]);
 
   const existingBudgetCategories = budgets.map(b => b.category);
-  const availableCategories = defaultCategories.filter(
+  const availableCategories = expenseCategories.filter(
     c => !existingBudgetCategories.includes(c) || (budgetToEdit && c === budgetToEdit.category)
   );
 

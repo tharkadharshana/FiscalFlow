@@ -22,16 +22,7 @@ export const categories = {
   "Gift Income": Gift,
 };
 
-export const transactions: Transaction[] = [
-  { id: '1', type: 'expense', amount: 24.50, category: 'Food', date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), source: 'The Deli', notes: 'Lunch meeting', icon: Utensils },
-  { id: '2', type: 'expense', amount: 89.99, category: 'Groceries', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), source: 'SuperMart', notes: 'Weekly grocery shopping', icon: ShoppingCart },
-  { id: '3', type: 'income', amount: 2500, category: 'Salary', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), source: 'Acme Corp', notes: 'Monthly Salary', icon: Home },
-  { id: '4', type: 'expense', amount: 45.00, category: 'Transport', date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), source: 'Gas Station', notes: 'Filled up the car', icon: Fuel },
-  { id: '5', type: 'expense', amount: 120.00, category: 'Clothing', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), source: 'Style Hub', notes: 'New Jeans', icon: Shirt },
-];
-
-export const defaultCategories = [
-    // Expenses
+export const defaultExpenseCategories = [
     "Groceries",
     "Food",
     "Transport",
@@ -41,12 +32,28 @@ export const defaultCategories = [
     "Entertainment",
     "Utilities",
     "Public Transport",
-    // Income
+];
+
+export const defaultIncomeCategories = [
     "Salary",
     "Freelance",
     "Business Sale",
     "Investments",
     "Bonus",
     "Side Hustle",
-    "Gift Income"
+    "Gift Income",
+];
+
+export const defaultCategories = [
+    ...defaultExpenseCategories,
+    ...defaultIncomeCategories
+];
+
+
+export const transactions: Transaction[] = [
+  { id: '1', type: 'expense', amount: 24.50, category: 'Food', date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), source: 'The Deli', notes: 'Lunch meeting', icon: Utensils },
+  { id: '2', type: 'expense', amount: 89.99, category: 'Groceries', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), source: 'SuperMart', notes: 'Weekly grocery shopping', icon: ShoppingCart },
+  { id: '3', type: 'income', amount: 2500, category: 'Salary', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), source: 'Acme Corp', notes: 'Monthly Salary', icon: Home },
+  { id: '4', type: 'expense', amount: 45.00, category: 'Transport', date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), source: 'Gas Station', notes: 'Filled up the car', icon: Fuel },
+  { id: '5', type: 'expense', amount: 120.00, category: 'Clothing', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), source: 'Style Hub', notes: 'New Jeans', icon: Shirt },
 ];

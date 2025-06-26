@@ -21,7 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { defaultCategories } from '@/data/mock-data';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
@@ -43,16 +42,23 @@ type ReportData = {
   };
 
 export default function ReportsPage() {
-  const { transactions } = useAppContext();
+  const { transactions, allCategories } = useAppContext();
   const { toast } = useToast();
   
   const [reportType, setReportType] = useState<ReportType>('monthly');
   const [date, setDate] = useState<Date>(new Date());
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedCategories, setSelectedCategories] = useState<Record<string, boolean>>(
-    defaultCategories.reduce((acc, cat) => ({ ...acc, [cat]: true }), {})
+    allCategories.reduce((acc, cat) => ({ ...acc, [cat]: true }), {})
   );
   const [generatedReport, setGeneratedReport] = useState<ReportData | null>(null);
+
+  // Effect to update selected categories when allCategories from context changes
+  useEffect(() => {
+    setSelectedCategories(
+      allCategories.reduce((acc, cat) => ({ ...acc, [cat]: prev => prev[cat] ?? true }), {})
+    );
+  }, [allCategories]);
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategories(prev => ({
@@ -302,13 +308,13 @@ export default function ReportsPage() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="w-full justify-start truncate">
-                            {activeCategories.length} of {defaultCategories.length} selected
+                            {activeCategories.length} of {allCategories.length} selected
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto">
                         <DropdownMenuLabel>Filter Categories</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {defaultCategories.map((cat) => (
+                        {allCategories.map((cat) => (
                              <DropdownMenuCheckboxItem
                                 key={cat}
                                 checked={selectedCategories[cat]}
