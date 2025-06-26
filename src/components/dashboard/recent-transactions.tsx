@@ -4,6 +4,7 @@ import { useAppContext } from '@/contexts/app-context';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format, parseISO } from 'date-fns';
 import { Button } from '../ui/button';
+import Link from 'next/link';
 
 export function RecentTransactions() {
   const { transactions } = useAppContext();
@@ -53,7 +54,9 @@ export function RecentTransactions() {
           })}
         </div>
         {transactions.length > 5 && (
-            <Button variant="outline" className="mt-6 w-full">View All Transactions</Button>
+            <Button variant="outline" asChild className="mt-6 w-full">
+                <Link href="/dashboard/transactions">View All Transactions</Link>
+            </Button>
         )}
       </CardContent>
     </Card>
