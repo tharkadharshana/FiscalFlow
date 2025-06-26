@@ -3,7 +3,7 @@ import { SummaryCards } from '@/components/dashboard/summary-cards';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
 import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { SpendChart } from '@/components/dashboard/spend-chart';
-import { TopCategories } from '@/components/dashboard/top-categories';
+import { SmartInsights } from '@/components/dashboard/smart-insights';
 
 export default function DashboardPage() {
   return (
@@ -24,7 +24,7 @@ export default function DashboardPage() {
             <RecentTransactions />
           </div>
           <div className="lg:col-span-3">
-            <TopCategories />
+            <SmartInsights />
           </div>
         </div>
       </main>

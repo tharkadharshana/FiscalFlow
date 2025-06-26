@@ -6,8 +6,15 @@ import {
   type ParseReceiptInput,
   type ParseReceiptOutput,
 } from '@/ai/flows/parse-receipt';
+import {
+    generateInsights,
+    type GenerateInsightsInput,
+    type GenerateInsightsOutput,
+} from '@/ai/flows/generate-insights-flow';
+
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
+type InsightsResult = GenerateInsightsOutput | { error: string };
 
 export async function parseReceiptAction(
   input: ParseReceiptInput
@@ -23,4 +30,16 @@ export async function parseReceiptAction(
     console.error('Error in parseReceiptAction:', error);
     return { error: 'Failed to analyze receipt. Please try again.' };
   }
+}
+
+export async function generateInsightsAction(
+    input: GenerateInsightsInput
+): Promise<InsightsResult> {
+    try {
+        const result = await generateInsights(input);
+        return result;
+    } catch (error) {
+        console.error('Error in generateInsightsAction:', error);
+        return { error: 'Failed to generate insights. Please try again later.' };
+    }
 }
