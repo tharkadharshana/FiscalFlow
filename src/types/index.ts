@@ -21,6 +21,8 @@ export interface Budget {
   id: string;
   category: string;
   limit: number;
+  month: string; // Format: YYYY-MM
+  currentSpend: number;
   userId?: string;
   createdAt?: any;
 }

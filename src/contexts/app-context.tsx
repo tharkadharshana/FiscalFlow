@@ -20,6 +20,7 @@ import {
   runTransaction,
   arrayUnion,
   arrayRemove,
+  where,
 } from 'firebase/firestore';
 
 interface AppContextType {
@@ -38,7 +39,7 @@ interface AppContextType {
   addCustomCategory: (category: string) => Promise<void>;
   deleteCustomCategory: (category: string) => Promise<void>;
   budgets: Budget[];
-  addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => Promise<void>;
   updateBudget: (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => Promise<void>;
   deleteBudget: (budgetId: string) => Promise<void>;
   financialPlans: FinancialPlan[];
@@ -105,15 +106,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
           userTransactions.push({
             id: doc.id,
             ...data,
-            date: data.date.toDate().toISOString(),
+            date: (data.date as Timestamp).toDate().toISOString(),
             icon: categoryIcons[data.category] || categoryIcons['Food'],
           } as Transaction);
         });
         setTransactions(userTransactions);
       });
 
-      // Listener for budgets
-      const qBudgets = query(collection(db, 'users', user.uid, 'budgets'));
+      // Listener for budgets for the current month
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const qBudgets = query(
+        collection(db, 'users', user.uid, 'budgets'),
+        where('month', '==', currentMonth)
+      );
       const unsubscribeBudgets = onSnapshot(qBudgets, (snapshot) => {
         const userBudgets: Budget[] = [];
         snapshot.forEach((doc) => {
@@ -151,7 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             userRecurring.push({
                 id: doc.id,
                 ...data,
-                startDate: data.startDate.toDate().toISOString(),
+                startDate: (data.startDate as Timestamp).toDate().toISOString(),
                 lastGeneratedDate: data.lastGeneratedDate?.toDate().toISOString(),
                 createdAt: data.createdAt?.toDate().toISOString(),
             } as RecurringTransaction);
@@ -203,6 +208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           financialPlanId: financialPlanId || null,
           planItemId: planItemId || null,
         };
+        // The onWrite Cloud Function will handle budget updates.
         firestoreTransaction.set(doc(transactionsCollection), transactionData);
 
         // 2. If linked to a plan, update the plan
@@ -302,6 +308,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (finalUpdateData.date) {
                 (finalUpdateData as any).date = Timestamp.fromDate(new Date(finalUpdateData.date));
             }
+            // The onWrite Cloud Function will handle budget updates.
             firestoreTransaction.update(transactionRef, finalUpdateData);
         });
         toast({ title: 'Transaction Updated Successfully' });
@@ -341,7 +348,7 @@ const deleteTransaction = async (transactionId: string) => {
                 }
             }
             
-            // Delete the transaction
+            // The onWrite Cloud Function will handle budget updates.
             firestoreTransaction.delete(transactionRef);
         });
         toast({ title: 'Transaction Deleted' });
@@ -352,11 +359,14 @@ const deleteTransaction = async (transactionId: string) => {
     }
 };
 
-  const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId'>) => {
+  const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
     if (!user) { toast({ variant: 'destructive', title: 'Not authenticated'}); return; }
     try {
+      const month = new Date().toISOString().slice(0, 7); // YYYY-MM
       await addDoc(collection(db, 'users', user.uid, 'budgets'), {
         ...budget,
+        month: month,
+        currentSpend: 0,
         userId: user.uid,
         createdAt: serverTimestamp(),
       });

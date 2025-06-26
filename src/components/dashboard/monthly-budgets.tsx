@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -30,10 +30,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
 export function MonthlyBudgets() {
-  const { transactions, budgets, categories, deleteBudget } = useAppContext();
+  const { budgets, categories, deleteBudget } = useAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -45,25 +44,6 @@ export function MonthlyBudgets() {
       currency: 'USD',
     }).format(amount);
   };
-
-  const monthlySpending = useMemo(() => {
-    const now = new Date();
-    const start = startOfMonth(now);
-    const end = endOfMonth(now);
-
-    return transactions
-      .filter((t) => {
-        const transactionDate = parseISO(t.date);
-        return t.type === 'expense' && transactionDate >= start && transactionDate <= end;
-      })
-      .reduce((acc, t) => {
-        if (!acc[t.category]) {
-          acc[t.category] = 0;
-        }
-        acc[t.category] += t.amount;
-        return acc;
-      }, {} as Record<string, number>);
-  }, [transactions]);
   
   const handleEdit = (budget: Budget) => {
     setBudgetToEdit(budget);
@@ -91,8 +71,8 @@ export function MonthlyBudgets() {
   }
 
   const BudgetCard = ({ budget }: { budget: Budget }) => {
-    const spent = monthlySpending[budget.category] || 0;
-    const progress = (spent / budget.limit) * 100;
+    const spent = budget.currentSpend || 0;
+    const progress = budget.limit > 0 ? (spent / budget.limit) * 100 : 0;
     const remaining = budget.limit - spent;
     const Icon = categories[budget.category] || categories['Food'];
 
@@ -147,7 +127,7 @@ export function MonthlyBudgets() {
         </div>
       ) : (
         <div className="py-16 text-center text-muted-foreground">
-          <p className="text-lg font-semibold">No budgets created yet.</p>
+          <p className="text-lg font-semibold">No budgets created for this month.</p>
           <p>Click "Add Budget" to get started.</p>
         </div>
       )}
