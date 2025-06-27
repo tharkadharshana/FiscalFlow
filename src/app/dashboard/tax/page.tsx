@@ -27,13 +27,13 @@ import { VehicleImportCalculator } from '@/components/dashboard/tax/vehicle-impo
 import { IncomeTaxCalculator } from '@/components/dashboard/tax/income-tax-calculator';
 import { VatCalculator } from '@/components/dashboard/tax/vat-calculator';
 import { StampDutyCalculator } from '@/components/dashboard/tax/stamp-duty-calculator';
-import { analyzeTaxesAction } from '@/lib/actions';
 import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/ai/flows/analyze-taxes-flow';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function TaxPage() {
-    const { transactions, formatCurrency, isPremium } = useAppContext();
+    const { transactions, formatCurrency, isPremium, canRunTaxAnalysis, analyzeTaxesWithLimit } = useAppContext();
     const [analysisResult, setAnalysisResult] = useState<AnalyzeTaxesOutput | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -61,7 +61,7 @@ export default function TaxPage() {
         setIsAnalyzing(true);
         setAnalysisResult(null);
         setAnalysisError(null);
-        // NOTE: In a real app, logic to check/increment monthlyTaxReports would go in the server action
+
         const analysisInput: AnalyzeTaxesInput = {
             transactions: transactions.map(t => ({
                 id: t.id,
@@ -74,15 +74,21 @@ export default function TaxPage() {
             taxDocument: taxDocument,
         };
 
-        const result = await analyzeTaxesAction(analysisInput);
+        const result = await analyzeTaxesWithLimit(analysisInput);
         
-        if ('error' in result) {
+        if (result && 'error' in result) {
             setAnalysisError(result.error);
-        } else {
+        } else if (result) {
             setAnalysisResult(result);
         }
         setIsAnalyzing(false);
     }
+
+  const RunAnalysisButton = (
+    <Button onClick={handleAnalyzeTaxes} disabled={isAnalyzing || !canRunTaxAnalysis}>
+        {isAnalyzing ? 'Analyzing...' : 'Run AI Analysis'}
+    </Button>
+  );
 
   return (
     <>
@@ -128,89 +134,91 @@ export default function TaxPage() {
                         </CardContent>
                     </Card>
                 </div>
-                {isPremium ? (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>AI Tax Analysis Engine</CardTitle>
-                            <CardDescription>
-                                Automatically detect potential direct and indirect taxes based on your transaction history.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {isAnalyzing ? (
-                                <div className="flex justify-center items-center h-24">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    <p className="ml-4 text-muted-foreground">AI is analyzing your transactions...</p>
-                                </div>
-                            ) : analysisResult ? (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Tax Type</TableHead>
-                                            <TableHead>Description</TableHead>
-                                            <TableHead className="text-right">Estimated Amount</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {analysisResult.liabilities?.length > 0 ? (
-                                            analysisResult.liabilities.map((liability: any, index: number) => (
-                                                <TableRow key={index}>
-                                                    <TableCell className="font-medium">{liability.taxType}</TableCell>
-                                                    <TableCell>{liability.description}</TableCell>
-                                                    <TableCell className="text-right font-mono">{formatCurrency(liability.amount)}</TableCell>
-                                                </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={3} className="text-center h-24">No tax liabilities detected.</TableCell>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            AI Tax Analysis Engine
+                            {!isPremium && <Sparkles className="h-5 w-5 text-amber-500" />}
+                        </CardTitle>
+                        <CardDescription>
+                            Automatically detect potential direct and indirect taxes based on your transaction history.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isAnalyzing ? (
+                            <div className="flex justify-center items-center h-24">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <p className="ml-4 text-muted-foreground">AI is analyzing your transactions...</p>
+                            </div>
+                        ) : analysisResult ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tax Type</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead className="text-right">Estimated Amount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {analysisResult.liabilities?.length > 0 ? (
+                                        analysisResult.liabilities.map((liability: any, index: number) => (
+                                            <TableRow key={index}>
+                                                <TableCell className="font-medium">{liability.taxType}</TableCell>
+                                                <TableCell>{liability.description}</TableCell>
+                                                <TableCell className="text-right font-mono">{formatCurrency(liability.amount)}</TableCell>
                                             </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            ) : analysisError ? (
-                                <Alert variant="destructive">
-                                    <AlertTitle>Analysis Failed</AlertTitle>
-                                    <AlertDescription>{analysisError}</AlertDescription>
-                                </Alert>
-                            ) : (
-                                <div className="text-center text-muted-foreground py-10">
-                                    <p>Click the button below to start the analysis.</p>
-                                </div>
-                            )}
-                        </CardContent>
-                        <CardFooter className="flex-col items-start gap-4">
-                            <Collapsible open={isDocsOpen} onOpenChange={setIsDocsOpen} className="w-full">
-                                <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" className="w-full justify-start px-2 gap-2">
-                                        <ChevronDown className={`h-4 w-4 transition-transform ${isDocsOpen && 'rotate-180'}`} />
-                                        <BookOpen className="h-4 w-4" />
-                                        <span>Provide Custom Tax Documentation (Optional)</span>
-                                    </Button>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent className="space-y-2 pt-4">
-                                    <Label htmlFor="tax-docs">Custom Tax Rules</Label>
-                                    <Textarea 
-                                        id="tax-docs"
-                                        placeholder="Paste any custom tax rules or documentation here. For example: 'VAT is 20% on all items except for food.' The AI will use this as its primary source of truth."
-                                        value={taxDocument}
-                                        onChange={(e) => setTaxDocument(e.target.value)}
-                                        rows={6}
-                                    />
-                                    <p className="text-xs text-muted-foreground">The AI will prioritize these rules over its built-in knowledge.</p>
-                                </CollapsibleContent>
-                            </Collapsible>
-                            <Button onClick={handleAnalyzeTaxes} disabled={isAnalyzing}>
-                                {isAnalyzing ? 'Analyzing...' : 'Run AI Analysis'}
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                ) : (
-                    <UpgradeCard 
-                        title="AI-Powered Tax Analysis"
-                        description={`Let our AI automatically detect potential tax liabilities. Free users get ${FREE_TIER_LIMITS.taxReports} analysis per month.`}
-                        icon={Sparkles}
-                    />
-                )}
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="text-center h-24">No tax liabilities detected.</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        ) : analysisError ? (
+                            <Alert variant="destructive">
+                                <AlertTitle>Analysis Failed</AlertTitle>
+                                <AlertDescription>{analysisError}</AlertDescription>
+                            </Alert>
+                        ) : (
+                            <div className="text-center text-muted-foreground py-10">
+                                <p>Click the button below to start the analysis.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                    <CardFooter className="flex-col items-start gap-4">
+                        <Collapsible open={isDocsOpen} onOpenChange={setIsDocsOpen} className="w-full">
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" className="w-full justify-start px-2 gap-2">
+                                    <ChevronDown className={`h-4 w-4 transition-transform ${isDocsOpen && 'rotate-180'}`} />
+                                    <BookOpen className="h-4 w-4" />
+                                    <span>Provide Custom Tax Documentation (Optional)</span>
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-2 pt-4">
+                                <Label htmlFor="tax-docs">Custom Tax Rules</Label>
+                                <Textarea 
+                                    id="tax-docs"
+                                    placeholder="Paste any custom tax rules or documentation here. For example: 'VAT is 20% on all items except for food.' The AI will use this as its primary source of truth."
+                                    value={taxDocument}
+                                    onChange={(e) => setTaxDocument(e.target.value)}
+                                    rows={6}
+                                />
+                                <p className="text-xs text-muted-foreground">The AI will prioritize these rules over its built-in knowledge.</p>
+                            </CollapsibleContent>
+                        </Collapsible>
+                        {canRunTaxAnalysis ? RunAnalysisButton : (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>{RunAnalysisButton}</TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>You have used your free tax analysis for this month. Upgrade for more.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </CardFooter>
+                </Card>
                 <Card className="mt-6">
                     <CardHeader>
                         <CardTitle>Manually Flagged Transactions</CardTitle>

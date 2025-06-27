@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Sparkles } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
@@ -32,6 +32,7 @@ import { Textarea } from './ui/textarea';
 import type { Transaction } from '@/types';
 import { useEffect } from 'react';
 import { Switch } from './ui/switch';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -100,6 +101,27 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
   }
 
   const canFlagAsDeductible = isPremium || deductibleTransactionsCount < FREE_TIER_LIMITS.taxDeductibleFlags;
+
+  const TaxDeductibleSwitch = (
+    <FormField
+      control={form.control}
+      name="isTaxDeductible"
+      render={({ field }) => (
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                  <FormLabel className="text-base flex items-center gap-2">
+                      Taxable Income
+                      {!isPremium && <Sparkles className="h-4 w-4 text-amber-500" />}
+                  </FormLabel>
+                  <FormDescription>Mark this if this income is part of your taxable earnings.</FormDescription>
+              </div>
+              <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} disabled={!field.value && !canFlagAsDeductible} />
+              </FormControl>
+          </FormItem>
+      )}
+    />
+  );
 
   return (
     <Form {...form}>
@@ -241,22 +263,18 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
             />
         </div>
 
-        <FormField
-            control={form.control}
-            name="isTaxDeductible"
-            render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                        <FormLabel className="text-base">Taxable Income</FormLabel>
-                        <FormDescription>Mark this if this income is part of your taxable earnings.</FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} disabled={!field.value && !canFlagAsDeductible} />
-                    </FormControl>
-                </FormItem>
-            )}
-        />
-
+        {canFlagAsDeductible ? TaxDeductibleSwitch : (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>{TaxDeductibleSwitch}</div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Free users can flag {FREE_TIER_LIMITS.taxDeductibleFlags} items per month. Upgrade for unlimited.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
         <FormField
           control={form.control}

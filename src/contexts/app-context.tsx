@@ -29,6 +29,9 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
+import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/ai/flows/analyze-taxes-flow';
+import { analyzeTaxesAction } from '@/lib/actions';
+
 
 export const FREE_TIER_LIMITS = {
     ocrScans: 3,
@@ -93,6 +96,8 @@ interface AppContextType {
   upgradeToPremium: (plan: 'monthly' | 'yearly') => Promise<void>;
   downgradeFromPremium: () => Promise<void>;
   markOnboardingComplete: () => Promise<void>;
+  canRunTaxAnalysis: boolean;
+  analyzeTaxesWithLimit: (input: AnalyzeTaxesInput) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -117,6 +122,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const expiry = new Date(userProfile.subscription.expiryDate);
     return userProfile?.subscription?.tier === 'premium' && userProfile?.subscription?.isActive === true && expiry > new Date();
   }, [userProfile]);
+
+  const canRunTaxAnalysis = useMemo(() => {
+    if (isPremium) return true;
+    if (!userProfile?.subscription.monthlyTaxReports) return true;
+    const { count, month } = userProfile.subscription.monthlyTaxReports;
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (month !== currentMonth) return true;
+    return count < FREE_TIER_LIMITS.taxReports;
+  }, [isPremium, userProfile]);
 
   const showNotification = async (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
     if (!user) return; // Don't show notifications if not logged in
@@ -790,6 +804,31 @@ const deleteTransaction = async (transactionId: string) => {
     }
   }
 
+  const analyzeTaxesWithLimit = async (input: AnalyzeTaxesInput): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
+    if (!user || !userProfile) { 
+      showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
+      return { error: 'Not authenticated' };
+    }
+
+    if (!canRunTaxAnalysis) {
+        showNotification({ type: 'error', title: 'Limit Reached', description: 'You have used your free tax analysis for this month.' });
+        return { error: 'Limit Reached' };
+    }
+
+    const result = await analyzeTaxesAction(input);
+
+    if (!('error' in result) && !isPremium) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const monthlyReports = userProfile.subscription.monthlyTaxReports;
+        const newCount = (!monthlyReports || monthlyReports.month !== currentMonth) ? 1 : monthlyReports.count + 1;
+        await updateDoc(doc(db, 'users', user.uid), {
+            'subscription.monthlyTaxReports': { count: newCount, month: currentMonth }
+        });
+    }
+
+    return result;
+  }
+
   const logout = async () => {
     await auth.signOut();
   };
@@ -808,6 +847,7 @@ const deleteTransaction = async (transactionId: string) => {
         formatCurrency,
         notifications, showNotification, markAllNotificationsAsRead,
         upgradeToPremium, downgradeFromPremium, markOnboardingComplete,
+        canRunTaxAnalysis, analyzeTaxesWithLimit,
       }}
     >
       {children}
