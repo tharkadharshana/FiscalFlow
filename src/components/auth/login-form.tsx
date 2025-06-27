@@ -60,25 +60,34 @@ export function LoginForm() {
   };
 
   const handleNewUserSetup = async (user: any) => {
-    await setDoc(doc(db, "users", user.uid), {
-        displayName: user.displayName,
-        email: user.email,
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-        currencyPreference: 'USD',
-        darkModeBanner: false,
-        notificationPreferences: {
-            budgetThreshold: true,
-            recurringPayment: true,
-        },
-        profilePictureURL: user.photoURL || null,
-        subscription: {
-          tier: 'free',
-          isActive: true,
-          expiryDate: null,
-        },
-        hasCompletedOnboarding: false,
-      });
+    try {
+        await setDoc(doc(db, "users", user.uid), {
+            displayName: user.displayName,
+            email: user.email,
+            createdAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+            currencyPreference: 'USD',
+            darkModeBanner: false,
+            notificationPreferences: {
+                budgetThreshold: true,
+                recurringPayment: true,
+            },
+            profilePictureURL: user.photoURL || null,
+            subscription: {
+              tier: 'free',
+              isActive: true,
+              expiryDate: null,
+            },
+            hasCompletedOnboarding: false,
+          }, { merge: true });
+    } catch (error) {
+        console.error("CRITICAL: Failed to create user document in Firestore.", error);
+        showNotification({
+            type: 'error',
+            title: 'Account Setup Failed',
+            description: 'Could not save your user profile. Please contact support.',
+        });
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

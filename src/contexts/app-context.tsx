@@ -26,6 +26,7 @@ import {
   getDocs,
   writeBatch,
   limit,
+  setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
 
@@ -110,7 +111,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
   const isPremium = useMemo(() => {
-    return userProfile?.subscription?.tier === 'premium' && userProfile?.subscription?.isActive === true;
+    if (!userProfile?.subscription?.expiryDate) {
+        return userProfile?.subscription?.tier === 'premium' && userProfile?.subscription?.isActive === true;
+    }
+    const expiry = new Date(userProfile.subscription.expiryDate);
+    return userProfile?.subscription?.tier === 'premium' && userProfile?.subscription?.isActive === true && expiry > new Date();
   }, [userProfile]);
 
   const showNotification = async (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
@@ -692,7 +697,7 @@ const deleteTransaction = async (transactionId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
       const { subscription, ...restData } = data; // Prevent direct subscription changes here
-      await updateDoc(doc(db, 'users', user.uid), restData);
+      await setDoc(doc(db, 'users', user.uid), restData, { merge: true });
       showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
     } catch (error) {
       console.error('Error updating settings: ', error);
@@ -703,7 +708,7 @@ const deleteTransaction = async (transactionId: string) => {
   const markOnboardingComplete = async () => {
     if (!user) return;
     try {
-      await updateDoc(doc(db, 'users', user.uid), { hasCompletedOnboarding: true });
+      await setDoc(doc(db, 'users', user.uid), { hasCompletedOnboarding: true }, { merge: true });
     } catch (error) {
       console.error('Error marking onboarding complete:', error);
     }
@@ -719,12 +724,16 @@ const deleteTransaction = async (transactionId: string) => {
         newExpiry.setMonth(newExpiry.getMonth() + 1);
       }
 
-      await updateDoc(doc(db, 'users', user.uid), {
-        'subscription.tier': 'premium',
-        'subscription.isActive': true,
-        'subscription.expiryDate': newExpiry.toISOString(),
-        'subscription.planType': plan,
-      });
+      const userDocRef = doc(db, 'users', user.uid);
+      // Use set with merge to handle cases where the doc might not exist yet
+      await setDoc(userDocRef, {
+        subscription: {
+          tier: 'premium',
+          isActive: true,
+          expiryDate: newExpiry.toISOString(),
+          planType: plan,
+        }
+      }, { merge: true });
 
       showNotification({ type: 'success', title: 'Upgrade Successful!', description: 'Welcome to FiscalFlow Premium.' });
     } catch (error) {
@@ -736,12 +745,21 @@ const deleteTransaction = async (transactionId: string) => {
   const downgradeFromPremium = async () => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        'subscription.tier': 'free',
-        'subscription.isActive': false,
-        'subscription.planType': null,
-      });
-      showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
+        const userDocRef = doc(db, 'users', user.uid);
+        // Use set with merge: true on the subscription object
+        // This requires providing all fields you want to keep
+        const currentSub = userProfile?.subscription || {};
+
+        await setDoc(userDocRef, {
+            subscription: {
+                ...currentSub,
+                tier: 'free',
+                isActive: false,
+                planType: null,
+            }
+        }, { merge: true });
+
+        showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
     } catch (error) {
         console.error('Error downgrading from premium: ', error);
         showNotification({ type: 'error', title: 'Cancellation Failed', description: 'Could not update your subscription.' });
