@@ -1,10 +1,22 @@
 
 
+export interface BudgetItem {
+  id: string;
+  description: string;
+  predictedCost?: number;
+}
 
-
-
-
-
+export interface Budget {
+  id: string;
+  category: string;
+  limit: number;
+  month: string; // Format: YYYY-MM
+  currentSpend: number;
+  userId?: string;
+  createdAt?: any;
+  items?: BudgetItem[];
+  userInput?: string;
+}
 
 export interface Transaction {
   id: string;
@@ -25,16 +37,6 @@ export interface Transaction {
   planItemId?: string; // ID of the item within the plan
   isTaxDeductible?: boolean;
   carbonFootprint?: number; // in kg CO2e
-}
-
-export interface Budget {
-  id: string;
-  category: string;
-  limit: number;
-  month: string; // Format: YYYY-MM
-  currentSpend: number;
-  userId?: string;
-  createdAt?: any;
 }
 
 export interface UserProfile {

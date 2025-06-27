@@ -725,7 +725,6 @@ const deleteTransaction = async (transactionId: string) => {
       }
 
       const userDocRef = doc(db, 'users', user.uid);
-      // Use set with merge to handle cases where the doc might not exist yet
       await setDoc(userDocRef, {
         subscription: {
           tier: 'premium',
@@ -746,8 +745,6 @@ const deleteTransaction = async (transactionId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         const userDocRef = doc(db, 'users', user.uid);
-        // Use set with merge: true on the subscription object
-        // This requires providing all fields you want to keep
         const currentSub = userProfile?.subscription || {};
 
         await setDoc(userDocRef, {

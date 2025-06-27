@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview An AI flow to create multiple monthly budget allocations from a user's natural language description.
+ * @fileOverview An AI flow to create multiple monthly budget allocations from a user's natural language description, including itemized lists.
  *
  * - createMonthlyBudgets - A function that handles creating structured budget data.
  * - CreateMonthlyBudgetsInput - The input type for the createMonthlyBudgets function.
@@ -9,10 +9,18 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { nanoid } from 'nanoid';
+
+const BudgetItemSchema = z.object({
+  id: z.string().describe("A unique ID for the item, e.g., a short hash or timestamp-based."),
+  description: z.string().describe("The name of the item to purchase."),
+  predictedCost: z.number().optional().describe("The estimated cost of this single item, if the user mentions it."),
+});
 
 const BudgetSchema = z.object({
   category: z.string().describe('A suitable category for the budget (e.g., Groceries, Food, Entertainment).'),
-  limit: z.number().describe('The budget limit for this category.'),
+  limit: z.number().describe('The total budget limit for this category.'),
+  items: z.array(BudgetItemSchema).optional().describe("A list of specific items the user mentioned for this budget category."),
 });
   
 const CreateMonthlyBudgetsOutputSchema = z.object({
@@ -41,10 +49,11 @@ Your task is to parse their request and generate a structured list of budget obj
 
 Follow these rules:
 1.  **Parse the Query:** Analyze the user's query to identify all requested budget categories and their specified limits.
-2.  **Handle Multiple Requests:** The user might specify several budgets in a single sentence (e.g., "Budget $500 for groceries, $100 for gas, and $250 for entertainment."). Create a separate budget object for each.
-3.  **Suggest Sensible Limits:** If the user asks for a "reasonable" or "average" budget for a category without specifying an amount, provide a sensible, common-sense limit. For example, a "reasonable" entertainment budget might be $150.
-4.  **Categorize Correctly:** Use standard, clear category names like "Groceries", "Food", "Transport", "Entertainment", "Utilities", etc.
-5.  **Avoid Duplicates:** The user has provided a list of categories that already have budgets. Do NOT generate budgets for these existing categories. Ignore any part of the query that mentions them.
+2.  **Itemize:** Within each budget category, identify and list the specific items the user wants to buy. For example, if the query is "Budget $500 for groceries, I need to buy milk, bread, and eggs", you must create a budget for "Groceries" with a limit of 500, and include "milk", "bread", and "eggs" in its 'items' array. Each item needs a unique ID.
+3.  **Handle Multiple Requests:** The user might specify several budgets in a single sentence. Create a separate budget object for each.
+4.  **Suggest Sensible Limits:** If the user asks for a "reasonable" budget without specifying an amount, provide a sensible, common-sense limit.
+5.  **Categorize Correctly:** Use standard, clear category names like "Groceries", "Food", "Transport", "Entertainment", "Utilities", etc.
+6.  **Avoid Duplicates:** The user has provided a list of categories that already have budgets. Do NOT generate budgets for these existing categories. Ignore any part of the query that mentions them.
 
 **User's Request:**
 "{{userQuery}}"
@@ -59,7 +68,7 @@ None
 {{/if}}
 
 
-Now, generate the list of new budget items based on the user's request.
+Now, generate the list of new budget items based on the user's request. Ensure every item in the 'items' array has a unique 'id'.
 `,
 });
 
@@ -71,6 +80,20 @@ const createMonthlyBudgetsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
+    
+    // Ensure items have unique IDs if the LLM forgets
+    if (output && output.budgets) {
+        output.budgets.forEach(budget => {
+            if (budget.items) {
+                budget.items.forEach(item => {
+                    if (!item.id) {
+                        item.id = nanoid();
+                    }
+                });
+            }
+        });
+    }
+    
     return output!;
   }
 );

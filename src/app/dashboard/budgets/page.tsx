@@ -16,7 +16,7 @@ import { PlusCircle, DraftingCompass, Sparkles } from 'lucide-react';
 import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreatePlanDialog } from '@/components/dashboard/create-plan-dialog';
-import type { FinancialPlan } from '@/types';
+import type { FinancialPlan, Budget } from '@/types';
 import { FinancialPlanCard } from '@/components/dashboard/financial-plan-card';
 import { CreateMonthlyBudgetsDialog } from '@/components/dashboard/create-monthly-budgets-dialog';
 import {
@@ -31,16 +31,29 @@ import {
 } from '@/components/ui/alert-dialog';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { BudgetDetailsDialog } from '@/components/dashboard/budget-details-dialog';
 
 export default function BudgetsPage() {
-  const { financialPlans, deleteFinancialPlan, isPremium, budgets } = useAppContext();
+  const { financialPlans, deleteFinancialPlan, isPremium, budgets, deleteBudget } = useAppContext();
+  
+  // Dialog states
   const [isCreateBudgetsDialogOpen, setIsCreateBudgetsDialogOpen] = useState(false);
   const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
+  const [isBudgetDetailsOpen, setIsBudgetDetailsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
+  // Data for dialogs
   const [planToEdit, setPlanToEdit] = useState<FinancialPlan | null>(null);
   const [planToDelete, setPlanToDelete] = useState<FinancialPlan | null>(null);
+  const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
+  const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
+  const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
 
+
+  const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
+  const canAddPlan = isPremium || financialPlans.length < FREE_TIER_LIMITS.financialPlans;
+
+  // Plan handlers
   const handleEditPlan = (plan: FinancialPlan) => {
     setPlanToEdit(plan);
     setIsCreatePlanDialogOpen(true);
@@ -48,15 +61,8 @@ export default function BudgetsPage() {
   
   const handleDeletePlan = (plan: FinancialPlan) => {
     setPlanToDelete(plan);
+    setBudgetToDelete(null);
     setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (planToDelete) {
-      await deleteFinancialPlan(planToDelete.id);
-      setIsDeleteDialogOpen(false);
-      setPlanToDelete(null);
-    }
   };
 
   const handlePlanDialogClose = (open: boolean) => {
@@ -66,11 +72,49 @@ export default function BudgetsPage() {
     setIsCreatePlanDialogOpen(open);
   }
 
-  const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
-  const canAddPlan = isPremium || financialPlans.length < FREE_TIER_LIMITS.financialPlans;
+  // Budget handlers
+  const handleCreateBudget = () => {
+    setBudgetToEdit(null);
+    setIsCreateBudgetsDialogOpen(true);
+  }
+
+  const handleEditBudget = (budget: Budget) => {
+    setBudgetToEdit(budget);
+    setIsCreateBudgetsDialogOpen(true);
+  }
+
+  const handleDeleteBudget = (budget: Budget) => {
+    setBudgetToDelete(budget);
+    setPlanToDelete(null);
+    setIsDeleteDialogOpen(true);
+  }
+
+  const handleShowBudgetDetails = (budget: Budget) => {
+    setSelectedBudget(budget);
+    setIsBudgetDetailsOpen(true);
+  }
+  
+  const handleBudgetDialogClose = (open: boolean) => {
+      if (!open) {
+          setBudgetToEdit(null);
+      }
+      setIsCreateBudgetsDialogOpen(open);
+  }
+
+  const confirmDelete = async () => {
+    if (planToDelete) {
+      await deleteFinancialPlan(planToDelete.id);
+    }
+    if (budgetToDelete) {
+      await deleteBudget(budgetToDelete.id);
+    }
+    setIsDeleteDialogOpen(false);
+    setPlanToDelete(null);
+    setBudgetToDelete(null);
+  };
 
   const AddBudgetButton = (
-     <Button onClick={() => setIsCreateBudgetsDialogOpen(true)} disabled={!canAddBudget}>
+     <Button onClick={handleCreateBudget} disabled={!canAddBudget}>
         <PlusCircle className="mr-2 h-4 w-4" />
         Add Budget
       </Button>
@@ -122,7 +166,11 @@ export default function BudgetsPage() {
                   )}
                 </CardHeader>
                 <CardContent>
-                    <MonthlyBudgets />
+                    <MonthlyBudgets 
+                      onEditBudget={handleEditBudget}
+                      onDeleteBudget={handleDeleteBudget}
+                      onShowDetails={handleShowBudgetDetails}
+                    />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -176,15 +224,16 @@ export default function BudgetsPage() {
       </div>
       
       {/* Dialogs */}
-      <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={setIsCreateBudgetsDialogOpen} />
+      <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={handleBudgetDialogClose} budgetToEdit={budgetToEdit} />
       <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
-      
+      <BudgetDetailsDialog open={isBudgetDetailsOpen} onOpenChange={setIsBudgetDetailsOpen} budget={selectedBudget} />
+
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your financial plan for "{planToDelete?.title}".
+                This action cannot be undone. This will permanently delete your financial plan for "{planToDelete?.title || budgetToDelete?.category}".
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

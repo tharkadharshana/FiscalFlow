@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -13,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
-import { AddBudgetDialog } from '@/components/dashboard/add-budget-dialog';
 import type { Budget } from '@/types';
 import {
   DropdownMenu,
@@ -21,49 +19,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { UpgradeCard } from '../ui/upgrade-card';
 
-export function MonthlyBudgets() {
-  const { budgets, categories, deleteBudget, formatCurrency, isPremium } = useAppContext();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
+type MonthlyBudgetsProps = {
+    onEditBudget: (budget: Budget) => void;
+    onDeleteBudget: (budget: Budget) => void;
+    onShowDetails: (budget: Budget) => void;
+}
 
-  const handleEdit = (budget: Budget) => {
-    setBudgetToEdit(budget);
-    setIsDialogOpen(true);
-  }
-
-  const handleDelete = (budget: Budget) => {
-    setBudgetToDelete(budget);
-    setIsDeleteAlertOpen(true);
-  }
-
-  const confirmDelete = () => {
-    if (budgetToDelete) {
-      deleteBudget(budgetToDelete.id);
-      setIsDeleteAlertOpen(false);
-      setBudgetToDelete(null);
-    }
-  }
-
-  const handleDialogClose = (open: boolean) => {
-    if (!open) {
-      setBudgetToEdit(null);
-    }
-    setIsDialogOpen(open);
-  }
+export function MonthlyBudgets({ onEditBudget, onDeleteBudget, onShowDetails }: MonthlyBudgetsProps) {
+  const { budgets, categories, formatCurrency, isPremium } = useAppContext();
   
   const canAddMoreBudgets = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
 
@@ -74,7 +39,7 @@ export function MonthlyBudgets() {
     const Icon = categories[budget.category] || categories['Food'];
 
     return (
-      <Card>
+      <Card className="flex flex-col cursor-pointer hover:border-primary/50 transition-colors" onClick={() => onShowDetails(budget)}>
         <CardHeader className="flex flex-row items-start justify-between pb-4">
           <div className='flex items-center gap-4'>
             <Icon className="h-6 w-6 text-muted-foreground" />
@@ -82,21 +47,21 @@ export function MonthlyBudgets() {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(budget)}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditBudget(budget); }}>
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDelete(budget)} className="text-destructive">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDeleteBudget(budget); }} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 flex-1">
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-bold">{formatCurrency(spent)}</span>
             <span className="text-muted-foreground">/ {formatCurrency(budget.limit)}</span>
@@ -134,24 +99,6 @@ export function MonthlyBudgets() {
           <p>Click "Add Budget" to get started.</p>
         </div>
       )}
-      
-      <AddBudgetDialog open={isDialogOpen} onOpenChange={handleDialogClose} budgetToEdit={budgetToEdit}/>
-      
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your budget for {'"'}
-                {budgetToDelete?.category}{'"'}.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
     </>
   );
 }

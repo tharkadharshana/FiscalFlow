@@ -18,10 +18,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mic, MicOff, Loader2, Wand2, Trash2 } from 'lucide-react';
+import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan } from 'lucide-react';
 import { createMonthlyBudgetsAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
 import { defaultCategories } from '@/data/mock-data';
+import { nanoid } from 'nanoid';
 import {
   Select,
   SelectContent,
@@ -29,25 +30,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { Budget, BudgetItem } from '@/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 type CreateMonthlyBudgetsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  budgetToEdit?: Budget | null;
 };
 
 const budgetItemSchema = z.object({
+  id: z.string(),
+  description: z.string().min(1, "Description can't be empty."),
+  predictedCost: z.coerce.number().optional(),
+});
+
+const singleBudgetSchema = z.object({
   category: z.string().min(1, "Category can't be empty."),
   limit: z.coerce.number().min(0, 'Limit must be a positive number.'),
+  items: z.array(budgetItemSchema).optional(),
 });
 
 const formSchema = z.object({
-  budgets: z.array(budgetItemSchema),
+  budgets: z.array(singleBudgetSchema),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
-export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthlyBudgetsDialogProps) {
-  const { addBudget, budgets: existingBudgets, showNotification } = useAppContext();
+export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }: CreateMonthlyBudgetsDialogProps) {
+  const { addBudget, updateBudget, budgets: existingBudgets, showNotification, expenseCategories } = useAppContext();
 
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
   const [transcript, setTranscript] = useState('');
@@ -58,7 +69,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
     resolver: zodResolver(formSchema),
     defaultValues: { budgets: [] },
   });
-  const { fields, remove, control } = useFieldArray({
+  const { fields, remove, control, register } = useFieldArray({
     control: form.control,
     name: 'budgets',
   });
@@ -102,11 +113,20 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
   
   useEffect(() => {
       if(open) {
-        setView('input');
-        setTranscript('');
-        form.reset({ budgets: [] });
+        if (budgetToEdit) {
+            form.reset({ budgets: [{
+                category: budgetToEdit.category,
+                limit: budgetToEdit.limit,
+                items: budgetToEdit.items || []
+            }]});
+            setView('review');
+        } else {
+            setView('input');
+            setTranscript('');
+            form.reset({ budgets: [] });
+        }
       }
-  }, [open, form]);
+  }, [open, budgetToEdit, form]);
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
@@ -132,9 +152,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
         showNotification({ type: 'error', title: 'AI Error', description: result.error });
         setView('input');
     } else {
-        form.reset({
-            budgets: result.budgets
-        });
+        form.setValue('budgets', result.budgets);
         setView('review');
     }
   };
@@ -142,14 +160,18 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
   const handleSaveBudgets = async (data: FormData) => {
     let count = 0;
     for (const budget of data.budgets) {
-        await addBudget(budget);
+        if (budgetToEdit) {
+            await updateBudget(budgetToEdit.id, budget);
+        } else {
+            await addBudget({...budget, userInput: transcript });
+        }
         count++;
     }
     if (count > 0) {
       showNotification({
         type: 'success',
-        title: `${count} Budget(s) Created`,
-        description: 'Your monthly budgets have been set.',
+        title: budgetToEdit ? 'Budget Updated' : `${count} Budget(s) Created`,
+        description: budgetToEdit ? `Your budget for ${data.budgets[0].category} has been updated.` : 'Your monthly budgets have been set.',
     });
     }
     onOpenChange(false);
@@ -158,15 +180,23 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
   const renderInputView = () => (
     <div className="space-y-4">
         <DialogDescription>
-            Use your voice to set your monthly budgets. For example: "Set a budget of $500 for Groceries and $150 for Transport." You can also ask for suggestions, like "Give me a reasonable budget for Entertainment."
+            Use your voice or text to set your monthly budgets. For example: "Set a budget of $500 for Groceries to buy milk, bread, and eggs."
         </DialogDescription>
-        <div className="grid w-full gap-2">
-            <Textarea placeholder="Your budget description will appear here..." value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={6} />
-            <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'}>
-                {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                {isRecording ? 'Stop Recording' : 'Start Recording'}
-            </Button>
-        </div>
+        <Tabs defaultValue="voice">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="voice"><Mic className="mr-2 h-4 w-4"/> Use Voice</TabsTrigger>
+                <TabsTrigger value="ocr" disabled><FileScan className="mr-2 h-4 w-4"/> Scan Document</TabsTrigger>
+            </TabsList>
+            <TabsContent value="voice" className="pt-4">
+                <div className="grid w-full gap-2">
+                    <Textarea placeholder="Your budget description will appear here..." value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={6} />
+                    <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'}>
+                        {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                        {isRecording ? 'Stop Recording' : 'Start Recording'}
+                    </Button>
+                </div>
+            </TabsContent>
+        </Tabs>
         <DialogFooter>
             <Button onClick={handleGenerateBudgets} disabled={!transcript} className="w-full">
                 <Wand2 className="mr-2 h-4 w-4" /> Generate Budgets with AI
@@ -189,35 +219,38 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
         </DialogDescription>
         <div className="space-y-3">
             {fields.map((field, index) => (
-                <div key={field.id} className="flex items-end gap-2 rounded-md border p-3">
-                    <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
-                        <div className="col-span-3">
-                           <Label className="text-xs text-muted-foreground">Category</Label>
-                           <Controller
-                             control={form.control}
-                             name={`budgets.${index}.category`}
-                             render={({ field }) => (
-                               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                 <SelectTrigger className="h-8">
-                                   <SelectValue placeholder="Select category" />
-                                 </SelectTrigger>
-                                 <SelectContent>
-                                   {defaultCategories.map(cat => (
-                                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                   ))}
-                                 </SelectContent>
-                               </Select>
-                             )}
-                           />
+                <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
+                    <div className="flex items-end gap-2">
+                        <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
+                            <div className="col-span-3">
+                               <Label className="text-xs text-muted-foreground">Category</Label>
+                               <Controller
+                                 control={control}
+                                 name={`budgets.${index}.category`}
+                                 render={({ field }) => (
+                                   <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
+                                     <SelectTrigger className="h-8">
+                                       <SelectValue placeholder="Select category" />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                       {expenseCategories.map(cat => (
+                                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                       ))}
+                                     </SelectContent>
+                                   </Select>
+                                 )}
+                               />
+                            </div>
+                            <div className="col-span-2">
+                               <Label className="text-xs text-muted-foreground">Monthly Limit ($)</Label>
+                               <Input {...register(`budgets.${index}.limit`)} type="number" className="h-8"/>
+                            </div>
                         </div>
-                        <div className="col-span-2">
-                           <Label className="text-xs text-muted-foreground">Monthly Limit ($)</Label>
-                           <Input {...form.register(`budgets.${index}.limit`)} type="number" className="h-8"/>
-                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)} disabled={!!budgetToEdit}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                        </Button>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                    </Button>
+                    {/* Itemized list would go here if needed in review */}
                 </div>
             ))}
             {fields.length === 0 && (
@@ -236,7 +269,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange }: CreateMonthly
       <DialogContent className="sm:max-w-lg">
         <ScrollArea className="max-h-[80vh] pr-6">
             <DialogHeader>
-                <DialogTitle className="font-headline text-2xl">Create Monthly Budgets</DialogTitle>
+                <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Create Monthly Budgets'}</DialogTitle>
             </DialogHeader>
             <div className="py-4">
                 {view === 'input' && renderInputView()}
