@@ -89,7 +89,7 @@ interface AppContextType {
   notifications: Notification[];
   showNotification: (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void;
   markAllNotificationsAsRead: () => Promise<void>;
-  upgradeToPremium: () => Promise<void>;
+  upgradeToPremium: (plan: 'monthly' | 'yearly') => Promise<void>;
   downgradeFromPremium: () => Promise<void>;
   markOnboardingComplete: () => Promise<void>;
 }
@@ -133,21 +133,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
     } catch (error) {
         console.error('Failed to save notification to Firestore:', error);
-    }
-
-
-    // 3. Send to dummy API (as requested)
-     try {
-      const apiPayload = {
-        title: payload.title,
-        description: payload.description,
-        variant: payload.type,
-        timestamp: new Date().toISOString(),
-      };
-      console.log('Sending notification data to dummy API:', apiPayload);
-      // Actual fetch would go here
-    } catch (error) {
-      console.error('Failed to post notification to server:', error);
     }
   };
 
@@ -724,16 +709,21 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
 
-  const upgradeToPremium = async () => {
+  const upgradeToPremium = async (plan: 'monthly' | 'yearly') => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
       const newExpiry = new Date();
-      newExpiry.setFullYear(newExpiry.getFullYear() + 1);
+      if (plan === 'yearly') {
+        newExpiry.setFullYear(newExpiry.getFullYear() + 1);
+      } else {
+        newExpiry.setMonth(newExpiry.getMonth() + 1);
+      }
 
       await updateDoc(doc(db, 'users', user.uid), {
         'subscription.tier': 'premium',
         'subscription.isActive': true,
         'subscription.expiryDate': newExpiry.toISOString(),
+        'subscription.planType': plan,
       });
 
       showNotification({ type: 'success', title: 'Upgrade Successful!', description: 'Welcome to FiscalFlow Premium.' });
@@ -749,6 +739,7 @@ const deleteTransaction = async (transactionId: string) => {
       await updateDoc(doc(db, 'users', user.uid), {
         'subscription.tier': 'free',
         'subscription.isActive': false,
+        'subscription.planType': null,
       });
       showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
     } catch (error) {

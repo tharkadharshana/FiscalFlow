@@ -23,8 +23,8 @@ export default function UpgradePage() {
   const { isPremium, upgradeToPremium, downgradeFromPremium, userProfile } = useAppContext();
   const router = useRouter();
 
-  const handleUpgrade = async () => {
-    await upgradeToPremium();
+  const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
+    await upgradeToPremium(plan);
     router.push('/dashboard');
   };
   
@@ -81,10 +81,10 @@ export default function UpgradePage() {
                 </ul>
             </CardContent>
             <CardFooter className="flex-col gap-2">
-                <Button onClick={handleUpgrade} className="w-full text-lg h-12 bg-gradient-to-r from-primary to-blue-600 hover:opacity-90">
+                <Button onClick={() => handleUpgrade('monthly')} className="w-full text-lg h-12 bg-gradient-to-r from-primary to-blue-600 hover:opacity-90">
                     Upgrade for $4.99/month
                 </Button>
-                <Button variant="link" className="text-muted-foreground">Or $49.99 per year (Save 15%)</Button>
+                <Button onClick={() => handleUpgrade('yearly')} variant="link" className="text-muted-foreground">Or $49.99 per year (Save 15%)</Button>
             </CardFooter>
         </Card>
       );

@@ -5,6 +5,7 @@
 
 
 
+
 export interface Transaction {
   id: string;
   type: 'income' | 'expense';
@@ -53,6 +54,7 @@ export interface UserProfile {
   subscription: {
     tier: 'free' | 'premium';
     isActive: boolean;
+    planType?: 'monthly' | 'yearly';
     expiryDate: string | null;
     monthlyOcrScans?: { count: number; month: string }; // YYYY-MM
     monthlyRoundups?: { count: number; month: string };
