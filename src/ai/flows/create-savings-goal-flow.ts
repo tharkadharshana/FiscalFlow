@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to create a structured savings goal from a user's natural language description.
@@ -9,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { CreateSavingsGoalOutput } from '@/types';
 
 const CreateSavingsGoalInputSchema = z.object({
   userQuery: z.string().describe("The user's natural language description of their savings goal."),
@@ -20,7 +22,6 @@ const CreateSavingsGoalOutputSchema = z.object({
   targetAmount: z.number().describe('The total amount the user wants to save.'),
   deadline: z.string().optional().describe('The target deadline in YYYY-MM-DD format if mentioned. If no year is mentioned, assume the next upcoming instance of that month/day.'),
 });
-export type CreateSavingsGoalOutput = z.infer<typeof CreateSavingsGoalOutputSchema>;
 
 
 export async function createSavingsGoal(input: CreateSavingsGoalInput): Promise<CreateSavingsGoalOutput> {

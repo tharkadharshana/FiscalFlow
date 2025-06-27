@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
-import { PlusCircle, Briefcase, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Briefcase, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, Loader2, Globe } from 'lucide-react';
 import type { Investment } from '@/types';
 import { AddInvestmentDialog } from '@/components/dashboard/add-investment-dialog';
 import {
@@ -37,6 +37,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { getCoinGeckoMarketData } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import Image from 'next/image';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CryptoTracker } from '@/components/dashboard/crypto-tracker';
 
 export default function InvestmentsPage() {
   const { investments, deleteInvestment, formatCurrency, isPremium, showNotification } = useAppContext();
@@ -57,7 +59,7 @@ export default function InvestmentsPage() {
 
       if (cryptoIds.length > 0) {
         setIsLoadingPrices(true);
-        const result = await getCoinGeckoMarketData(cryptoIds);
+        const result = await getCoinGeckoMarketData({ coinIds });
         if ('error' in result) {
             logger.error('Failed to fetch live crypto prices', new Error(result.error));
             showNotification({ type: 'error', title: 'Could not fetch live prices', description: result.error });
@@ -122,12 +124,12 @@ export default function InvestmentsPage() {
   return (
     <>
       <div className="flex flex-1 flex-col">
-        <Header title="Investment Portfolio" />
+        <Header title="Investments" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Portfolio Value</CardTitle>
+                        <CardTitle className="text-sm font-medium">My Portfolio Value</CardTitle>
                         <Briefcase className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
@@ -139,7 +141,7 @@ export default function InvestmentsPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Gain/Loss</CardTitle>
+                        <CardTitle className="text-sm font-medium">My Total Gain/Loss</CardTitle>
                         {totalGainLoss >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
                     </CardHeader>
                     <CardContent>
@@ -149,99 +151,122 @@ export default function InvestmentsPage() {
                     </CardContent>
                 </Card>
             </div>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Your Holdings</CardTitle>
-                        <CardDescription>
-                            A detailed view of your investment assets. Crypto prices are updated live.
-                        </CardDescription>
-                    </div>
-                    {canAddInvestment ? (
-                        AddInvestmentButton
-                    ) : (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>{AddInvestmentButton}</TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Upgrade to Premium for unlimited investments.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    {investments.length > 0 ? (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Asset</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead className="text-right">Quantity</TableHead>
-                                    <TableHead className="text-right">Avg. Cost</TableHead>
-                                    <TableHead className="text-right">Market Value</TableHead>
-                                    <TableHead className="text-right">Gain / Loss</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {investments.map((inv) => {
-                                    const currentPrice = getLivePrice(inv);
-                                    const marketValue = inv.quantity * currentPrice;
-                                    const costBasis = inv.quantity * inv.purchasePrice;
-                                    const gainLoss = marketValue - costBasis;
-                                    const isCrypto = inv.assetType === 'Crypto' && inv.coinGeckoId;
-                                    const cryptoImage = isCrypto ? livePrices[inv.coinGeckoId!]?.image : null;
+            
+            <Tabs defaultValue="portfolio">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="portfolio"><Briefcase className="mr-2 h-4 w-4" />My Portfolio</TabsTrigger>
+                <TabsTrigger value="crypto"><Globe className="mr-2 h-4 w-4" />Crypto Tracker</TabsTrigger>
+              </TabsList>
 
-                                    return (
-                                        <TableRow key={inv.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    {isCrypto && cryptoImage && <Image src={cryptoImage} alt={inv.name} width={24} height={24} />}
-                                                    <div>
-                                                        <div className="font-medium">{inv.name}</div>
-                                                        <div className="text-sm text-muted-foreground">{inv.symbol}</div>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{inv.assetType}</TableCell>
-                                            <TableCell className="text-right">{inv.quantity.toLocaleString()}</TableCell>
-                                            <TableCell className="text-right">{formatCurrency(inv.purchasePrice)}</TableCell>
-                                            <TableCell className="text-right font-medium">{formatCurrency(marketValue)}</TableCell>
-                                            <TableCell className={cn("text-right", gainLoss >= 0 ? 'text-green-600' : 'text-red-600')}>
-                                                {formatCurrency(gainLoss)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <MoreVertical className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleEditInvestment(inv)}>
-                                                            <Pencil className="mr-2 h-4 w-4" /> Edit
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleDeleteInvestment(inv)} className="text-destructive">
-                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })}
-                            </TableBody>
-                        </Table>
-                    ) : (
-                        <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
-                            <Briefcase className="h-12 w-12 mb-4" />
-                            <p className="text-lg font-semibold">No investments tracked yet.</p>
-                            <p>Click "Add Investment" to build your portfolio.</p>
+              <TabsContent value="portfolio" className="mt-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>Your Holdings</CardTitle>
+                            <CardDescription>
+                                A detailed view of your investment assets. Crypto prices are updated live.
+                            </CardDescription>
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                        {canAddInvestment ? (
+                            AddInvestmentButton
+                        ) : (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>{AddInvestmentButton}</TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Upgrade to Premium for unlimited investments.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </CardHeader>
+                    <CardContent>
+                        {investments.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Asset</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead className="text-right">Quantity</TableHead>
+                                        <TableHead className="text-right">Avg. Cost</TableHead>
+                                        <TableHead className="text-right">Market Value</TableHead>
+                                        <TableHead className="text-right">Gain / Loss</TableHead>
+                                        <TableHead className="w-[50px]"></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {investments.map((inv) => {
+                                        const currentPrice = getLivePrice(inv);
+                                        const marketValue = inv.quantity * currentPrice;
+                                        const costBasis = inv.quantity * inv.purchasePrice;
+                                        const gainLoss = marketValue - costBasis;
+                                        const isCrypto = inv.assetType === 'Crypto' && inv.coinGeckoId;
+                                        const cryptoImage = isCrypto ? livePrices[inv.coinGeckoId!]?.image : null;
+
+                                        return (
+                                            <TableRow key={inv.id}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        {isCrypto && cryptoImage && <Image src={cryptoImage} alt={inv.name} width={24} height={24} />}
+                                                        <div>
+                                                            <div className="font-medium">{inv.name}</div>
+                                                            <div className="text-sm text-muted-foreground">{inv.symbol}</div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>{inv.assetType}</TableCell>
+                                                <TableCell className="text-right">{inv.quantity.toLocaleString()}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency(inv.purchasePrice)}</TableCell>
+                                                <TableCell className="text-right font-medium">{formatCurrency(marketValue)}</TableCell>
+                                                <TableCell className={cn("text-right", gainLoss >= 0 ? 'text-green-600' : 'text-red-600')}>
+                                                    {formatCurrency(gainLoss)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => handleEditInvestment(inv)}>
+                                                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleDeleteInvestment(inv)} className="text-destructive">
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
+                                <Briefcase className="h-12 w-12 mb-4" />
+                                <p className="text-lg font-semibold">No investments tracked yet.</p>
+                                <p>Click "Add Investment" to build your portfolio.</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="crypto" className="mt-4">
+                  <Card>
+                      <CardHeader>
+                          <CardTitle>Cryptocurrency Market</CardTitle>
+                          <CardDescription>
+                              Live market data for top cryptocurrencies, provided by CoinGecko.
+                          </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                          <CryptoTracker />
+                      </CardContent>
+                  </Card>
+              </TabsContent>
+            </Tabs>
         </main>
       </div>
       

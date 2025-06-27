@@ -1,5 +1,6 @@
 
 
+
 export interface BudgetItem {
   id: string;
   description: string;
@@ -123,6 +124,12 @@ export interface SavingsGoal {
   badges: Badge[];
 }
 
+export type CreateSavingsGoalOutput = {
+    title: string;
+    targetAmount: number;
+    deadline?: string;
+};
+
 export interface Investment {
     id: string;
     userId: string;
@@ -151,4 +158,16 @@ export interface Notification {
   createdAt: any; // ISO String or Firestore Timestamp
   isRead: boolean;
   type: 'success' | 'info' | 'warning' | 'error';
+}
+
+export interface CoinGeckoMarketData {
+  id: string;
+  symbol: string;
+  name: string;
+  image: string;
+  current_price: number;
+  market_cap: number;
+  market_cap_rank: number;
+  price_change_percentage_24h: number;
+  total_volume: number;
 }

@@ -1,3 +1,4 @@
+
 // src/lib/actions.ts
 'use server';
 
@@ -34,9 +35,10 @@ import {
 import {
     createSavingsGoal,
     type CreateSavingsGoalInput,
-    type CreateSavingsGoalOutput,
 } from '@/ai/flows/create-savings-goal-flow';
+import type { CreateSavingsGoalOutput } from '@/types';
 import { logger } from './logger';
+import type { CoinGeckoMarketData } from '@/types';
 
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
@@ -47,7 +49,6 @@ type AssistantResult = VoiceAction | { error: string };
 type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
 type ParseDocumentResult = { text: string } | { error: string };
 type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
-export type CoinGeckoMarketData = { id: string; symbol: string; name: string; image: string; current_price: number; }
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 
 // Note: In a real production app, you would add server-side logging here
@@ -55,16 +56,17 @@ type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 // that might contain PII unless you have explicit user consent and proper
 // data handling policies. For this example, we'll use console.error.
 
-export async function getCoinGeckoMarketData(coinIds?: string[]): Promise<CoinGeckoResult> {
+export async function getCoinGeckoMarketData(
+  params: { coinIds?: string[]; page?: number; perPage?: number }
+): Promise<CoinGeckoResult> {
+  const { coinIds, page = 1, perPage = 25 } = params;
   const vsCurrency = 'usd';
   let url: string;
 
   if (coinIds && coinIds.length > 0) {
-    // Fetch specific coins
     url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${vsCurrency}&ids=${coinIds.join(',')}`;
   } else {
-    // Fetch top 100 coins by market cap
-    url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${vsCurrency}&order=market_cap_desc&per_page=100&page=1&sparkline=false`;
+    url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${vsCurrency}&order=market_cap_desc&per_page=${perPage}&page=${page}&sparkline=false`;
   }
   
   try {
@@ -83,6 +85,7 @@ export async function getCoinGeckoMarketData(coinIds?: string[]): Promise<CoinGe
     return { error: (error as Error).message };
   }
 }
+
 
 export async function parseDocumentAction(
   input: ParseReceiptInput
