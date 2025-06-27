@@ -31,6 +31,11 @@ import {
     type AnalyzeTaxesInput,
     type AnalyzeTaxesOutput,
 } from '@/ai/flows/analyze-taxes-flow';
+import {
+    createSavingsGoal,
+    type CreateSavingsGoalInput,
+    type CreateSavingsGoalOutput,
+} from '@/ai/flows/create-savings-goal-flow';
 
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
@@ -40,6 +45,7 @@ type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
 type AssistantResult = VoiceAction | { error: string };
 type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
 type ParseDocumentResult = { text: string } | { error: string };
+type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 
 export async function parseDocumentAction(
   input: ParseReceiptInput
@@ -131,5 +137,17 @@ export async function analyzeTaxesAction(
     } catch (error) {
         console.error('Error in analyzeTaxesAction:', error);
         return { error: 'Failed to analyze taxes. Please try again later.' };
+    }
+}
+
+export async function createSavingsGoalAction(
+    input: CreateSavingsGoalInput
+): Promise<SavingsGoalResult> {
+    try {
+        const result = await createSavingsGoal(input);
+        return result;
+    } catch (error) {
+        console.error('Error in createSavingsGoalAction:', error);
+        return { error: 'Failed to generate savings goal. Please try again later.' };
     }
 }
