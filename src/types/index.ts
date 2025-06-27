@@ -134,6 +134,7 @@ export interface Investment {
     currentPrice: number;
     purchaseDate: string; // ISO string
     createdAt: any;
+    coinGeckoId?: string; // For reliable API lookups
   }
 
 export interface TaxLiability {

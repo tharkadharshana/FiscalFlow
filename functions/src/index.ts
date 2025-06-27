@@ -4,9 +4,57 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
+import { Logging } from '@google-cloud/logging';
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// Initialize Google Cloud Logging
+const logging = new Logging({
+    projectId: process.env.GCLOUD_PROJECT,
+});
+const log = logging.log('fiscalflow-app-logs');
+
+/**
+ * Callable function for client-side logging.
+ */
+export const logMessage = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+
+    const { level, message, details } = data;
+    const uid = context.auth.uid;
+
+    const severityMap: {[key: string]: string} = {
+        info: 'INFO',
+        warn: 'WARNING',
+        error: 'ERROR'
+    };
+    
+    const severity = severityMap[level] || 'DEFAULT';
+
+    const metadata = {
+        resource: { type: 'global' },
+        severity: severity,
+        labels: { userId: uid },
+    };
+
+    const logEntry = log.entry(metadata, {
+        message: message,
+        userId: uid,
+        ...details,
+    });
+    
+    try {
+        await log.write(logEntry);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to write log entry:", error);
+        throw new functions.https.HttpsError('internal', 'Could not write log entry.');
+    }
+});
+
 
 /**
  * This function automatically updates a user's monthly budget spend
@@ -15,7 +63,7 @@ const db = admin.firestore();
 export const updateBudgetOnTransactionChange = functions.firestore
   .document("/users/{userId}/transactions/{transactionId}")
   .onWrite(async (change, context) => {
-    const { userId } = context.params;
+    const { userId, transactionId } = context.params;
 
     const transactionBefore = change.before.data();
     const transactionAfter = change.after.data();
@@ -71,14 +119,14 @@ async function updateBudget(userId: string, category: string, amountChange: numb
   const budgetSnapshot = await budgetQuery.get();
 
   if (budgetSnapshot.empty) {
-    functions.logger.log(`No budget for category '${category}' in month '${month}'.`);
+    functions.logger.info(`No budget found for category '${category}' in month '${month}' for user ${userId}. No action taken.`);
     return;
   }
 
   const budgetDoc = budgetSnapshot.docs[0];
   const currentSpend = (budgetDoc.data().currentSpend || 0) + amountChange;
   
-  functions.logger.log(`Updating budget ${budgetDoc.id} spend by ${amountChange}. New spend: ${currentSpend}`);
+  functions.logger.log(`Updating budget ${budgetDoc.id} for user ${userId}. Spend change: ${amountChange}. New spend: ${currentSpend}`);
   await budgetDoc.ref.update({ currentSpend: Math.max(0, currentSpend) });
 }
 
@@ -90,14 +138,14 @@ export const generateRecurringTransactions = functions.pubsub
   .schedule("every 24 hours")
   .onRun(async () => {
     const now = new Date();
-    functions.logger.log("Running recurring transaction generator for", now.toISOString());
+    functions.logger.info("Starting recurring transaction generator for", now.toISOString());
 
     const recurringTxsQuery = db.collectionGroup("recurringTransactions")
       .where("isActive", "==", true);
 
     const snapshot = await recurringTxsQuery.get();
     if (snapshot.empty) {
-      functions.logger.log("No active recurring transactions to process.");
+      functions.logger.info("No active recurring transactions to process.");
       return null;
     }
 
@@ -107,7 +155,7 @@ export const generateRecurringTransactions = functions.pubsub
       if (!userId) return;
 
       if (shouldGenerateTransaction(recurringTx, now)) {
-        functions.logger.log(`Generating transaction for '${recurringTx.title}' for user ${userId}`);
+        functions.logger.info(`Generating transaction for '${recurringTx.title}' for user ${userId}`);
         const newTransaction = {
           type: recurringTx.type,
           amount: recurringTx.amount,
@@ -129,7 +177,7 @@ export const generateRecurringTransactions = functions.pubsub
     });
 
     await Promise.all(promises);
-    functions.logger.log("Finished recurring transaction generator.");
+    functions.logger.info("Finished recurring transaction generator.");
     return null;
   });
 

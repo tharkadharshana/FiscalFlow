@@ -31,6 +31,7 @@ import {
 import { estimateCarbonFootprint } from '@/lib/carbon';
 import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/ai/flows/analyze-taxes-flow';
 import { analyzeTaxesAction, generateInsightsAction, parseReceiptAction } from '@/lib/actions';
+import { logger } from '@/lib/logger';
 
 
 export const FREE_TIER_LIMITS = {
@@ -186,7 +187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             userId: user.uid,
         });
     } catch (error) {
-        console.error('Failed to save notification to Firestore:', error);
+        logger.error('Failed to save notification to Firestore', error as Error, { notificationTitle: payload.title });
     }
   };
 
@@ -201,8 +202,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             batch.update(doc.ref, { isRead: true });
         });
         await batch.commit();
+        logger.info('Marked all notifications as read');
     } catch (error) {
-        console.error("Error marking notifications as read:", error);
+        logger.error("Error marking notifications as read", error as Error);
     }
   };
 
@@ -247,11 +249,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setUserProfile({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
           setLoading(false);
         } else {
-            console.warn("User profile document not found for authenticated user. Creating one.");
+            logger.warn("User profile document not found for authenticated user. Attempting to create one.", { userId: user.uid, email: user.email });
             // Create a default user profile document if it doesn't exist
-            const defaultProfile = {
+            const defaultProfile: Omit<UserProfile, 'uid'> = {
                 displayName: user.displayName || user.email?.split('@')[0] || 'User',
-                email: user.email,
+                email: user.email as string,
                 createdAt: serverTimestamp(),
                 lastLoginAt: serverTimestamp(),
                 currencyPreference: 'USD',
@@ -264,20 +266,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 subscription: {
                   tier: 'free' as const,
                   isActive: true,
+                  planType: undefined,
                   expiryDate: null,
                 },
                 hasCompletedOnboarding: false,
                 customCategories: [],
             };
-            setDoc(userDocRef, defaultProfile).catch(err => {
-                console.error("Failed to auto-create user profile:", err);
-                // If creation fails, we're in a broken state, but we should still stop loading
-                // to avoid an infinite spinner. The user will see the error message on the page.
+            setDoc(userDocRef, defaultProfile, { merge: true }).catch(err => {
+                logger.error("Failed to auto-create user profile", err, { userId: user.uid });
                 setLoading(false);
             });
-            // The onSnapshot listener will fire again once the document is created,
-            // which will then set the userProfile and setLoading(false).
         }
+      }, (error) => {
+        logger.error("Error subscribing to user profile", error);
+        setLoading(false);
       });
 
       const qTransactions = query(collection(db, 'users', user.uid, 'transactions'), orderBy('date', 'desc'));
@@ -287,7 +289,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             icon: categoryIcons[doc.data().category] || categoryIcons['Food'],
         } as Transaction));
         setTransactions(userTransactions);
-      });
+      }, (error) => logger.error("Error subscribing to transactions", error));
 
       const currentMonth = new Date().toISOString().slice(0, 7);
       const qBudgets = query(collection(db, 'users', user.uid, 'budgets'), where('month', '==', currentMonth));
@@ -296,7 +298,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
         } as Budget));
         setBudgets(userBudgets);
-      });
+      }, (error) => logger.error("Error subscribing to budgets", error));
       
       const qPlans = query(collection(db, 'users', user.uid, 'financialPlans'), orderBy('createdAt', 'desc'));
       const unsubscribePlans = onSnapshot(qPlans, (snapshot) => {
@@ -304,7 +306,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
         } as FinancialPlan));
         setFinancialPlans(userPlans);
-      });
+      }, (error) => logger.error("Error subscribing to financial plans", error));
 
       const qRecurring = query(collection(db, 'users', user.uid, 'recurringTransactions'), orderBy('createdAt', 'desc'));
       const unsubscribeRecurring = onSnapshot(qRecurring, (snapshot) => {
@@ -314,7 +316,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             createdAt: doc.data().createdAt?.toDate().toISOString(),
         } as RecurringTransaction));
         setRecurringTransactions(userRecurring);
-      });
+      }, (error) => logger.error("Error subscribing to recurring transactions", error));
 
       const qGoals = query(collection(db, 'users', user.uid, 'savingsGoals'), orderBy('createdAt', 'desc'));
       const unsubscribeGoals = onSnapshot(qGoals, (snapshot) => {
@@ -323,7 +325,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             createdAt: doc.data().createdAt?.toDate().toISOString(),
         } as SavingsGoal));
         setSavingsGoals(userGoals);
-      });
+      }, (error) => logger.error("Error subscribing to savings goals", error));
 
       const qInvestments = query(collection(db, 'users', user.uid, 'investments'), orderBy('createdAt', 'desc'));
       const unsubscribeInvestments = onSnapshot(qInvestments, (snapshot) => {
@@ -333,7 +335,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             createdAt: doc.data().createdAt?.toDate().toISOString(),
         } as Investment));
         setInvestments(userInvestments);
-      });
+      }, (error) => logger.error("Error subscribing to investments", error));
 
       const qNotifications = query(collection(db, 'users', user.uid, 'notifications'), orderBy('createdAt', 'desc'), limit(50));
       const unsubscribeNotifications = onSnapshot(qNotifications, (snapshot) => {
@@ -343,7 +345,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
         } as Notification));
         setNotifications(userNotifications);
-      });
+      }, (error) => logger.error("Error subscribing to notifications", error));
 
 
       return () => {
@@ -434,8 +436,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       });
       showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
+      logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
     } catch (error) {
-      console.error('Error adding transaction: ', error);
+      logger.error('Error adding transaction', error as Error);
       const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
       showNotification({ type: 'error', title: 'Error', description: errorMessage });
     }
@@ -482,8 +485,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             t.update(txRef, finalUpdateData);
         });
         showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
+        logger.info('Transaction updated successfully', { transactionId });
     } catch (error) {
-        console.error('Error updating transaction:', error);
+        logger.error('Error updating transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
     }
 };
@@ -511,8 +515,9 @@ const deleteTransaction = async (transactionId: string) => {
             t.delete(txRef);
         });
         showNotification({ type: 'success', title: 'Transaction Deleted', description: '' });
+        logger.info('Transaction deleted successfully', { transactionId });
     } catch (error) {
-        console.error('Error deleting transaction:', error);
+        logger.error('Error deleting transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
     }
 };
@@ -525,8 +530,9 @@ const deleteTransaction = async (transactionId: string) => {
         ...budget, month: month, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
       });
       showNotification({ type: 'success', title: 'Budget Added', description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.` });
+      logger.info('Budget added', { category: budget.category, limit: budget.limit });
     } catch (error) {
-      console.error('Error adding budget: ', error);
+      logger.error('Error adding budget', error as Error);
       showNotification({ type: 'error', title: 'Error adding budget', description: '' });
     }
   };
@@ -536,8 +542,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
       await updateDoc(doc(db, 'users', user.uid, 'budgets', budgetId), data);
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
+      logger.info('Budget updated', { budgetId });
     } catch (error) {
-      console.error('Error updating budget: ', error);
+      logger.error('Error updating budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error updating budget', description: '' });
     }
   };
@@ -547,8 +554,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'budgets', budgetId));
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
+      logger.info('Budget deleted', { budgetId });
     } catch (error) {
-      console.error('Error deleting budget: ', error);
+      logger.error('Error deleting budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
     }
   };
@@ -560,8 +568,9 @@ const deleteTransaction = async (transactionId: string) => {
             ...plan, userId: user.uid, createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Financial Plan Created!', description: `Your new plan "${plan.title}" is ready.` });
+        logger.info('Financial plan created', { title: plan.title });
     } catch (error) {
-        console.error('Error creating plan:', error);
+        logger.error('Error creating financial plan', error as Error);
         showNotification({ type: 'error', title: 'Error creating plan', description: '' });
     }
   }
@@ -571,8 +580,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await updateDoc(doc(db, 'users', user.uid, 'financialPlans', planId), data);
         showNotification({ type: 'success', title: 'Financial Plan Updated', description: '' });
+        logger.info('Financial plan updated', { planId });
     } catch (error) {
-        console.error('Error updating plan:', error);
+        logger.error('Error updating financial plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error updating plan', description: '' });
     }
   };
@@ -582,8 +592,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'financialPlans', planId));
         showNotification({ type: 'success', title: 'Financial Plan Deleted', description: '' });
+        logger.info('Financial plan deleted', { planId });
     } catch (error) {
-        console.error('Error deleting plan:', error);
+        logger.error('Error deleting financial plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error deleting plan', description: '' });
     }
   };
@@ -596,8 +607,9 @@ const deleteTransaction = async (transactionId: string) => {
             startDate: Timestamp.fromDate(new Date(transaction.startDate)), createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Recurring Transaction Added', description: `Scheduled "${transaction.title}".` });
+        logger.info('Recurring transaction added', { title: transaction.title });
     } catch (error) {
-        console.error('Error adding recurring item:', error);
+        logger.error('Error adding recurring transaction', error as Error);
         showNotification({ type: 'error', title: 'Error adding recurring item', description: '' });
     }
   };
@@ -610,8 +622,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await updateDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId), updateData);
         showNotification({ type: 'success', title: 'Recurring Transaction Updated', description: '' });
+        logger.info('Recurring transaction updated', { transactionId });
     } catch (error) {
-        console.error('Error updating recurring item:', error);
+        logger.error('Error updating recurring transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error updating recurring item', description: '' });
     }
   };
@@ -621,8 +634,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId));
         showNotification({ type: 'success', title: 'Recurring Transaction Deleted', description: '' });
+        logger.info('Recurring transaction deleted', { transactionId });
     } catch (error) {
-        console.error('Error deleting recurring item:', error);
+        logger.error('Error deleting recurring transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error deleting recurring item', description: '' });
     }
   };
@@ -650,8 +664,9 @@ const deleteTransaction = async (transactionId: string) => {
         
         await batch.commit();
         showNotification({ type: 'success', title: 'Savings Goal Created!', description: `You're on your way to saving for "${goal.title}".` });
+        logger.info('Savings goal added', { title: goal.title });
     } catch (error) {
-        console.error('Error adding savings goal:', error);
+        logger.error('Error adding savings goal', error as Error);
         showNotification({ type: 'error', title: 'Error creating goal', description: '' });
     }
   };
@@ -679,8 +694,9 @@ const deleteTransaction = async (transactionId: string) => {
         batch.update(goalRef, finalData);
         await batch.commit();
         showNotification({ type: 'success', title: 'Savings Goal Updated', description: '' });
+        logger.info('Savings goal updated', { goalId });
     } catch (error) {
-        console.error('Error updating savings goal:', error);
+        logger.error('Error updating savings goal', error as Error, { goalId });
         showNotification({ type: 'error', title: 'Error updating goal', description: '' });
     }
   };
@@ -690,8 +706,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'savingsGoals', goalId));
         showNotification({ type: 'success', title: 'Savings Goal Deleted', description: '' });
+        logger.info('Savings goal deleted', { goalId });
     } catch (error) {
-        console.error('Error deleting savings goal:', error);
+        logger.error('Error deleting savings goal', error as Error, { goalId });
         showNotification({ type: 'error', title: 'Error deleting goal', description: '' });
     }
   };
@@ -706,8 +723,9 @@ const deleteTransaction = async (transactionId: string) => {
             createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Investment Added', description: `Added ${investment.name} to your portfolio.` });
+        logger.info('Investment added', { name: investment.name });
     } catch (error) {
-        console.error('Error adding investment:', error);
+        logger.error('Error adding investment', error as Error);
         showNotification({ type: 'error', title: 'Error adding investment', description: '' });
     }
   };
@@ -721,8 +739,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await updateDoc(doc(db, 'users', user.uid, 'investments', investmentId), updateData);
         showNotification({ type: 'success', title: 'Investment Updated', description: '' });
+        logger.info('Investment updated', { investmentId });
     } catch (error) {
-        console.error('Error updating investment:', error);
+        logger.error('Error updating investment', error as Error, { investmentId });
         showNotification({ type: 'error', title: 'Error updating investment', description: '' });
     }
   };
@@ -732,8 +751,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'investments', investmentId));
         showNotification({ type: 'success', title: 'Investment Deleted', description: '' });
+        logger.info('Investment deleted', { investmentId });
     } catch (error) {
-        console.error('Error deleting investment:', error);
+        logger.error('Error deleting investment', error as Error, { investmentId });
         showNotification({ type: 'error', title: 'Error deleting investment', description: '' });
     }
   };
@@ -779,8 +799,9 @@ const deleteTransaction = async (transactionId: string) => {
       const { subscription, ...restData } = data; // Prevent direct subscription changes here
       await setDoc(doc(db, 'users', user.uid), restData, { merge: true });
       showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
+      logger.info('User preferences updated');
     } catch (error) {
-      console.error('Error updating settings: ', error);
+      logger.error('Error updating user preferences', error as Error);
       showNotification({ type: 'error', title: 'Error saving settings', description: '' });
     }
   };
@@ -789,8 +810,9 @@ const deleteTransaction = async (transactionId: string) => {
     if (!user) return;
     try {
       await setDoc(doc(db, 'users', user.uid), { hasCompletedOnboarding: true }, { merge: true });
+      logger.info('User marked onboarding as complete');
     } catch (error) {
-      console.error('Error marking onboarding complete:', error);
+      logger.error('Error marking onboarding complete', error as Error);
     }
   };
 
@@ -815,8 +837,9 @@ const deleteTransaction = async (transactionId: string) => {
       }, { merge: true });
 
       showNotification({ type: 'success', title: 'Upgrade Successful!', description: 'Welcome to FiscalFlow Premium.' });
+      logger.info('User upgraded to premium', { plan });
     } catch (error) {
-      console.error('Error upgrading to premium: ', error);
+      logger.error('Error upgrading to premium', error as Error);
       showNotification({ type: 'error', title: 'Upgrade Failed', description: 'Could not update your subscription.' });
     }
   };
@@ -832,13 +855,14 @@ const deleteTransaction = async (transactionId: string) => {
                 ...currentSub,
                 tier: 'free',
                 isActive: false,
-                planType: null,
+                planType: undefined,
             }
         }, { merge: true });
 
         showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
+        logger.info('User downgraded from premium');
     } catch (error) {
-        console.error('Error downgrading from premium: ', error);
+        logger.error('Error downgrading from premium', error as Error);
         showNotification({ type: 'error', title: 'Cancellation Failed', description: 'Could not update your subscription.' });
     }
   };
@@ -853,8 +877,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayUnion(category) });
         showNotification({ type: 'success', title: `Category "${category}" added.`, description: '' });
+        logger.info('Custom category added', { category });
     } catch (error) {
-        console.error('Error adding category:', error);
+        logger.error('Error adding custom category', error as Error, { category });
         showNotification({ type: 'error', title: 'Error adding category', description: '' });
     }
   }
@@ -864,8 +889,9 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayRemove(category) });
         showNotification({ type: 'success', title: `Category "${category}" removed.`, description: '' });
+        logger.info('Custom category deleted', { category });
     } catch (error) {
-        console.error('Error deleting category:', error);
+        logger.error('Error deleting custom category', error as Error, { category });
         showNotification({ type: 'error', title: 'Error deleting category', description: '' });
     }
   }
@@ -909,6 +935,7 @@ const deleteTransaction = async (transactionId: string) => {
             'subscription.monthlyReports': { count: newCount, month: currentMonth }
         });
     }
+    logger.info('Report generated');
     return true;
   }
   
@@ -928,7 +955,7 @@ const deleteTransaction = async (transactionId: string) => {
             'subscription.monthlyInsights': { count: newCount, month: currentMonth }
         });
     }
-
+    logger.info('Insights generated');
     return result;
   }
 
@@ -952,13 +979,16 @@ const deleteTransaction = async (transactionId: string) => {
             'subscription.monthlyOcrScans': { count: newCount, month: currentMonth }
         });
     }
-    
+    logger.info('Receipt scanned');
     return result;
   };
 
 
   const logout = async () => {
-    await auth.signOut();
+    if (user) {
+        logger.info('User logging out');
+        await auth.signOut();
+    }
   };
 
   return (

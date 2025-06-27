@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/dashboard/header';
 import {
   Card,
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
-import { PlusCircle, Briefcase, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, Briefcase, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, Loader2 } from 'lucide-react';
 import type { Investment } from '@/types';
 import { AddInvestmentDialog } from '@/components/dashboard/add-investment-dialog';
 import {
@@ -33,16 +33,46 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getCoinGeckoMarketData } from '@/lib/actions';
+import { logger } from '@/lib/logger';
+import Image from 'next/image';
 
 export default function InvestmentsPage() {
-  const { investments, deleteInvestment, formatCurrency, isPremium } = useAppContext();
+  const { investments, deleteInvestment, formatCurrency, isPremium, showNotification } = useAppContext();
   const [isAddInvestmentDialogOpen, setIsAddInvestmentDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [investmentToEdit, setInvestmentToEdit] = useState<Investment | null>(null);
   const [investmentToDelete, setInvestmentToDelete] = useState<Investment | null>(null);
+
+  const [livePrices, setLivePrices] = useState<Record<string, { price: number; image: string; }>>({});
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
+
+  useEffect(() => {
+    const fetchLivePrices = async () => {
+      const cryptoIds = investments
+        .filter(inv => inv.assetType === 'Crypto' && inv.coinGeckoId)
+        .map(inv => inv.coinGeckoId!);
+
+      if (cryptoIds.length > 0) {
+        setIsLoadingPrices(true);
+        const result = await getCoinGeckoMarketData(cryptoIds);
+        if ('error' in result) {
+            logger.error('Failed to fetch live crypto prices', new Error(result.error));
+            showNotification({ type: 'error', title: 'Could not fetch live prices', description: result.error });
+        } else {
+            const priceMap = result.reduce((acc, coin) => {
+                acc[coin.id] = { price: coin.current_price, image: coin.image };
+                return acc;
+            }, {} as Record<string, { price: number; image: string; }>);
+            setLivePrices(priceMap);
+        }
+        setIsLoadingPrices(false);
+      }
+    }
+    fetchLivePrices();
+  }, [investments, showNotification]);
 
   const handleEditInvestment = (investment: Investment) => {
     setInvestmentToEdit(investment);
@@ -69,7 +99,14 @@ export default function InvestmentsPage() {
     setIsAddInvestmentDialogOpen(open);
   }
 
-  const portfolioValue = investments.reduce((sum, inv) => sum + (inv.quantity * inv.currentPrice), 0);
+  const getLivePrice = (investment: Investment): number => {
+    if (investment.assetType === 'Crypto' && investment.coinGeckoId && livePrices[investment.coinGeckoId]) {
+      return livePrices[investment.coinGeckoId].price;
+    }
+    return investment.currentPrice;
+  };
+  
+  const portfolioValue = investments.reduce((sum, inv) => sum + (inv.quantity * getLivePrice(inv)), 0);
   const totalCost = investments.reduce((sum, inv) => sum + (inv.quantity * inv.purchasePrice), 0);
   const totalGainLoss = portfolioValue - totalCost;
 
@@ -94,7 +131,10 @@ export default function InvestmentsPage() {
                         <Briefcase className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(portfolioValue)}</div>
+                        <div className="text-2xl font-bold flex items-center gap-2">
+                            {formatCurrency(portfolioValue)}
+                            {isLoadingPrices && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
@@ -114,7 +154,7 @@ export default function InvestmentsPage() {
                     <div>
                         <CardTitle>Your Holdings</CardTitle>
                         <CardDescription>
-                            A detailed view of your investment assets.
+                            A detailed view of your investment assets. Crypto prices are updated live.
                         </CardDescription>
                     </div>
                     {canAddInvestment ? (
@@ -146,17 +186,26 @@ export default function InvestmentsPage() {
                             </TableHeader>
                             <TableBody>
                                 {investments.map((inv) => {
-                                    const marketValue = inv.quantity * inv.currentPrice;
+                                    const currentPrice = getLivePrice(inv);
+                                    const marketValue = inv.quantity * currentPrice;
                                     const costBasis = inv.quantity * inv.purchasePrice;
                                     const gainLoss = marketValue - costBasis;
+                                    const isCrypto = inv.assetType === 'Crypto' && inv.coinGeckoId;
+                                    const cryptoImage = isCrypto ? livePrices[inv.coinGeckoId!]?.image : null;
+
                                     return (
                                         <TableRow key={inv.id}>
                                             <TableCell>
-                                                <div className="font-medium">{inv.name}</div>
-                                                <div className="text-sm text-muted-foreground">{inv.symbol}</div>
+                                                <div className="flex items-center gap-2">
+                                                    {isCrypto && cryptoImage && <Image src={cryptoImage} alt={inv.name} width={24} height={24} />}
+                                                    <div>
+                                                        <div className="font-medium">{inv.name}</div>
+                                                        <div className="text-sm text-muted-foreground">{inv.symbol}</div>
+                                                    </div>
+                                                </div>
                                             </TableCell>
                                             <TableCell>{inv.assetType}</TableCell>
-                                            <TableCell className="text-right">{inv.quantity}</TableCell>
+                                            <TableCell className="text-right">{inv.quantity.toLocaleString()}</TableCell>
                                             <TableCell className="text-right">{formatCurrency(inv.purchasePrice)}</TableCell>
                                             <TableCell className="text-right font-medium">{formatCurrency(marketValue)}</TableCell>
                                             <TableCell className={cn("text-right", gainLoss >= 0 ? 'text-green-600' : 'text-red-600')}>

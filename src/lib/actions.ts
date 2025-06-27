@@ -36,6 +36,7 @@ import {
     type CreateSavingsGoalInput,
     type CreateSavingsGoalOutput,
 } from '@/ai/flows/create-savings-goal-flow';
+import { logger } from './logger';
 
 
 type SuggestionResult = ParseReceiptOutput | { error: string };
@@ -46,6 +47,42 @@ type AssistantResult = VoiceAction | { error: string };
 type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
 type ParseDocumentResult = { text: string } | { error: string };
 type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
+export type CoinGeckoMarketData = { id: string; symbol: string; name: string; image: string; current_price: number; }
+type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
+
+// Note: In a real production app, you would add server-side logging here
+// using a library like Winston or Pino, and you would not log full inputs
+// that might contain PII unless you have explicit user consent and proper
+// data handling policies. For this example, we'll use console.error.
+
+export async function getCoinGeckoMarketData(coinIds?: string[]): Promise<CoinGeckoResult> {
+  const vsCurrency = 'usd';
+  let url: string;
+
+  if (coinIds && coinIds.length > 0) {
+    // Fetch specific coins
+    url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${vsCurrency}&ids=${coinIds.join(',')}`;
+  } else {
+    // Fetch top 100 coins by market cap
+    url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${vsCurrency}&order=market_cap_desc&per_page=100&page=1&sparkline=false`;
+  }
+  
+  try {
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `CoinGecko API request failed with status ${response.status}`);
+    }
+    const data: CoinGeckoMarketData[] = await response.json();
+    return data;
+  } catch (error) {
+    logger.error('Error fetching from CoinGecko', error as Error, { url });
+    return { error: (error as Error).message };
+  }
+}
 
 export async function parseDocumentAction(
   input: ParseReceiptInput

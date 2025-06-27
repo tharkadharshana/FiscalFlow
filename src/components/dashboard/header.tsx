@@ -9,6 +9,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { NotificationPopover } from '../notifications/notification-popover';
 import { useAppContext } from '@/contexts/app-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { logger } from '@/lib/logger';
 
 type HeaderProps = {
   title: string;
@@ -21,12 +22,17 @@ export function Header({ title }: HeaderProps) {
 
   const handleVoiceClick = () => {
     if (isPremium) {
+      logger.info('Voice assistant opened');
       setIsVoiceAssistantOpen(true);
     } else {
-      // Logic to upsell, could navigate to upgrade page
-      console.log('Upgrade to premium to use voice assistant');
+      logger.warn('Attempted to open voice assistant as free user');
     }
   };
+
+  const handleAddTransactionClick = () => {
+    logger.info('Add transaction dialog opened');
+    setIsAddTransactionOpen(true);
+  }
 
   const VoiceButton = (
     <Button
@@ -63,7 +69,7 @@ export function Header({ title }: HeaderProps) {
           )}
 
           <NotificationPopover />
-          <Button onClick={() => setIsAddTransactionOpen(true)} className="gap-1">
+          <Button onClick={handleAddTransactionClick} className="gap-1">
             <PlusCircle className="h-4 w-4" />
             <span className="hidden sm:inline">Add Transaction</span>
           </Button>
