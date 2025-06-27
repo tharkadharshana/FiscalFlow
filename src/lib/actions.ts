@@ -57,7 +57,7 @@ type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 // data handling policies. For this example, we'll use console.error.
 
 export async function getCoinGeckoMarketData(
-  params: { coinIds?: string[]; page?: number; perPage?: number }
+  params: { coinIds?: string[]; page?: number; perPage?: number } = {}
 ): Promise<CoinGeckoResult> {
   const { coinIds, page = 1, perPage = 25 } = params;
   const vsCurrency = 'usd';
