@@ -18,14 +18,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan, Sparkles, Lightbulb } from 'lucide-react';
-import { createFinancialPlanAction } from '@/lib/actions';
-import type { FinancialPlan, PlanItem } from '@/types';
+import { createFinancialPlanAction, parseDocumentAction } from '@/lib/actions';
+import type { FinancialPlan } from '@/types';
 import { useAppContext } from '@/contexts/app-context';
 import { cn } from '@/lib/utils';
-import { nanoid } from 'nanoid';
 
 type CreatePlanDialogProps = {
   open: boolean;
@@ -53,15 +51,17 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
   const { addFinancialPlan, updateFinancialPlan, showNotification } = useAppContext();
 
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
-  const [transcript, setTranscript] = useState('');
+  const [userQuery, setUserQuery] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null); // SpeechRecognition instance
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: { title: '', items: [] },
   });
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'items',
   });
@@ -82,7 +82,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
               finalTranscript += event.results[i][0].transcript;
             }
           }
-          setTranscript(prev => prev + finalTranscript);
+          setUserQuery(prev => prev + finalTranscript);
         };
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
@@ -112,10 +112,11 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                   title: planToEdit.title,
                   items: planToEdit.items.map(item => ({...item, actualCost: item.actualCost ?? null}))
               });
+              setUserQuery(planToEdit.description || '');
               setView('review');
           } else {
               setView('input');
-              setTranscript('');
+              setUserQuery('');
               form.reset({ title: '', items: [] });
           }
       }
@@ -129,16 +130,40 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
     if (isRecording) {
       recognitionRef.current.stop();
     } else {
-      setTranscript(''); // Clear previous transcript
+      setUserQuery(''); // Clear previous transcript
       recognitionRef.current.start();
     }
     setIsRecording(!isRecording);
   };
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setView('loading');
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async (e) => {
+        const photoDataUri = e.target?.result as string;
+        const result = await parseDocumentAction({ photoDataUri });
+
+        if ('error' in result) {
+            showNotification({ type: 'error', title: 'OCR Failed', description: result.error });
+            setView('input');
+        } else {
+            setUserQuery(result.text);
+            setView('input'); // Go back to input view for user to confirm/edit text
+        }
+    };
+  };
 
   const handleGeneratePlan = async () => {
-    if (!transcript) return;
+    if (!userQuery) return;
     setView('loading');
-    const result = await createFinancialPlanAction({ userQuery: transcript });
+    const result = await createFinancialPlanAction({ 
+        userQuery: userQuery,
+        existingPlan: planToEdit ? form.getValues() : undefined
+    });
     
     if ('error' in result) {
         showNotification({ type: 'error', title: 'AI Error', description: result.error });
@@ -156,9 +181,10 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
     const totalPredictedCost = data.items.reduce((sum, item) => sum + item.predictedCost, 0);
     const planData = {
       ...data,
+      description: userQuery,
       status: 'planning' as const,
       totalPredictedCost,
-      totalActualCost: 0, // Will be calculated later
+      totalActualCost: planToEdit?.totalActualCost || 0,
     };
 
     if (planToEdit) {
@@ -172,26 +198,25 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
   const renderInputView = () => (
     <div className="space-y-4">
         <DialogDescription>
-            Use your voice to describe your financial plan. For example: "I'm planning a trip to Japan for two weeks. I think flights will be about $1500, hotels around $2000, and I'll budget $1000 for food and fun."
+            Describe your financial plan. You can type, use your voice, or scan a document. The AI will structure it into an itemized plan.
         </DialogDescription>
-        <Tabs defaultValue="voice">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="voice"><Mic className="mr-2 h-4 w-4"/> Use Voice</TabsTrigger>
-                <TabsTrigger value="ocr" disabled><FileScan className="mr-2 h-4 w-4"/> Scan Document</TabsTrigger>
-            </TabsList>
-            <TabsContent value="voice" className="pt-4">
-                <div className="grid w-full gap-2">
-                    <Textarea placeholder="Your plan description will appear here..." value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={6} />
-                    <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'}>
-                        {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                        {isRecording ? 'Stop Recording' : 'Start Recording'}
-                    </Button>
-                </div>
-            </TabsContent>
-        </Tabs>
+        <div className="grid w-full gap-2">
+            <Textarea placeholder="e.g., I'm planning a trip to Japan for two weeks. I think flights will be about $1500, hotels around $2000, and I'll budget $1000 for food and fun." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+            <div className="flex gap-2">
+                <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
+                    {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                    {isRecording ? 'Stop' : 'Record'}
+                </Button>
+                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
+                    <FileScan className="mr-2 h-4 w-4" />
+                    Scan
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+            </div>
+        </div>
         <DialogFooter>
-            <Button onClick={handleGeneratePlan} disabled={!transcript} className="w-full">
-                <Wand2 className="mr-2 h-4 w-4" /> Generate Plan with AI
+            <Button onClick={handleGeneratePlan} disabled={!userQuery} className="w-full">
+                <Wand2 className="mr-2 h-4 w-4" /> {planToEdit ? 'Update Plan with AI' : 'Generate Plan with AI'}
             </Button>
         </DialogFooter>
     </div>
@@ -213,46 +238,51 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         </div>
         <div className="space-y-2">
             <Label>Plan Items</Label>
-            <div className="space-y-3">
-                {fields.map((field, index) => (
-                    <div key={field.id} className={cn(
-                        "flex items-start gap-2 rounded-md border p-3",
-                        field.isAiSuggested && "border-amber-400/50 bg-amber-50/50"
-                    )}>
-                        {field.isAiSuggested && <Lightbulb className="h-5 w-5 mt-1.5 text-amber-500 flex-shrink-0"/>}
-                        <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
-                            <div className="col-span-3">
-                               <Label className="text-xs text-muted-foreground">Description</Label>
-                               <Input {...form.register(`items.${index}.description`)} className="h-8"/>
+            <ScrollArea className="max-h-60 pr-4">
+                <div className="space-y-3">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className={cn(
+                            "flex items-start gap-2 rounded-md border p-3",
+                            field.isAiSuggested && "border-amber-400/50 bg-amber-50/50 dark:bg-amber-900/10"
+                        )}>
+                            {field.isAiSuggested && <Lightbulb className="h-5 w-5 mt-5 text-amber-500 flex-shrink-0"/>}
+                            <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
+                                <div className="col-span-3">
+                                <Label className="text-xs text-muted-foreground">Description</Label>
+                                <Input {...form.register(`items.${index}.description`)} className="h-8"/>
+                                </div>
+                                <div className="col-span-2">
+                                <Label className="text-xs text-muted-foreground">Predicted Cost ($)</Label>
+                                <Input {...form.register(`items.${index}.predictedCost`)} type="number" className="h-8"/>
+                                </div>
                             </div>
-                            <div className="col-span-2">
-                               <Label className="text-xs text-muted-foreground">Predicted Cost ($)</Label>
-                               <Input {...form.register(`items.${index}.predictedCost`)} type="number" className="h-8"/>
-                            </div>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 mt-4" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                            </Button>
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 mt-4" onClick={() => remove(index)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                        </Button>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            </ScrollArea>
             {form.formState.errors.items && <p className="text-sm text-destructive mt-2">There are errors in your plan items.</p>}
         </div>
 
         <Alert>
             <Sparkles className="h-4 w-4" />
-            <AlertTitle>What's next?</AlertTitle>
+            <AlertTitle>Want to add more?</AlertTitle>
             <AlertDescription>
-                You can add more items by typing below and clicking "Update with AI", or save the plan as is.
+                You can add more details to your original query and click "Update with AI" to refine the plan.
             </AlertDescription>
         </Alert>
-
-        {/* Future feature: Add more with AI */}
-        {/* <Textarea placeholder="Type here to add more details to your plan..." />
-        <Button variant="secondary" className="w-full">Update with AI</Button> */}
+        
+        <Textarea 
+            placeholder="Type here to add more details to your plan..." 
+            value={userQuery}
+            onChange={(e) => setUserQuery(e.target.value)}
+        />
+        <Button variant="secondary" className="w-full" onClick={handleGeneratePlan} type="button">Update with AI</Button>
 
         <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setView('input')}>Back to Input</Button>
+            <Button type="button" variant="ghost" onClick={() => setView('input')}>Back</Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>Save Plan</Button>
         </DialogFooter>
     </form>

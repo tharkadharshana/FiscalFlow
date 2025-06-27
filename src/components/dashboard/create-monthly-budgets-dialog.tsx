@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan } from 'lucide-react';
-import { createMonthlyBudgetsAction } from '@/lib/actions';
+import { createMonthlyBudgetsAction, parseDocumentAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
 import {
   Select,
@@ -28,8 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Budget, BudgetItem } from '@/types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import type { Budget } from '@/types';
 
 type CreateMonthlyBudgetsDialogProps = {
   open: boolean;
@@ -59,9 +58,10 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
   const { addBudget, updateBudget, budgets: existingBudgets, showNotification, expenseCategories } = useAppContext();
 
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
-  const [transcript, setTranscript] = useState('');
+  const [userQuery, setUserQuery] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -88,7 +88,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
               finalTranscript += event.results[i][0].transcript;
             }
           }
-          setTranscript(prev => prev + finalTranscript);
+          setUserQuery(prev => prev + finalTranscript);
         };
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
@@ -121,7 +121,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
             setView('review');
         } else {
             setView('input');
-            setTranscript('');
+            setUserQuery('');
             form.reset({ budgets: [] });
         }
       }
@@ -135,17 +135,38 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
     if (isRecording) {
       recognitionRef.current.stop();
     } else {
-      setTranscript('');
+      setUserQuery('');
       recognitionRef.current.start();
     }
     setIsRecording(!isRecording);
   };
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setView('loading');
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async (e) => {
+        const photoDataUri = e.target?.result as string;
+        const result = await parseDocumentAction({ photoDataUri });
+
+        if ('error' in result) {
+            showNotification({ type: 'error', title: 'OCR Failed', description: result.error });
+            setView('input');
+        } else {
+            setUserQuery(result.text);
+            setView('input'); // Go back to input view for user to confirm/edit text
+        }
+    };
+  };
 
   const handleGenerateBudgets = async () => {
-    if (!transcript) return;
+    if (!userQuery) return;
     setView('loading');
     const existingBudgetCategories = existingBudgets.map(b => b.category);
-    const result = await createMonthlyBudgetsAction({ userQuery: transcript, existingCategories: existingBudgetCategories });
+    const result = await createMonthlyBudgetsAction({ userQuery: userQuery, existingCategories: existingBudgetCategories });
     
     if ('error' in result) {
         showNotification({ type: 'error', title: 'AI Error', description: result.error });
@@ -162,7 +183,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
         if (budgetToEdit) {
             await updateBudget(budgetToEdit.id, budget);
         } else {
-            await addBudget({...budget, userInput: transcript });
+            await addBudget({...budget, userInput: userQuery });
         }
         count++;
     }
@@ -179,25 +200,24 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
   const renderInputView = () => (
     <div className="space-y-4">
         <DialogDescription>
-            Use your voice or text to set your monthly budgets. For example: "Set a budget of $500 for Groceries to buy milk, bread, and eggs."
+            Describe your monthly budgets. You can type, use your voice, or scan a document (e.g., a shopping list). The AI will structure it for you.
         </DialogDescription>
-        <Tabs defaultValue="voice">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="voice"><Mic className="mr-2 h-4 w-4"/> Use Voice</TabsTrigger>
-                <TabsTrigger value="ocr" disabled><FileScan className="mr-2 h-4 w-4"/> Scan Document</TabsTrigger>
-            </TabsList>
-            <TabsContent value="voice" className="pt-4">
-                <div className="grid w-full gap-2">
-                    <Textarea placeholder="Your budget description will appear here..." value={transcript} onChange={(e) => setTranscript(e.target.value)} rows={6} />
-                    <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'}>
-                        {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                        {isRecording ? 'Stop Recording' : 'Start Recording'}
-                    </Button>
-                </div>
-            </TabsContent>
-        </Tabs>
+        <div className="grid w-full gap-2">
+            <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+            <div className="flex gap-2">
+                <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
+                    {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                    {isRecording ? 'Stop' : 'Record'}
+                </Button>
+                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
+                    <FileScan className="mr-2 h-4 w-4" />
+                    Scan
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+            </div>
+        </div>
         <DialogFooter>
-            <Button onClick={handleGenerateBudgets} disabled={!transcript} className="w-full">
+            <Button onClick={handleGenerateBudgets} disabled={!userQuery} className="w-full">
                 <Wand2 className="mr-2 h-4 w-4" /> Generate Budgets with AI
             </Button>
         </DialogFooter>
@@ -245,11 +265,12 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
                                <Input {...form.register(`budgets.${index}.limit`)} type="number" className="h-8"/>
                             </div>
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)} disabled={!!budgetToEdit}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                        </Button>
+                        {!budgetToEdit && (
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                            </Button>
+                        )}
                     </div>
-                    {/* Itemized list would go here if needed in review */}
                 </div>
             ))}
             {fields.length === 0 && (

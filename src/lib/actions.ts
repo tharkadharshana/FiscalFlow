@@ -39,7 +39,23 @@ type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };
 type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
 type AssistantResult = VoiceAction | { error: string };
 type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
+type ParseDocumentResult = { text: string } | { error: string };
 
+export async function parseDocumentAction(
+  input: ParseReceiptInput
+): Promise<ParseDocumentResult> {
+  try {
+    const result = await parseReceipt(input);
+    if (result.rawText) {
+      return { text: result.rawText };
+    }
+    return { error: 'Could not extract any text from the document.' };
+  } catch (error) {
+    console.error('Error in parseDocumentAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to analyze document.';
+    return { error: errorMessage };
+  }
+}
 
 export async function parseReceiptAction(
   input: ParseReceiptInput
