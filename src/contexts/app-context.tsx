@@ -242,11 +242,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const userDocRef = doc(db, 'users', user.uid);
       
-      const unsubscribeProfile = onSnapshot(userDocRef, (doc) => {
-        if (doc.exists()) {
-          setUserProfile({ uid: doc.id, ...doc.data() } as UserProfile);
+      const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setUserProfile({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
+          setLoading(false);
+        } else {
+            console.warn("User profile document not found for authenticated user. Creating one.");
+            // Create a default user profile document if it doesn't exist
+            const defaultProfile = {
+                displayName: user.displayName || user.email?.split('@')[0] || 'User',
+                email: user.email,
+                createdAt: serverTimestamp(),
+                lastLoginAt: serverTimestamp(),
+                currencyPreference: 'USD',
+                darkModeBanner: false,
+                notificationPreferences: {
+                    budgetThreshold: true,
+                    recurringPayment: true,
+                },
+                profilePictureURL: user.photoURL || null,
+                subscription: {
+                  tier: 'free' as const,
+                  isActive: true,
+                  expiryDate: null,
+                },
+                hasCompletedOnboarding: false,
+                customCategories: [],
+            };
+            setDoc(userDocRef, defaultProfile).catch(err => {
+                console.error("Failed to auto-create user profile:", err);
+                // If creation fails, we're in a broken state, but we should still stop loading
+                // to avoid an infinite spinner. The user will see the error message on the page.
+                setLoading(false);
+            });
+            // The onSnapshot listener will fire again once the document is created,
+            // which will then set the userProfile and setLoading(false).
         }
-        setLoading(false);
       });
 
       const qTransactions = query(collection(db, 'users', user.uid, 'transactions'), orderBy('date', 'desc'));
