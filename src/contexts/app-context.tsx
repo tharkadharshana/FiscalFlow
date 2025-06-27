@@ -29,8 +29,8 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, GenerateInsightsInput, GenerateInsightsOutput } from '@/ai/flows/analyze-taxes-flow';
-import { analyzeTaxesAction, generateInsightsAction } from '@/lib/actions';
+import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/ai/flows/analyze-taxes-flow';
+import { analyzeTaxesAction, generateInsightsAction, parseReceiptAction } from '@/lib/actions';
 
 
 export const FREE_TIER_LIMITS = {
@@ -104,6 +104,8 @@ interface AppContextType {
   generateReportWithLimit: () => Promise<boolean>;
   canGenerateInsights: boolean;
   generateInsightsWithLimit: (input: GenerateInsightsInput) => Promise<GenerateInsightsOutput | { error: string } | undefined>;
+  canScanReceipt: boolean;
+  scanReceiptWithLimit: (input: ParseReceiptInput) => Promise<ParseReceiptOutput | { error: string } | undefined>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -154,6 +156,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const currentMonth = new Date().toISOString().slice(0, 7);
     if (month !== currentMonth) return true;
     return count < FREE_TIER_LIMITS.monthlyInsights;
+  }, [isPremium, userProfile]);
+
+  const canScanReceipt = useMemo(() => {
+    if (isPremium) return true;
+    if (!userProfile?.subscription?.monthlyOcrScans) return true;
+    const { count, month } = userProfile.subscription.monthlyOcrScans;
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (month !== currentMonth) return true;
+    return count < FREE_TIER_LIMITS.ocrScans;
   }, [isPremium, userProfile]);
 
   const showNotification = async (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
@@ -890,6 +901,30 @@ const deleteTransaction = async (transactionId: string) => {
     return result;
   }
 
+  const scanReceiptWithLimit = async (input: ParseReceiptInput): Promise<ParseReceiptOutput | { error: string } | undefined> => {
+    if (!user || !userProfile) { 
+        showNotification({ type: 'error', title: 'Not authenticated', description: '' });
+        return { error: 'Not authenticated' };
+    }
+    if (!canScanReceipt) {
+        showNotification({ type: 'error', title: 'Limit Reached', description: `You have used your ${FREE_TIER_LIMITS.ocrScans} free receipt scans for this month.` });
+        return { error: 'Limit Reached' };
+    }
+
+    const result = await parseReceiptAction(input);
+
+    if (!('error' in result) && !isPremium) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const monthlyScans = userProfile.subscription.monthlyOcrScans;
+        const newCount = (!monthlyScans || monthlyScans.month !== currentMonth) ? 1 : (monthlyScans.count || 0) + 1;
+        await updateDoc(doc(db, 'users', user.uid), {
+            'subscription.monthlyOcrScans': { count: newCount, month: currentMonth }
+        });
+    }
+    
+    return result;
+  };
+
 
   const logout = async () => {
     await auth.signOut();
@@ -912,6 +947,7 @@ const deleteTransaction = async (transactionId: string) => {
         canRunTaxAnalysis, analyzeTaxesWithLimit,
         canGenerateReport, generateReportWithLimit,
         canGenerateInsights, generateInsightsWithLimit,
+        canScanReceipt, scanReceiptWithLimit,
       }}
     >
       {children}

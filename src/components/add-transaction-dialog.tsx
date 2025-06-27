@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -27,13 +28,13 @@ type AddTransactionDialogProps = {
 };
 
 export function AddTransactionDialog({ open, onOpenChange, transactionToEdit }: AddTransactionDialogProps) {
-  const { isPremium } = useAppContext();
+  const { canScanReceipt } = useAppContext();
   
   const ScanReceiptTab = (
-     <TabsTrigger value="scan" disabled={!isPremium}>
+     <TabsTrigger value="scan" disabled={!canScanReceipt}>
         <ScanLine className="mr-2 h-4 w-4" />
         Scan Receipt
-        {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
+        {!canScanReceipt && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
       </TabsTrigger>
   );
 
@@ -58,14 +59,15 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit }: 
                     Income
                   </TabsTrigger>
                   {!transactionToEdit && (
-                    isPremium ? ScanReceiptTab : (
+                    canScanReceipt ? ScanReceiptTab : (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            {ScanReceiptTab}
+                            {/* The extra div is needed for Tooltip to correctly attach to a disabled element */}
+                            <div>{ScanReceiptTab}</div>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Upgrade to Premium to scan receipts with AI</p>
+                            <p>You've used your monthly receipt scans. Upgrade for unlimited.</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -78,7 +80,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit }: 
               <TabsContent value="income" className="pt-4">
                   <IncomeEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} />
               </TabsContent>
-              {!transactionToEdit && isPremium && (
+              {!transactionToEdit && (
                 <TabsContent value="scan" className="pt-4">
                     <ReceiptScanner onTransactionAdded={() => onOpenChange(false)} />
                 </TabsContent>

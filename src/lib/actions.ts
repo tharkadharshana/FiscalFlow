@@ -53,7 +53,8 @@ export async function parseReceiptAction(
     return result;
   } catch (error) {
     console.error('Error in parseReceiptAction:', error);
-    return { error: 'Failed to analyze receipt. Please try again.' };
+    const errorMessage = error instanceof Error ? error.message : 'Failed to analyze receipt. Please try again.';
+    return { error: errorMessage };
   }
 }
 

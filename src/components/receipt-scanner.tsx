@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,6 @@ import {
 import { defaultCategories } from '@/data/mock-data';
 import { Textarea } from './ui/textarea';
 import type { ParseReceiptOutput } from '@/ai/flows/parse-receipt';
-import { parseReceiptAction } from '@/lib/actions';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { CalendarIcon } from 'lucide-react';
@@ -31,7 +31,7 @@ type ReceiptScannerProps = {
 }
 
 export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
-  const { addTransaction, financialPlans, showNotification } = useAppContext();
+  const { addTransaction, financialPlans, showNotification, scanReceiptWithLimit, expenseCategories } = useAppContext();
   
   // Component state
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -148,16 +148,21 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
     if (!imageUri) return;
     setIsLoading(true);
     setParsedData(null);
-    const result = await parseReceiptAction({ photoDataUri: imageUri });
+    
+    const result = await scanReceiptWithLimit({ photoDataUri: imageUri });
+    
     setIsLoading(false);
 
-    if ('error' in result) {
-      showNotification({
-        type: 'error',
-        title: 'Analysis Failed',
-        description: result.error,
-      });
-    } else {
+    if (result && 'error' in result) {
+      // Notification is handled by the context, so we just check for the error
+      if (result.error !== 'Limit Reached') {
+        showNotification({
+          type: 'error',
+          title: 'Analysis Failed',
+          description: result.error,
+        });
+      }
+    } else if (result) {
       setParsedData(result);
       showNotification({
         type: 'success',
@@ -258,7 +263,7 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
                             <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
                         <SelectContent>
-                            {defaultCategories.map((cat) => (
+                            {expenseCategories.map((cat) => (
                             <SelectItem key={cat} value={cat}>
                                 {cat}
                             </SelectItem>
