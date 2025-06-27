@@ -131,7 +131,7 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
   const CryptoSelector = (
     <FormField
       control={form.control}
-      name="name"
+      name="coinGeckoId"
       render={({ field }) => (
         <FormItem className="flex flex-col col-span-2">
           <FormLabel>Cryptocurrency</FormLabel>
@@ -145,7 +145,7 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                 >
                   {isCryptoListLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : null}
                   {field.value
-                    ? cryptoList.find((coin) => coin.name === field.value)?.name
+                    ? cryptoList.find((coin) => coin.id === field.value)?.name
                     : "Select a cryptocurrency"}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -162,17 +162,17 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                         value={coin.name}
                         key={coin.id}
                         onSelect={() => {
-                          form.setValue('name', coin.name, { shouldValidate: true });
+                          field.onChange(coin.id);
+                          form.setValue('name', coin.name);
                           form.setValue('symbol', coin.symbol.toUpperCase());
                           form.setValue('currentPrice', coin.current_price);
-                          form.setValue('coinGeckoId', coin.id);
                           setIsComboboxOpen(false);
                         }}
                         className="flex items-center gap-2"
                       >
                         <Image src={coin.image} alt={coin.name} width={20} height={20} />
                         {coin.name} ({coin.symbol.toUpperCase()})
-                        <Check className={cn("ml-auto h-4 w-4", coin.name === field.value ? "opacity-100" : "opacity-0")} />
+                        <Check className={cn("ml-auto h-4 w-4", coin.id === field.value ? "opacity-100" : "opacity-0")} />
                       </CommandItem>
                     ))}
                   </CommandGroup>
