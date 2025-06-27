@@ -250,31 +250,21 @@ export default function SettingsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Currency</FormLabel>
-                       <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isPremium}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select a currency" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="USD">USD - United States Dollar</SelectItem>
-                                  <SelectItem value="EUR">EUR - Euro</SelectItem>
-                                  <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                                  <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                                  <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
-                                  <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </TooltipTrigger>
-                          {!isPremium && <TooltipContent><p>Upgrade to Premium to change currency.</p></TooltipContent>}
-                        </Tooltip>
-                      </TooltipProvider>
-
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a currency" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="USD">USD - United States Dollar</SelectItem>
+                          <SelectItem value="EUR">EUR - Euro</SelectItem>
+                          <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                          <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
+                          <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormDescription>This is the currency your transactions will be displayed in.</FormDescription>
                     </FormItem>
                   )}

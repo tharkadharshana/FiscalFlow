@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -109,26 +110,17 @@ export default function CalendarPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isPremium ? (
-              <ScrollArea className="h-[calc(100vh-22rem)] pr-4">
-                {selectedDayTransactions.length > 0 ? (
-                  <div className="divide-y">
-                    {selectedDayTransactions.map(t => <TransactionItem key={t.id} transaction={t} />)}
-                  </div>
-                ) : (
-                  <div className="text-center text-muted-foreground py-16">
-                    <p>No transactions for this day.</p>
-                  </div>
-                )}
-              </ScrollArea>
-            ) : (
-                <div className="h-full flex items-center justify-center">
-                    <UpgradeCard 
-                        title="Unlock Daily Details"
-                        description="Upgrade to Premium to see a full list of transactions for each day right here."
-                    />
+            <ScrollArea className="h-[calc(100vh-22rem)] pr-4">
+              {selectedDayTransactions.length > 0 ? (
+                <div className="divide-y">
+                  {selectedDayTransactions.map(t => <TransactionItem key={t.id} transaction={t} />)}
                 </div>
-            )}
+              ) : (
+                <div className="text-center text-muted-foreground py-16">
+                  <p>No transactions for this day.</p>
+                </div>
+              )}
+            </ScrollArea>
           </CardContent>
         </Card>
       </main>

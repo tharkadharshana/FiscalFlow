@@ -29,25 +29,27 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/ai/flows/analyze-taxes-flow';
-import { analyzeTaxesAction } from '@/lib/actions';
+import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, GenerateInsightsInput, GenerateInsightsOutput } from '@/ai/flows/analyze-taxes-flow';
+import { analyzeTaxesAction, generateInsightsAction } from '@/lib/actions';
 
 
 export const FREE_TIER_LIMITS = {
-    ocrScans: 3,
-    recurringTransactions: 1,
+    ocrScans: 30,
+    recurringTransactions: 2,
     budgets: 3,
     financialPlans: 1,
-    savingsGoals: 1,
+    savingsGoals: 2,
     roundups: 5,
-    taxReports: 1,
+    taxReports: 1, // AI Tax Analysis
     taxDeductibleFlags: 5,
     voiceCommands: 5,
     customCategories: 3,
-    investments: 1,
+    investments: 3,
     bankAccounts: 1,
     bankTransactions: 10,
     expenseSplits: 3,
+    monthlyReports: 1, // For the reports page
+    monthlyInsights: 3, // For smart insights card
   };
 
 
@@ -98,6 +100,10 @@ interface AppContextType {
   markOnboardingComplete: () => Promise<void>;
   canRunTaxAnalysis: boolean;
   analyzeTaxesWithLimit: (input: AnalyzeTaxesInput) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
+  canGenerateReport: boolean;
+  generateReportWithLimit: () => Promise<boolean>;
+  canGenerateInsights: boolean;
+  generateInsightsWithLimit: (input: GenerateInsightsInput) => Promise<GenerateInsightsOutput | { error: string } | undefined>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -130,6 +136,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const currentMonth = new Date().toISOString().slice(0, 7);
     if (month !== currentMonth) return true;
     return count < FREE_TIER_LIMITS.taxReports;
+  }, [isPremium, userProfile]);
+
+  const canGenerateReport = useMemo(() => {
+    if (isPremium) return true;
+    if (!userProfile?.subscription.monthlyReports) return true;
+    const { count, month } = userProfile.subscription.monthlyReports;
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (month !== currentMonth) return true;
+    return count < FREE_TIER_LIMITS.monthlyReports;
+  }, [isPremium, userProfile]);
+
+  const canGenerateInsights = useMemo(() => {
+    if (isPremium) return true;
+    if (!userProfile?.subscription.monthlyInsights) return true;
+    const { count, month } = userProfile.subscription.monthlyInsights;
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (month !== currentMonth) return true;
+    return count < FREE_TIER_LIMITS.monthlyInsights;
   }, [isPremium, userProfile]);
 
   const showNotification = async (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
@@ -756,10 +780,10 @@ const deleteTransaction = async (transactionId: string) => {
   };
   
   const downgradeFromPremium = async () => {
-    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (!user || !userProfile) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         const userDocRef = doc(db, 'users', user.uid);
-        const currentSub = userProfile?.subscription || {};
+        const currentSub = userProfile.subscription || {};
 
         await setDoc(userDocRef, {
             subscription: {
@@ -829,6 +853,44 @@ const deleteTransaction = async (transactionId: string) => {
     return result;
   }
 
+  const generateReportWithLimit = async (): Promise<boolean> => {
+    if (!user || !userProfile) { return false; }
+    if (!canGenerateReport) {
+        showNotification({ type: 'error', title: 'Limit Reached', description: 'You have used your free report generation for this month.' });
+        return false;
+    }
+    if (!isPremium) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const monthlyReports = userProfile.subscription.monthlyReports;
+        const newCount = (!monthlyReports || monthlyReports.month !== currentMonth) ? 1 : (monthlyReports.count || 0) + 1;
+        await updateDoc(doc(db, 'users', user.uid), {
+            'subscription.monthlyReports': { count: newCount, month: currentMonth }
+        });
+    }
+    return true;
+  }
+  
+  const generateInsightsWithLimit = async (input: GenerateInsightsInput): Promise<GenerateInsightsOutput | { error: string } | undefined> => {
+    if (!user || !userProfile) { return { error: 'Not authenticated' }; }
+    if (!canGenerateInsights) {
+        return { error: 'Limit Reached' };
+    }
+
+    const result = await generateInsightsAction(input);
+
+    if (!('error' in result) && !isPremium) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const monthlyInsights = userProfile.subscription.monthlyInsights;
+        const newCount = (!monthlyInsights || monthlyInsights.month !== currentMonth) ? 1 : (monthlyInsights.count || 0) + 1;
+        await updateDoc(doc(db, 'users', user.uid), {
+            'subscription.monthlyInsights': { count: newCount, month: currentMonth }
+        });
+    }
+
+    return result;
+  }
+
+
   const logout = async () => {
     await auth.signOut();
   };
@@ -848,6 +910,8 @@ const deleteTransaction = async (transactionId: string) => {
         notifications, showNotification, markAllNotificationsAsRead,
         upgradeToPremium, downgradeFromPremium, markOnboardingComplete,
         canRunTaxAnalysis, analyzeTaxesWithLimit,
+        canGenerateReport, generateReportWithLimit,
+        canGenerateInsights, generateInsightsWithLimit,
       }}
     >
       {children}

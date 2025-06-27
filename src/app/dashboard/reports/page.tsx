@@ -29,6 +29,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
+import { Tooltip, TooltipProvider, TooltipContent } from '@/components/ui/tooltip';
 
 
 type ReportType = 'monthly' | 'yearly' | 'custom';
@@ -43,7 +44,7 @@ type ReportData = {
   };
 
 export default function ReportsPage() {
-  const { transactions, allCategories, formatCurrency, showNotification, isPremium } = useAppContext();
+  const { transactions, allCategories, formatCurrency, showNotification, isPremium, canGenerateReport, generateReportWithLimit } = useAppContext();
   
   const [reportType, setReportType] = useState<ReportType>('monthly');
   const [date, setDate] = useState<Date>(new Date());
@@ -74,7 +75,10 @@ export default function ReportsPage() {
   }, [selectedCategories]);
 
 
-  const generateReport = () => {
+  const handleGenerateReport = async () => {
+    const canProceed = await generateReportWithLimit();
+    if (!canProceed) return;
+
     let startDate, endDate;
 
     switch (reportType) {
@@ -203,21 +207,13 @@ export default function ReportsPage() {
     
     doc.save(`report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
-  
-  if (!isPremium) {
-    return (
-        <div className="flex flex-1 flex-col">
-            <Header title="Reports" />
-            <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
-                <UpgradeCard 
-                    title="Unlock Powerful Reports"
-                    description="Generate detailed monthly, yearly, or custom reports to understand your finances better. Premium only."
-                    icon={FileText}
-                />
-            </main>
-        </div>
-    )
-  }
+
+  const GenerateButton = (
+    <Button onClick={handleGenerateReport} className="w-full sm:w-auto" disabled={!canGenerateReport}>
+        <AreaChart className="mr-2 h-4 w-4" />
+        Generate Report
+    </Button>
+  );
 
   return (
     <div className="flex flex-1 flex-col">
@@ -337,10 +333,16 @@ export default function ReportsPage() {
 
             </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <Button onClick={generateReport} className="w-full sm:w-auto">
-                    <AreaChart className="mr-2 h-4 w-4" />
-                    Generate Report
-                </Button>
+                {canGenerateReport ? GenerateButton : (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>{GenerateButton}</TooltipTrigger>
+                            <TooltipContent>
+                                <p>You have used your free report for this month. Upgrade for more.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
                 <div className="flex gap-2">
                     <Button variant="outline" className="w-full" disabled={!generatedReport} onClick={handleExportCSV}>
                         <FileDown className="mr-2 h-4 w-4" />

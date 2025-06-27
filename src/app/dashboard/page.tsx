@@ -17,7 +17,7 @@ import { useState, useEffect } from 'react';
 import { OnboardingDialog } from '@/components/dashboard/onboarding-dialog';
 
 export default function DashboardPage() {
-  const { isPremium, userProfile } = useAppContext();
+  const { userProfile } = useAppContext();
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   useEffect(() => {
@@ -47,15 +47,7 @@ export default function DashboardPage() {
             <div className="lg:col-span-3 space-y-6">
                 <PortfolioOverview />
                 <CarbonFootprintCard />
-                {isPremium ? (
-                  <SmartInsights />
-                ) : (
-                  <UpgradeCard
-                    title="Unlock AI-Powered Smart Insights"
-                    description="Get personalized tips and analysis to improve your financial health with Premium."
-                    icon={Lightbulb}
-                  />
-                )}
+                <SmartInsights />
             </div>
           </div>
         </main>

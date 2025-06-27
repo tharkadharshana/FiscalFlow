@@ -1,55 +1,49 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/app-context';
-import { Lightbulb, Loader2 } from 'lucide-react';
-import { generateInsightsAction } from '@/lib/actions';
+import { Lightbulb, Loader2, Sparkles } from 'lucide-react';
 import type { Transaction } from '@/types';
+import { Button } from '../ui/button';
+import { UpgradeCard } from '../ui/upgrade-card';
 
 export function SmartInsights() {
-  const { transactions } = useAppContext();
+  const { transactions, canGenerateInsights, generateInsightsWithLimit } = useAppContext();
   const [insights, setInsights] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchInsights = async () => {
-      if (transactions.length > 0) {
-        setIsLoading(true);
-        setError(null);
-        
-        const relevantTransactions = transactions.slice(0, 20).map((t: Transaction) => ({
-            amount: t.amount,
-            category: t.category,
-            source: t.source,
-            date: t.date,
-            type: t.type
-        }));
+  const handleFetchInsights = async () => {
+    if (transactions.length > 0) {
+      setIsLoading(true);
+      setError(null);
+      
+      const relevantTransactions = transactions.slice(0, 20).map((t: Transaction) => ({
+          amount: t.amount,
+          category: t.category,
+          source: t.source,
+          date: t.date,
+          type: t.type
+      }));
 
-        const result = await generateInsightsAction({ transactions: relevantTransactions });
+      const result = await generateInsightsWithLimit({ transactions: relevantTransactions });
 
-        if ('error' in result) {
-          setError(result.error);
-        } else if (result.insights) {
-          setInsights(result.insights);
+      if (result && 'error' in result) {
+        setError(result.error);
+        if(result.error !== 'Limit Reached') {
+          setInsights([]);
         }
-        setIsLoading(false);
-      } else {
-        setIsLoading(false);
-        setInsights([]);
+      } else if (result && result.insights) {
+        setInsights(result.insights);
       }
-    };
-
-    // Debounce the call to avoid excessive API calls on rapid transaction changes
-    const handler = setTimeout(() => {
-        fetchInsights();
-    }, 500);
-
-    return () => {
-        clearTimeout(handler);
+      setIsLoading(false);
+    } else {
+      setIsLoading(false);
+      setInsights([]);
     }
-  }, [transactions]);
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -68,12 +62,31 @@ export function SmartInsights() {
       );
     }
 
+    if (!canGenerateInsights) {
+        return (
+            <UpgradeCard
+                title="Get More Smart Insights"
+                description="You've used your free AI insights for this month. Upgrade to Premium for unlimited analysis."
+                icon={Lightbulb}
+            />
+        )
+    }
+
     if (error) {
         return <p className="text-sm text-destructive">{error}</p>;
     }
 
     if (insights.length === 0 && !isLoading) {
-        return <p className="text-center text-sm text-muted-foreground py-8">Log some transactions to see your AI-powered insights!</p>;
+        return (
+            <div className="text-center space-y-4 py-4">
+                <p className="text-sm text-muted-foreground">Get personalized tips and analysis to improve your financial health.</p>
+                <Button onClick={handleFetchInsights} disabled={transactions.length < 3}>
+                    <Sparkles className="mr-2 h-4 w-4"/>
+                    Generate Insights
+                </Button>
+                {transactions.length < 3 && <p className="text-xs text-muted-foreground">Log at least 3 transactions to enable.</p>}
+            </div>
+        )
     }
 
     return (

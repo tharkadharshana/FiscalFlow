@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -273,21 +274,21 @@ export default function TaxPage() {
                        <Tabs defaultValue="income" className="w-full">
                            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
                                <TabsTrigger value="income"><Wallet className="mr-2 h-4 w-4" />Income Tax</TabsTrigger>
-                               <TabsTrigger value="vehicle" disabled={!isPremium}><Car className="mr-2 h-4 w-4" />Vehicle Import</TabsTrigger>
-                               <TabsTrigger value="vat" disabled={!isPremium}><Percent className="mr-2 h-4 w-4" />VAT</TabsTrigger>
-                               <TabsTrigger value="stamp" disabled={!isPremium}><Landmark className="mr-2 h-4 w-4" />Stamp Duty</TabsTrigger>
+                               <TabsTrigger value="vehicle"><Car className="mr-2 h-4 w-4" />Vehicle Import</TabsTrigger>
+                               <TabsTrigger value="vat"><Percent className="mr-2 h-4 w-4" />VAT</TabsTrigger>
+                               <TabsTrigger value="stamp"><Landmark className="mr-2 h-4 w-4" />Stamp Duty</TabsTrigger>
                            </TabsList>
                            <TabsContent value="income" className="pt-6">
                                 <IncomeTaxCalculator />
                            </TabsContent>
                            <TabsContent value="vehicle" className="pt-6">
-                                {isPremium ? <VehicleImportCalculator /> : <UpgradeCard title="Unlock Advanced Calculators" description="Upgrade to premium for access to all tax estimation tools."/>}
+                                <VehicleImportCalculator />
                            </TabsContent>
                            <TabsContent value="vat" className="pt-6">
-                                {isPremium ? <VatCalculator /> : <UpgradeCard title="Unlock Advanced Calculators" description="Upgrade to premium for access to all tax estimation tools."/>}
+                                <VatCalculator />
                            </TabsContent>
                            <TabsContent value="stamp" className="pt-6">
-                                {isPremium ? <StampDutyCalculator /> : <UpgradeCard title="Unlock Advanced Calculators" description="Upgrade to premium for access to all tax estimation tools."/>}
+                                <StampDutyCalculator />
                            </TabsContent>
                        </Tabs>
                     </CardContent>

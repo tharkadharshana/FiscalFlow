@@ -62,6 +62,8 @@ export interface UserProfile {
     monthlyRoundups?: { count: number; month: string };
     monthlyTaxReports?: { count: number; month: string };
     monthlyVoiceCommands?: { count: number; month: string };
+    monthlyReports?: { count: number; month: string };
+    monthlyInsights?: { count: number; month: string };
   };
   hasCompletedOnboarding?: boolean;
 }
