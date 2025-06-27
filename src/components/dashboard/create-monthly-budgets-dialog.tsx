@@ -21,8 +21,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan } from 'lucide-react';
 import { createMonthlyBudgetsAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
-import { defaultCategories } from '@/data/mock-data';
-import { nanoid } from 'nanoid';
 import {
   Select,
   SelectContent,
@@ -69,7 +67,8 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
     resolver: zodResolver(formSchema),
     defaultValues: { budgets: [] },
   });
-  const { fields, remove, control, register } = useFieldArray({
+
+  const { fields, remove } = useFieldArray({
     control: form.control,
     name: 'budgets',
   });
@@ -225,7 +224,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
                             <div className="col-span-3">
                                <Label className="text-xs text-muted-foreground">Category</Label>
                                <Controller
-                                 control={control}
+                                 control={form.control}
                                  name={`budgets.${index}.category`}
                                  render={({ field }) => (
                                    <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
@@ -243,7 +242,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
                             </div>
                             <div className="col-span-2">
                                <Label className="text-xs text-muted-foreground">Monthly Limit ($)</Label>
-                               <Input {...register(`budgets.${index}.limit`)} type="number" className="h-8"/>
+                               <Input {...form.register(`budgets.${index}.limit`)} type="number" className="h-8"/>
                             </div>
                         </div>
                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)} disabled={!!budgetToEdit}>
