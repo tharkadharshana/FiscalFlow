@@ -129,53 +129,61 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
   }
 
   const CryptoSelector = (
-    <div className="space-y-2 col-span-2">
-        <FormLabel>Cryptocurrency</FormLabel>
-        <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
+    <FormField
+      control={form.control}
+      name="name"
+      render={({ field }) => (
+        <FormItem className="flex flex-col col-span-2">
+          <FormLabel>Cryptocurrency</FormLabel>
+          <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
             <PopoverTrigger asChild>
-                <FormControl>
-                    <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn("w-full justify-between", !form.getValues('name') && "text-muted-foreground")}
-                    >
-                        {isCryptoListLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : null}
-                        {form.getValues('name') ? cryptoList.find(c => c.name === form.getValues('name'))?.name : "Select a cryptocurrency"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                </FormControl>
+              <FormControl>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                >
+                  {isCryptoListLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : null}
+                  {field.value
+                    ? cryptoList.find((coin) => coin.name === field.value)?.name
+                    : "Select a cryptocurrency"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </FormControl>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                    <CommandInput placeholder="Search coins..." />
-                    <CommandList>
-                        <CommandEmpty>No cryptocurrency found.</CommandEmpty>
-                        <CommandGroup>
-                            {cryptoList.map((coin) => (
-                                <CommandItem
-                                    value={coin.name}
-                                    key={coin.id}
-                                    onSelect={() => {
-                                        form.setValue('name', coin.name);
-                                        form.setValue('symbol', coin.symbol.toUpperCase());
-                                        form.setValue('currentPrice', coin.current_price);
-                                        form.setValue('coinGeckoId', coin.id);
-                                        setIsComboboxOpen(false);
-                                    }}
-                                    className="flex items-center gap-2"
-                                >
-                                    <Image src={coin.image} alt={coin.name} width={20} height={20} />
-                                    {coin.name} ({coin.symbol.toUpperCase()})
-                                    <Check className={cn("ml-auto h-4 w-4", coin.name === form.getValues('name') ? "opacity-100" : "opacity-0")} />
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
+              <Command>
+                <CommandInput placeholder="Search coins..." />
+                <CommandList>
+                  <CommandEmpty>No cryptocurrency found.</CommandEmpty>
+                  <CommandGroup>
+                    {cryptoList.map((coin) => (
+                      <CommandItem
+                        value={coin.name}
+                        key={coin.id}
+                        onSelect={() => {
+                          form.setValue('name', coin.name, { shouldValidate: true });
+                          form.setValue('symbol', coin.symbol.toUpperCase());
+                          form.setValue('currentPrice', coin.current_price);
+                          form.setValue('coinGeckoId', coin.id);
+                          setIsComboboxOpen(false);
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <Image src={coin.image} alt={coin.name} width={20} height={20} />
+                        {coin.name} ({coin.symbol.toUpperCase()})
+                        <Check className={cn("ml-auto h-4 w-4", coin.name === field.value ? "opacity-100" : "opacity-0")} />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
             </PopoverContent>
-        </Popover>
-        <FormMessage />
-    </div>
+          </Popover>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
   );
 
   const StockSelector = (
