@@ -15,6 +15,7 @@ import { nanoid } from 'nanoid';
 import { Plus, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { ChecklistTemplate } from '@/types';
+import { Label } from '../ui/label';
 
 const itemSchema = z.object({
   id: z.string(),
