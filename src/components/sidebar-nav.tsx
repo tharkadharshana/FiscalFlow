@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import Link from 'next/link';
@@ -31,6 +32,7 @@ import {
   Landmark,
   Briefcase,
   Sparkles,
+  CheckSquare,
 } from 'lucide-react';
 import { useAppContext } from '@/contexts/app-context';
 import { Button } from './ui/button';
@@ -42,6 +44,7 @@ const menuItems = [
   { href: '/dashboard/investments', label: 'Investments', icon: Briefcase, premium: true },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText, premium: true },
   { href: '/dashboard/budgets', label: 'Budgets', icon: Target },
+  { href: '/dashboard/checklists', label: 'Checklists', icon: CheckSquare },
   { href: '/dashboard/savings', label: 'Savings Goals', icon: PiggyBank, premium: true },
   { href: '/dashboard/tax', label: 'Tax Center', icon: Landmark, premium: true },
   { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },

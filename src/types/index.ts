@@ -1,6 +1,7 @@
 
 
 
+
 export interface BudgetItem {
   id: string;
   description: string;
@@ -170,4 +171,27 @@ export interface CoinGeckoMarketData {
   market_cap_rank: number;
   price_change_percentage_24h: number;
   total_volume: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  description: string;
+  predictedCost: number;
+  isCompleted: boolean;
+}
+
+export interface Checklist {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: any;
+  items: ChecklistItem[];
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: any;
+  items: Omit<ChecklistItem, 'id' | 'isCompleted'>[];
 }

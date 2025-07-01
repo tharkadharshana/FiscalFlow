@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import { Header } from '@/components/dashboard/header';
@@ -15,6 +16,7 @@ import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Lightbulb } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { OnboardingDialog } from '@/components/dashboard/onboarding-dialog';
+import { ChecklistSummary } from '@/components/dashboard/checklist-summary';
 
 export default function DashboardPage() {
   const { userProfile } = useAppContext();
@@ -45,6 +47,7 @@ export default function DashboardPage() {
               <RecentTransactions />
             </div>
             <div className="lg:col-span-3 space-y-6">
+                <ChecklistSummary />
                 <PortfolioOverview />
                 <CarbonFootprintCard />
                 <SmartInsights />
