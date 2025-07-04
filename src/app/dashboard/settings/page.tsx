@@ -202,6 +202,7 @@ export default function SettingsPage() {
   }
 
   return (
+    <TooltipProvider>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col">
         <Header title="Settings" />
@@ -218,7 +219,14 @@ export default function SettingsPage() {
                         <AvatarImage src={userProfile.profilePictureURL || undefined} data-ai-hint="profile avatar" />
                         <AvatarFallback>{userProfile.displayName?.[0].toUpperCase() || 'U'}</AvatarFallback>
                     </Avatar>
-                    <Button variant="outline" type="button" disabled>Upload Picture</Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" type="button" disabled>Upload Picture</Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This feature is coming soon!</p>
+                      </TooltipContent>
+                    </Tooltip>
                 </div>
                 <FormField
                   control={form.control}
@@ -276,7 +284,7 @@ export default function SettingsPage() {
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
                             <FormLabel className="text-base">Dark Mode</FormLabel>
-                            <FormDescription>Enable or disable the dark theme.</FormDescription>
+                            <FormDescription>Enable or disable the dark theme for the entire app.</FormDescription>
                         </div>
                         <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -353,5 +361,6 @@ export default function SettingsPage() {
         </main>
       </form>
     </Form>
+    </TooltipProvider>
   );
 }

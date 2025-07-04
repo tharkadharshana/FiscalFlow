@@ -87,10 +87,19 @@ export function SavingsGoalCard({ goal, onEdit, onDelete }: SavingsGoalCardProps
       <CardFooter className="flex flex-col items-start gap-3">
          <div className="flex flex-wrap gap-2">
             {goal.isRoundupGoal && (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
-                    <Repeat className="mr-1 h-3 w-3" />
-                    Round-up Goal
-                </Badge>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
+                        <Repeat className="mr-1 h-3 w-3" />
+                        Round-up Goal
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Spare change from your expenses is automatically added to this goal.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
             )}
             {goal.badges.map(badge => (
                 <TooltipProvider key={badge.name}>

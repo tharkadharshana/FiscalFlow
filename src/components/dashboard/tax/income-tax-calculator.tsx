@@ -1,9 +1,12 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 export function IncomeTaxCalculator() {
   const [annualIncome, setAnnualIncome] = useState<number | string>('');
@@ -67,8 +70,8 @@ export function IncomeTaxCalculator() {
       </div>
       <div>
         <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Estimated Tax Liability</h3>
+          <CardContent className="p-6 space-y-4">
+            <h3 className="text-lg font-semibold">Estimated Tax Liability</h3>
             {taxCalculation ? (
               <div className="space-y-3 font-mono">
                 <div className="flex justify-between items-center text-primary font-bold text-xl">
@@ -90,6 +93,12 @@ export function IncomeTaxCalculator() {
                 <p>Enter your annual income to estimate your tax.</p>
               </div>
             )}
+             <Alert className="text-xs">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Calculations are based on the progressive PAYE tax brackets for Sri Lanka. This is for estimation purposes only.
+              </AlertDescription>
+            </Alert>
           </CardContent>
         </Card>
       </div>

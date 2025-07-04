@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -5,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Info } from 'lucide-react';
 
 type FuelType = 'petrol' | 'hybrid' | 'electric';
 
@@ -71,6 +74,7 @@ export function VehicleImportCalculator() {
   }, [cifValue, fuelType, engineCC, exciseDutyOverride]);
 
   return (
+    <TooltipProvider>
     <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-6">
             <div className="space-y-2">
@@ -84,7 +88,17 @@ export function VehicleImportCalculator() {
                 />
             </div>
              <div className="space-y-2">
-                <Label htmlFor="engine-cc">Engine Capacity (CC)</Label>
+                <Label htmlFor="engine-cc" className="flex items-center gap-2">
+                  Engine Capacity (CC)
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Excise duty is complex. We use a simplified calculation. For accuracy, use the override field below.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
                 <Input
                     id="engine-cc"
                     type="number"
@@ -92,7 +106,6 @@ export function VehicleImportCalculator() {
                     value={engineCC}
                     onChange={(e) => setEngineCC(e.target.value === '' ? '' : Number(e.target.value))}
                 />
-                 <p className="text-xs text-muted-foreground">Used for simplified Excise Duty calculation. You can override this below.</p>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="excise-duty">Excise Duty (Manual Override)</Label>
@@ -168,5 +181,6 @@ export function VehicleImportCalculator() {
             </Card>
         </div>
     </div>
+    </TooltipProvider>
   );
 }

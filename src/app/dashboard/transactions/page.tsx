@@ -89,10 +89,19 @@ export default function TransactionsPage() {
                   {transaction.notes || 'No notes'}
                 </p>
                 {isPremium && transaction.carbonFootprint && transaction.carbonFootprint > 0 && (
-                  <Badge variant="outline" className="flex items-center gap-1 font-normal border-green-200 bg-green-50 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300">
-                    <Leaf className="h-3 w-3" />
-                    {transaction.carbonFootprint.toFixed(1)} kg CO₂e
-                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="flex items-center gap-1 font-normal border-green-200 bg-green-50 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300">
+                          <Leaf className="h-3 w-3" />
+                          {transaction.carbonFootprint.toFixed(1)} kg CO₂e
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Estimated Carbon Dioxide Equivalent based on spending category.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>
