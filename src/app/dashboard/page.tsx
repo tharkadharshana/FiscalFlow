@@ -1,6 +1,5 @@
 
 
-
 'use client';
 
 import { Header } from '@/components/dashboard/header';
@@ -9,14 +8,10 @@ import { RecentTransactions } from '@/components/dashboard/recent-transactions';
 import { SpendChart } from '@/components/dashboard/spend-chart';
 import { SmartInsights } from '@/components/dashboard/smart-insights';
 import { TopCategories } from '@/components/dashboard/top-categories';
-import { CarbonFootprintCard } from '@/components/dashboard/carbon-footprint-card';
 import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
 import { useAppContext } from '@/contexts/app-context';
-import { UpgradeCard } from '@/components/ui/upgrade-card';
-import { Lightbulb } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { OnboardingDialog } from '@/components/dashboard/onboarding-dialog';
-import { ChecklistSummary } from '@/components/dashboard/checklist-summary';
 
 export default function DashboardPage() {
   const { userProfile } = useAppContext();
@@ -34,24 +29,16 @@ export default function DashboardPage() {
         <Header title="Dashboard" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
           <SummaryCards />
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-            <div className="lg:col-span-4">
-              <SpendChart />
-            </div>
-            <div className="lg:col-span-3">
-              <TopCategories />
-            </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+             <SpendChart />
+             <TopCategories />
           </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-            <div className="lg:col-span-4">
-              <RecentTransactions />
-            </div>
-            <div className="lg:col-span-3 space-y-6">
-                <ChecklistSummary />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+             <RecentTransactions />
+             <div className="space-y-6">
                 <PortfolioOverview />
-                <CarbonFootprintCard />
                 <SmartInsights />
-            </div>
+             </div>
           </div>
         </main>
       </div>
