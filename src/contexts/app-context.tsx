@@ -1,6 +1,5 @@
 
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
@@ -259,33 +258,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setUserProfile({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
           setLoading(false);
         } else {
-            logger.warn("User profile document not found for authenticated user. Attempting to create one.", { userId: user.uid, email: user.email });
-            // Create a default user profile document if it doesn't exist
-            const defaultProfile: Omit<UserProfile, 'uid'> = {
-                displayName: user.displayName || user.email?.split('@')[0] || 'User',
-                email: user.email as string,
-                createdAt: serverTimestamp(),
-                lastLoginAt: serverTimestamp(),
-                currencyPreference: 'USD',
-                darkModeBanner: false,
-                notificationPreferences: {
-                    budgetThreshold: true,
-                    recurringPayment: true,
-                },
-                profilePictureURL: user.photoURL || null,
-                subscription: {
-                  tier: 'free' as const,
-                  isActive: true,
-                  planType: undefined,
-                  expiryDate: null,
-                },
-                hasCompletedOnboarding: false,
-                customCategories: [],
-            };
-            setDoc(userDocRef, defaultProfile, { merge: true }).catch(err => {
-                logger.error("Failed to auto-create user profile", err, { userId: user.uid });
-                setLoading(false);
-            });
+            logger.warn("User profile document not found for authenticated user. Login form should handle creation.", { userId: user.uid });
+            // If the profile is still missing, it could be a race condition.
+            // The login form is the primary creator. We set loading to false to avoid getting stuck.
+            setLoading(false);
         }
       }, (error) => {
         logger.error("Error subscribing to user profile", error);
