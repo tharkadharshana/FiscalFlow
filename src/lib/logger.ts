@@ -1,6 +1,6 @@
 // src/lib/logger.ts
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { app } from './firebase';
+import { app, auth } from './firebase';
 
 const functions = getFunctions(app);
 
@@ -23,6 +23,14 @@ const sendLog = (level: 'info' | 'warn' | 'error', message: string, details: Log
         console.error(message, details);
         break;
     }
+  }
+  
+  // Do not send logs if user is not authenticated.
+  if (!auth.currentUser) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Log not sent to server (user not authenticated): "${message}"`);
+    }
+    return;
   }
 
   // Send log to the cloud function
