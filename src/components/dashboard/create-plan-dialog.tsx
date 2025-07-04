@@ -196,30 +196,32 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
   };
 
   const renderInputView = () => (
-    <div className="space-y-4">
-        <DialogDescription>
-            Describe your financial plan. You can type, use your voice, or scan a document. The AI will structure it into an itemized plan.
-        </DialogDescription>
-        <div className="grid w-full gap-2">
-            <Textarea placeholder="e.g., I'm planning a trip to Japan for two weeks. I think flights will be about $1500, hotels around $2000, and I'll budget $1000 for food and fun." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
-            <div className="flex gap-2">
-                <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
-                    {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                    {isRecording ? 'Stop' : 'Record'}
-                </Button>
-                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
-                    <FileScan className="mr-2 h-4 w-4" />
-                    Scan
-                </Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-            </div>
-        </div>
-        <DialogFooter>
-            <Button onClick={handleGeneratePlan} disabled={!userQuery} className="w-full">
-                <Wand2 className="mr-2 h-4 w-4" /> {planToEdit ? 'Update Plan with AI' : 'Generate Plan with AI'}
-            </Button>
-        </DialogFooter>
-    </div>
+    <>
+      <DialogDescription>
+        Describe your financial plan. You can type, use your voice, or scan a document. The AI will structure it into an itemized plan.
+      </DialogDescription>
+      <div className="space-y-4 pt-4">
+          <div className="grid w-full gap-2">
+              <Textarea placeholder="e.g., I'm planning a trip to Japan for two weeks. I think flights will be about $1500, hotels around $2000, and I'll budget $1000 for food and fun." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+              <div className="flex gap-2">
+                  <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
+                      {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                      {isRecording ? 'Stop' : 'Record'}
+                  </Button>
+                  <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
+                      <FileScan className="mr-2 h-4 w-4" />
+                      Scan
+                  </Button>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+              </div>
+          </div>
+          <DialogFooter>
+              <Button onClick={handleGeneratePlan} disabled={!userQuery} className="w-full">
+                  <Wand2 className="mr-2 h-4 w-4" /> {planToEdit ? 'Update Plan with AI' : 'Generate Plan with AI'}
+              </Button>
+          </DialogFooter>
+      </div>
+    </>
   );
 
   const renderLoadingView = () => (
@@ -231,6 +233,9 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
 
   const renderReviewView = () => (
     <form onSubmit={form.handleSubmit(handleSavePlan)} className="space-y-4">
+        <DialogDescription>
+          The AI has generated the following plan. Review the items and make any necessary changes before saving.
+        </DialogDescription>
         <div className="space-y-2">
             <Label htmlFor="plan-title">Plan Title</Label>
             <Input id="plan-title" {...form.register('title')} />
@@ -294,6 +299,9 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         <ScrollArea className="max-h-[80vh] pr-6">
             <DialogHeader>
                 <DialogTitle className="font-headline text-2xl">{planToEdit ? 'Edit Financial Plan' : 'Create a New Financial Plan'}</DialogTitle>
+                <DialogDescription>
+                    Use AI to generate a detailed financial plan. Describe your goal, and the AI will create an itemized list for you.
+                </DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 {view === 'input' && renderInputView()}

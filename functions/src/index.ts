@@ -5,9 +5,13 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { Logging } from '@google-cloud/logging';
+import * as cors from 'cors';
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// Initialize CORS middleware
+const corsHandler = cors({ origin: true });
 
 // Initialize Google Cloud Logging
 const logging = new Logging({
@@ -16,43 +20,56 @@ const logging = new Logging({
 const log = logging.log('fiscalflow-app-logs');
 
 /**
- * Callable function for client-side logging.
+ * HTTP function for client-side logging.
  */
-export const logMessage = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-    }
+export const logMessage = functions.https.onRequest((req, res) => {
+    // Wrap the function logic with the CORS middleware
+    corsHandler(req, res, async () => {
+        // Handle preflight requests
+        if (req.method === 'OPTIONS') {
+            res.status(204).send('');
+            return;
+        }
+        
+        // Callable functions send data in `req.body.data`. We keep this for consistency with client.
+        const { level, message, details } = req.body.data || req.body;
+        const uid = details?.userId; 
 
-    const { level, message, details } = data;
-    const uid = context.auth.uid;
+        if (!level || !message) {
+            res.status(400).send({ error: { message: 'Missing level or message in request body.' } });
+            return;
+        }
 
-    const severityMap: {[key: string]: string} = {
-        info: 'INFO',
-        warn: 'WARNING',
-        error: 'ERROR'
-    };
-    
-    const severity = severityMap[level] || 'DEFAULT';
+        const severityMap: {[key: string]: string} = {
+            info: 'INFO',
+            warn: 'WARNING',
+            error: 'ERROR'
+        };
+        
+        const severity = severityMap[level] || 'DEFAULT';
 
-    const metadata = {
-        resource: { type: 'global' },
-        severity: severity,
-        labels: { userId: uid },
-    };
+        const metadata = {
+            resource: { type: 'global' },
+            severity: severity,
+            labels: { userId: uid || 'unauthenticated' },
+        };
 
-    const logEntry = log.entry(metadata, {
-        message: message,
-        userId: uid,
-        ...details,
+        const logEntryPayload = {
+            message: message,
+            userId: uid,
+            ...details,
+        };
+        
+        const logEntry = log.entry(metadata, logEntryPayload);
+        
+        try {
+            await log.write(logEntry);
+            res.status(200).send({ data: { success: true } });
+        } catch (error) {
+            console.error("Failed to write log entry:", error);
+            res.status(500).send({ error: { message: 'Could not write log entry.' } });
+        }
     });
-    
-    try {
-        await log.write(logEntry);
-        return { success: true };
-    } catch (error) {
-        console.error("Failed to write log entry:", error);
-        throw new functions.https.HttpsError('internal', 'Could not write log entry.');
-    }
 });
 
 

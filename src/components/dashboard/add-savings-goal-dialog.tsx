@@ -218,30 +218,32 @@ export function AddSavingsGoalDialog({ open, onOpenChange, goalToEdit }: AddSavi
   );
   
   const renderInputView = () => (
-    <div className="space-y-4">
-        <DialogDescription>
-            Describe your savings goal. You can type, use your voice, or scan a document. The AI will structure it for you.
-        </DialogDescription>
-        <div className="grid w-full gap-2">
-            <Textarea placeholder="e.g., I want to save $2,500 for a trip to Italy next summer." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={5} />
-            <div className="flex gap-2">
-                <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
-                    {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                    {isRecording ? 'Stop' : 'Record'}
-                </Button>
-                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
-                    <FileScan className="mr-2 h-4 w-4" />
-                    Scan
-                </Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-            </div>
-        </div>
-        <DialogFooter>
-            <Button onClick={handleGenerateGoal} disabled={!userQuery} className="w-full">
-                <Wand2 className="mr-2 h-4 w-4" /> Generate Goal with AI
-            </Button>
-        </DialogFooter>
-    </div>
+    <>
+      <DialogDescription>
+          Describe your savings goal. You can type, use your voice, or scan a document. The AI will structure it for you.
+      </DialogDescription>
+      <div className="space-y-4 pt-4">
+          <div className="grid w-full gap-2">
+              <Textarea placeholder="e.g., I want to save $2,500 for a trip to Italy next summer." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={5} />
+              <div className="flex gap-2">
+                  <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
+                      {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                      {isRecording ? 'Stop' : 'Record'}
+                  </Button>
+                  <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
+                      <FileScan className="mr-2 h-4 w-4" />
+                      Scan
+                  </Button>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+              </div>
+          </div>
+          <DialogFooter>
+              <Button onClick={handleGenerateGoal} disabled={!userQuery} className="w-full">
+                  <Wand2 className="mr-2 h-4 w-4" /> Generate Goal with AI
+              </Button>
+          </DialogFooter>
+      </div>
+    </>
   );
 
   const renderLoadingView = () => (
@@ -328,6 +330,9 @@ export function AddSavingsGoalDialog({ open, onOpenChange, goalToEdit }: AddSavi
         <ScrollArea className="max-h-[80vh] pr-6">
             <DialogHeader>
                 <DialogTitle className="font-headline text-2xl">{goalToEdit ? 'Edit Savings Goal' : 'Create a New Goal'}</DialogTitle>
+                <DialogDescription>
+                  Use AI to generate a savings goal from natural language. Describe what you want to save for, how much, and by when.
+                </DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 {view === 'input' && renderInputView()}

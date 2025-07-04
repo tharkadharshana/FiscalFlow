@@ -198,30 +198,32 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
   };
 
   const renderInputView = () => (
-    <div className="space-y-4">
-        <DialogDescription>
-            Describe your monthly budgets. You can type, use your voice, or scan a document (e.g., a shopping list). The AI will structure it for you.
-        </DialogDescription>
-        <div className="grid w-full gap-2">
-            <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
-            <div className="flex gap-2">
-                <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
-                    {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                    {isRecording ? 'Stop' : 'Record'}
-                </Button>
-                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
-                    <FileScan className="mr-2 h-4 w-4" />
-                    Scan
-                </Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-            </div>
-        </div>
-        <DialogFooter>
-            <Button onClick={handleGenerateBudgets} disabled={!userQuery} className="w-full">
-                <Wand2 className="mr-2 h-4 w-4" /> Generate Budgets with AI
-            </Button>
-        </DialogFooter>
-    </div>
+    <>
+      <DialogDescription>
+        Describe your monthly budgets. You can type, use your voice, or scan a document (e.g., a shopping list). The AI will structure it for you.
+      </DialogDescription>
+      <div className="space-y-4 pt-4">
+          <div className="grid w-full gap-2">
+              <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+              <div className="flex gap-2">
+                  <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
+                      {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                      {isRecording ? 'Stop' : 'Record'}
+                  </Button>
+                  <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
+                      <FileScan className="mr-2 h-4 w-4" />
+                      Scan
+                  </Button>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+              </div>
+          </div>
+          <DialogFooter>
+              <Button onClick={handleGenerateBudgets} disabled={!userQuery} className="w-full">
+                  <Wand2 className="mr-2 h-4 w-4" /> Generate Budgets with AI
+              </Button>
+          </DialogFooter>
+      </div>
+    </>
   );
 
   const renderLoadingView = () => (
@@ -290,6 +292,9 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
         <ScrollArea className="max-h-[80vh] pr-6">
             <DialogHeader>
                 <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Create Monthly Budgets'}</DialogTitle>
+                 <DialogDescription>
+                    Use AI to generate budgets from natural language. You can type, use your voice, or scan a document like a shopping list.
+                </DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 {view === 'input' && renderInputView()}

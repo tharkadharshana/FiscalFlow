@@ -1,13 +1,11 @@
 // src/lib/logger.ts
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getFunctions } from 'firebase/functions';
 import { app, auth } from './firebase';
 
 const functions = getFunctions(app);
 
 // Use a generic type for the details object
 type LogDetails = Record<string, any>;
-
-const logMessage = httpsCallable<{ level: string; message: string; details: LogDetails }, { success: boolean }>(functions, 'logMessage');
 
 const sendLog = (level: 'info' | 'warn' | 'error', message: string, details: LogDetails = {}) => {
   // Also log to console for local development
@@ -32,11 +30,27 @@ const sendLog = (level: 'info' | 'warn' | 'error', message: string, details: Log
     }
     return;
   }
+  
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  // This can be 'us-central1' or your function's region
+  const region = functions.region || 'us-central1'; 
+  const finalUrl = `https://${region}-${projectId}.cloudfunctions.net/logMessage`;
 
-  // Send log to the cloud function
-  logMessage({ level, message, details }).catch((error) => {
-    // We console.error here to avoid an infinite loop if the logging function itself fails.
-    console.error('Failed to send log to server:', error);
+  const detailsWithUser = {
+      ...details,
+      userId: auth.currentUser.uid,
+  };
+
+  fetch(finalUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // The body needs to be structured as { data: { ... } } to match callable function format
+      body: JSON.stringify({
+          data: { level, message, details: detailsWithUser }
+      }),
+  }).catch((error) => {
+      // We console.error here to avoid an infinite loop if the logging function itself fails.
+      console.error('Failed to send log to server:', error);
   });
 };
 
