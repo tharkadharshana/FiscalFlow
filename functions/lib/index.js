@@ -1,14 +1,70 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateRecurringTransactions = exports.updateBudgetOnTransactionChange = void 0;
+exports.generateRecurringTransactions = exports.updateBudgetOnTransactionChange = exports.logMessage = void 0;
 //
 // File: functions/src/index.ts
 //
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const firestore_1 = require("firebase-admin/firestore");
+const logging_1 = require("@google-cloud/logging");
+const cors = require("cors");
 admin.initializeApp();
 const db = admin.firestore();
+// Initialize CORS middleware
+const corsHandler = cors({ origin: true });
+// Initialize Google Cloud Logging
+const logging = new logging_1.Logging({
+    projectId: process.env.GCLOUD_PROJECT,
+});
+const log = logging.log('fiscalflow-app-logs');
+/**
+ * HTTP function for client-side logging.
+ */
+exports.logMessage = functions.https.onRequest((req, res) => {
+    // Wrap the function logic with the CORS middleware
+    corsHandler(req, res, async () => {
+        // The cors middleware handles preflight (OPTIONS) requests automatically.
+        // We only need to handle the actual POST request logic.
+        if (req.method === 'POST') {
+            const { level, message, details } = req.body.data || req.body;
+            const uid = details?.userId;
+            if (!level || !message) {
+                res.status(400).send({ error: { message: 'Missing level or message in request body.' } });
+                return;
+            }
+            const severityMap = {
+                info: 'INFO',
+                warn: 'WARNING',
+                error: 'ERROR'
+            };
+            const severity = severityMap[level] || 'DEFAULT';
+            const metadata = {
+                resource: { type: 'global' },
+                severity: severity,
+                labels: { userId: uid || 'unauthenticated' },
+            };
+            const logEntryPayload = {
+                message: message,
+                userId: uid,
+                ...details,
+            };
+            const logEntry = log.entry(metadata, logEntryPayload);
+            try {
+                await log.write(logEntry);
+                res.status(200).send({ data: { success: true } });
+            }
+            catch (error) {
+                console.error("Failed to write log entry:", error);
+                res.status(500).send({ error: { message: 'Could not write log entry.' } });
+            }
+        }
+        else {
+            // For any method other than POST that isn't a preflight, like GET.
+            res.status(405).send({ error: { message: 'Method Not Allowed' } });
+        }
+    });
+});
 /**
  * This function automatically updates a user's monthly budget spend
  * whenever a relevant expense transaction is created, updated, or deleted.
@@ -19,12 +75,12 @@ exports.updateBudgetOnTransactionChange = functions.firestore
     const { userId } = context.params;
     const transactionBefore = change.before.data();
     const transactionAfter = change.after.data();
-    const amountBefore = (transactionBefore === null || transactionBefore === void 0 ? void 0 : transactionBefore.type) === "expense" ? transactionBefore.amount : 0;
-    const categoryBefore = transactionBefore === null || transactionBefore === void 0 ? void 0 : transactionBefore.category;
-    const dateBefore = transactionBefore === null || transactionBefore === void 0 ? void 0 : transactionBefore.date;
-    const amountAfter = (transactionAfter === null || transactionAfter === void 0 ? void 0 : transactionAfter.type) === "expense" ? transactionAfter.amount : 0;
-    const categoryAfter = transactionAfter === null || transactionAfter === void 0 ? void 0 : transactionAfter.category;
-    const dateAfter = transactionAfter === null || transactionAfter === void 0 ? void 0 : transactionAfter.date;
+    const amountBefore = transactionBefore?.type === "expense" ? transactionBefore.amount : 0;
+    const categoryBefore = transactionBefore?.category;
+    const dateBefore = transactionBefore?.date;
+    const amountAfter = transactionAfter?.type === "expense" ? transactionAfter.amount : 0;
+    const categoryAfter = transactionAfter?.category;
+    const dateAfter = transactionAfter?.date;
     // Case 1: Transaction created
     if (!change.before.exists && change.after.exists && amountAfter > 0) {
         const month = dateAfter.toDate().toISOString().slice(0, 7);
@@ -59,17 +115,21 @@ exports.updateBudgetOnTransactionChange = functions.firestore
     return null;
 });
 async function updateBudget(userId, category, amountChange, month) {
+    if (!category || !month) {
+        functions.logger.warn(`Attempted to update budget with missing category or month for user ${userId}.`);
+        return;
+    }
     const budgetQuery = db.collection("users").doc(userId).collection("budgets")
         .where("category", "==", category)
         .where("month", "==", month);
     const budgetSnapshot = await budgetQuery.get();
     if (budgetSnapshot.empty) {
-        functions.logger.log(`No budget for category '${category}' in month '${month}'.`);
+        functions.logger.info(`No budget found for category '${category}' in month '${month}' for user ${userId}. No action taken.`);
         return;
     }
     const budgetDoc = budgetSnapshot.docs[0];
     const currentSpend = (budgetDoc.data().currentSpend || 0) + amountChange;
-    functions.logger.log(`Updating budget ${budgetDoc.id} spend by ${amountChange}. New spend: ${currentSpend}`);
+    functions.logger.log(`Updating budget ${budgetDoc.id} for user ${userId}. Spend change: ${amountChange}. New spend: ${currentSpend}`);
     await budgetDoc.ref.update({ currentSpend: Math.max(0, currentSpend) });
 }
 /**
@@ -80,22 +140,21 @@ exports.generateRecurringTransactions = functions.pubsub
     .schedule("every 24 hours")
     .onRun(async () => {
     const now = new Date();
-    functions.logger.log("Running recurring transaction generator for", now.toISOString());
+    functions.logger.info("Starting recurring transaction generator for", now.toISOString());
     const recurringTxsQuery = db.collectionGroup("recurringTransactions")
         .where("isActive", "==", true);
     const snapshot = await recurringTxsQuery.get();
     if (snapshot.empty) {
-        functions.logger.log("No active recurring transactions to process.");
+        functions.logger.info("No active recurring transactions to process.");
         return null;
     }
     const promises = snapshot.docs.map(async (doc) => {
-        var _a;
         const recurringTx = doc.data();
-        const userId = (_a = doc.ref.parent.parent) === null || _a === void 0 ? void 0 : _a.id;
+        const userId = doc.ref.parent.parent?.id;
         if (!userId)
             return;
         if (shouldGenerateTransaction(recurringTx, now)) {
-            functions.logger.log(`Generating transaction for '${recurringTx.title}' for user ${userId}`);
+            functions.logger.info(`Generating transaction for '${recurringTx.title}' for user ${userId}`);
             const newTransaction = {
                 type: recurringTx.type,
                 amount: recurringTx.amount,
@@ -115,12 +174,11 @@ exports.generateRecurringTransactions = functions.pubsub
         }
     });
     await Promise.all(promises);
-    functions.logger.log("Finished recurring transaction generator.");
+    functions.logger.info("Finished recurring transaction generator.");
     return null;
 });
 function shouldGenerateTransaction(tx, now) {
-    var _a;
-    const lastGenerated = (_a = tx.lastGeneratedDate) === null || _a === void 0 ? void 0 : _a.toDate();
+    const lastGenerated = tx.lastGeneratedDate?.toDate();
     const start = tx.startDate.toDate();
     if (now < start)
         return false;

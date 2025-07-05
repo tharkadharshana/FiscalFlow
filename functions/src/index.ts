@@ -25,49 +25,49 @@ const log = logging.log('fiscalflow-app-logs');
 export const logMessage = functions.https.onRequest((req, res) => {
     // Wrap the function logic with the CORS middleware
     corsHandler(req, res, async () => {
-        // Handle preflight requests
-        if (req.method === 'OPTIONS') {
-            res.status(204).send('');
-            return;
-        }
-        
-        // Callable functions send data in `req.body.data`. We keep this for consistency with client.
-        const { level, message, details } = req.body.data || req.body;
-        const uid = details?.userId; 
+        // The cors middleware handles preflight (OPTIONS) requests automatically.
+        // We only need to handle the actual POST request logic.
+        if (req.method === 'POST') {
+            const { level, message, details } = req.body.data || req.body;
+            const uid = details?.userId; 
 
-        if (!level || !message) {
-            res.status(400).send({ error: { message: 'Missing level or message in request body.' } });
-            return;
-        }
+            if (!level || !message) {
+                res.status(400).send({ error: { message: 'Missing level or message in request body.' } });
+                return;
+            }
 
-        const severityMap: {[key: string]: string} = {
-            info: 'INFO',
-            warn: 'WARNING',
-            error: 'ERROR'
-        };
-        
-        const severity = severityMap[level] || 'DEFAULT';
+            const severityMap: {[key: string]: string} = {
+                info: 'INFO',
+                warn: 'WARNING',
+                error: 'ERROR'
+            };
+            
+            const severity = severityMap[level] || 'DEFAULT';
 
-        const metadata = {
-            resource: { type: 'global' },
-            severity: severity,
-            labels: { userId: uid || 'unauthenticated' },
-        };
+            const metadata = {
+                resource: { type: 'global' },
+                severity: severity,
+                labels: { userId: uid || 'unauthenticated' },
+            };
 
-        const logEntryPayload = {
-            message: message,
-            userId: uid,
-            ...details,
-        };
-        
-        const logEntry = log.entry(metadata, logEntryPayload);
-        
-        try {
-            await log.write(logEntry);
-            res.status(200).send({ data: { success: true } });
-        } catch (error) {
-            console.error("Failed to write log entry:", error);
-            res.status(500).send({ error: { message: 'Could not write log entry.' } });
+            const logEntryPayload = {
+                message: message,
+                userId: uid,
+                ...details,
+            };
+            
+            const logEntry = log.entry(metadata, logEntryPayload);
+            
+            try {
+                await log.write(logEntry);
+                res.status(200).send({ data: { success: true } });
+            } catch (error) {
+                console.error("Failed to write log entry:", error);
+                res.status(500).send({ error: { message: 'Could not write log entry.' } });
+            }
+        } else {
+             // For any method other than POST that isn't a preflight, like GET.
+            res.status(405).send({ error: { message: 'Method Not Allowed' } });
         }
     });
 });
@@ -80,7 +80,7 @@ export const logMessage = functions.https.onRequest((req, res) => {
 export const updateBudgetOnTransactionChange = functions.firestore
   .document("/users/{userId}/transactions/{transactionId}")
   .onWrite(async (change, context) => {
-    const { userId, transactionId } = context.params;
+    const { userId } = context.params;
 
     const transactionBefore = change.before.data();
     const transactionAfter = change.after.data();
@@ -129,6 +129,11 @@ export const updateBudgetOnTransactionChange = functions.firestore
   });
 
 async function updateBudget(userId: string, category: string, amountChange: number, month: string) {
+  if (!category || !month) {
+    functions.logger.warn(`Attempted to update budget with missing category or month for user ${userId}.`);
+    return;
+  }
+  
   const budgetQuery = db.collection("users").doc(userId).collection("budgets")
     .where("category", "==", category)
     .where("month", "==", month);
