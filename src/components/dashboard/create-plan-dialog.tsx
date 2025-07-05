@@ -299,9 +299,6 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         <ScrollArea className="max-h-[80vh] pr-6">
             <DialogHeader>
                 <DialogTitle className="font-headline text-2xl">{planToEdit ? 'Edit Financial Plan' : 'Create a New Financial Plan'}</DialogTitle>
-                <DialogDescription>
-                    Use AI to generate a detailed financial plan. Describe your goal, and the AI will create an itemized list for you.
-                </DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 {view === 'input' && renderInputView()}
