@@ -59,10 +59,6 @@ exports.logMessage = functions.https.onRequest((req, res) => {
                 res.status(500).send({ error: { message: 'Could not write log entry.' } });
             }
         }
-        else {
-            // For any method other than POST that isn't a preflight, like GET.
-            res.status(405).send({ error: { message: 'Method Not Allowed' } });
-        }
     });
 });
 /**
