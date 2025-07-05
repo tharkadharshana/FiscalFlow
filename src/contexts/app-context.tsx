@@ -259,8 +259,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         } else {
             logger.warn("User profile document not found for authenticated user. Login form should handle creation.", { userId: user.uid });
-            // If the profile is still missing, it could be a race condition.
-            // The login form is the primary creator. We set loading to false to avoid getting stuck.
             setLoading(false);
         }
       }, (error) => {

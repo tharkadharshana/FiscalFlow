@@ -22,7 +22,7 @@ import {
   getAdditionalUserInfo,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAppContext } from '@/contexts/app-context';
 import Link from 'next/link';
 
@@ -95,7 +95,10 @@ export function LoginForm() {
     setIsLoading(true);
     if (authMode === 'login') {
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        await updateDoc(doc(db, "users", userCredential.user.uid), {
+            lastLoginAt: serverTimestamp(),
+        });
         router.push('/dashboard');
       } catch (error: any) {
         showNotification({
@@ -145,6 +148,10 @@ export function LoginForm() {
           title: 'Welcome!',
           description: 'Your account has been created successfully.',
         });
+      } else {
+        await updateDoc(doc(db, "users", result.user.uid), {
+            lastLoginAt: serverTimestamp(),
+        });
       }
       
       router.push('/dashboard');
@@ -172,6 +179,10 @@ export function LoginForm() {
           type: 'success',
           title: 'Welcome!',
           description: 'Your account has been created successfully.',
+        });
+      } else {
+        await updateDoc(doc(db, "users", result.user.uid), {
+            lastLoginAt: serverTimestamp(),
         });
       }
       
