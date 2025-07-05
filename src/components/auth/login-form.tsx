@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState } from 'react';
@@ -156,11 +155,20 @@ export function LoginForm() {
       
       router.push('/dashboard');
     } catch (error: any) {
-      showNotification({
-        type: 'error',
-        title: 'Google Login Failed',
-        description: error.message,
-      });
+      const errorCode = error.code;
+      if (errorCode === 'auth/popup-closed-by-user' || errorCode === 'auth/cancelled-popup-request' || errorCode === 'auth/internal-error') {
+        showNotification({
+          type: 'info',
+          title: 'Sign-in Cancelled',
+          description: 'The sign-in window was closed before completion.',
+        });
+      } else {
+        showNotification({
+          type: 'error',
+          title: 'Google Login Failed',
+          description: error.message,
+        });
+      }
     } finally {
       setIsGoogleLoading(false);
     }
@@ -188,7 +196,8 @@ export function LoginForm() {
       
       router.push('/dashboard');
     } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
+      const errorCode = error.code;
+      if (errorCode === 'auth/popup-closed-by-user' || errorCode === 'auth/cancelled-popup-request' || errorCode === 'auth/internal-error') {
           showNotification({
               type: 'info',
               title: 'Sign-in Cancelled',
