@@ -61,7 +61,7 @@ type AddInvestmentDialogProps = {
 };
 
 export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: AddInvestmentDialogProps) {
-  const { addInvestment, updateInvestment, showNotification, formatCurrency, userProfile } = useAppContext();
+  const { addInvestment, updateInvestment, showNotification, userProfile } = useAppContext();
   const [isCryptoListLoading, setIsCryptoListLoading] = useState(false);
   const [cryptoList, setCryptoList] = useState<CoinGeckoMarketData[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
@@ -196,10 +196,10 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                   <CommandGroup>
                     {cryptoList.map((coin) => (
                       <CommandItem
-                        value={coin.id}
+                        value={coin.name}
                         key={coin.id}
-                        onSelect={(currentValue) => {
-                          field.onChange(currentValue);
+                        onSelect={() => {
+                          form.setValue('coinGeckoId', coin.id);
                           setIsComboboxOpen(false);
                         }}
                         className="flex items-center gap-2"
