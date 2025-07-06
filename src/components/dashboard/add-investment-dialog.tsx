@@ -40,6 +40,8 @@ import { Calendar } from '../ui/calendar';
 import { CoinGeckoMarketData, getCoinGeckoMarketData } from '@/lib/actions';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import Image from 'next/image';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Label } from '../ui/label';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Asset name is required.'),
@@ -59,10 +61,13 @@ type AddInvestmentDialogProps = {
 };
 
 export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: AddInvestmentDialogProps) {
-  const { addInvestment, updateInvestment, showNotification } = useAppContext();
+  const { addInvestment, updateInvestment, showNotification, formatCurrency } = useAppContext();
   const [isCryptoListLoading, setIsCryptoListLoading] = useState(false);
   const [cryptoList, setCryptoList] = useState<CoinGeckoMarketData[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
+
+  const [entryMode, setEntryMode] = useState<'quantity' | 'totalAmount'>('quantity');
+  const [totalCost, setTotalCost] = useState<string>('');
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,7 +84,11 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
   });
   
   const assetType = form.watch('assetType');
+  const coinGeckoId = form.watch('coinGeckoId');
+  const quantity = form.watch('quantity');
+  const purchasePrice = form.watch('purchasePrice');
 
+  // --- Effects ---
   useEffect(() => {
     if (assetType === 'Crypto' && cryptoList.length === 0) {
       setIsCryptoListLoading(true);
@@ -95,26 +104,49 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
     }
   }, [assetType, cryptoList.length, showNotification]);
 
+  // Handle side-effects of selecting a coin
   useEffect(() => {
-    if (investmentToEdit) {
-      form.reset({
-        ...investmentToEdit,
-        purchaseDate: parseISO(investmentToEdit.purchaseDate),
-      });
-    } else {
-      form.reset({
-        name: '',
-        symbol: '',
-        assetType: 'Stock',
-        quantity: 0,
-        purchasePrice: 0,
-        currentPrice: 0,
-        purchaseDate: new Date(),
-        coinGeckoId: undefined,
-      });
+    if (coinGeckoId) {
+        const selectedCoin = cryptoList.find(c => c.id === coinGeckoId);
+        if (selectedCoin) {
+            form.setValue('name', selectedCoin.name);
+            form.setValue('symbol', selectedCoin.symbol.toUpperCase());
+            form.setValue('currentPrice', selectedCoin.current_price);
+            form.setValue('purchasePrice', selectedCoin.current_price, { shouldValidate: true });
+        }
+    }
+  }, [coinGeckoId, cryptoList, form]);
+
+  // Sync quantity and total cost fields
+  useEffect(() => {
+    if (entryMode === 'quantity' && quantity > 0 && purchasePrice > 0) {
+        setTotalCost((quantity * purchasePrice).toFixed(4));
+    }
+  }, [quantity, purchasePrice, entryMode]);
+
+  // Reset form state on open/close or when switching between edit/new
+  useEffect(() => {
+    if (open) {
+        if (investmentToEdit) {
+            form.reset({
+                ...investmentToEdit,
+                purchaseDate: parseISO(investmentToEdit.purchaseDate),
+            });
+            setTotalCost((investmentToEdit.quantity * investmentToEdit.purchasePrice).toFixed(4));
+        } else {
+            form.reset({
+                name: '', symbol: '', assetType: 'Stock', quantity: 0,
+                purchasePrice: 0, currentPrice: 0, purchaseDate: new Date(),
+                coinGeckoId: undefined,
+            });
+            setTotalCost('');
+            setEntryMode('quantity');
+        }
     }
   }, [investmentToEdit, form, open]);
 
+
+  // --- Handlers ---
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const dataToSave = {
         ...values,
@@ -127,7 +159,18 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
     }
     onOpenChange(false);
   }
+  
+  const handleTotalCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTotalCost = e.target.value;
+    setTotalCost(newTotalCost);
+    const total = parseFloat(newTotalCost);
+    if (total >= 0 && purchasePrice > 0) {
+        form.setValue('quantity', total / purchasePrice, { shouldValidate: true });
+    }
+  };
 
+
+  // --- Render ---
   const CryptoSelector = (
     <FormField
       control={form.control}
@@ -138,15 +181,9 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
           <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
             <PopoverTrigger asChild>
               <FormControl>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                >
-                  {isCryptoListLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : null}
-                  {field.value
-                    ? cryptoList.find((coin) => coin.id === field.value)?.name
-                    : "Select a cryptocurrency"}
+                <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                  {isCryptoListLoading && <Loader2 className="h-4 w-4 animate-spin"/>}
+                  {!isCryptoListLoading && (field.value ? cryptoList.find((coin) => coin.id === field.value)?.name : "Select a cryptocurrency")}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </FormControl>
@@ -159,20 +196,17 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                   <CommandGroup>
                     {cryptoList.map((coin) => (
                       <CommandItem
-                        value={coin.name}
+                        value={coin.id}
                         key={coin.id}
-                        onSelect={() => {
-                          field.onChange(coin.id);
-                          form.setValue('name', coin.name);
-                          form.setValue('symbol', coin.symbol.toUpperCase());
-                          form.setValue('currentPrice', coin.current_price);
+                        onSelect={(currentValue) => {
+                          field.onChange(currentValue);
                           setIsComboboxOpen(false);
                         }}
                         className="flex items-center gap-2"
                       >
+                        <Check className={cn("mr-2 h-4 w-4", coin.id === field.value ? "opacity-100" : "opacity-0")} />
                         <Image src={coin.image} alt={coin.name} width={20} height={20} />
-                        {coin.name} ({coin.symbol.toUpperCase()})
-                        <Check className={cn("ml-auto h-4 w-4", coin.id === field.value ? "opacity-100" : "opacity-0")} />
+                        {coin.name} <span className="text-muted-foreground">({coin.symbol.toUpperCase()})</span>
                       </CommandItem>
                     ))}
                   </CommandGroup>
@@ -188,32 +222,12 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
 
   const StockSelector = (
     <>
-        <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Asset Name</FormLabel>
-                    <FormControl>
-                        <Input placeholder="e.g. Apple Inc." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
-        <FormField
-            control={form.control}
-            name="symbol"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Symbol / Ticker</FormLabel>
-                    <FormControl>
-                        <Input placeholder="e.g. AAPL" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
+        <FormField control={form.control} name="name" render={({ field }) => (
+            <FormItem><FormLabel>Asset Name</FormLabel><FormControl><Input placeholder="e.g. Apple Inc." {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <FormField control={form.control} name="symbol" render={({ field }) => (
+            <FormItem><FormLabel>Symbol / Ticker</FormLabel><FormControl><Input placeholder="e.g. AAPL" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
     </>
   );
 
@@ -223,117 +237,69 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
         <DialogHeader>
           <DialogTitle>{investmentToEdit ? 'Edit' : 'Add'} Investment</DialogTitle>
           <DialogDescription>
-            Manually add an asset to your portfolio. Update the current price periodically to track performance.
+            Manually add an asset to your portfolio. For crypto, prices update live.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-6 pl-1">
             
+            <FormField control={form.control} name="assetType" render={({ field }) => (
+                <FormItem><FormLabel>Asset Type</FormLabel>
+                    <Select onValueChange={(value) => { field.onChange(value); form.reset({ ...form.getValues(), name: '', symbol: '', coinGeckoId: undefined }); }} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select asset type" /></SelectTrigger></FormControl>
+                        <SelectContent><SelectItem value="Stock">Stock</SelectItem><SelectItem value="ETF">ETF</SelectItem><SelectItem value="Crypto">Crypto</SelectItem><SelectItem value="Mutual Fund">Mutual Fund</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                    </Select><FormMessage />
+                </FormItem>
+            )} />
+
             <div className="grid grid-cols-2 gap-4">
                 {assetType === 'Crypto' ? CryptoSelector : StockSelector}
             </div>
-
-            <FormField
-                control={form.control}
-                name="assetType"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Asset Type</FormLabel>
-                    <Select onValueChange={(value) => {
-                        field.onChange(value);
-                        // Reset fields when type changes
-                        form.setValue('name', '');
-                        form.setValue('symbol', '');
-                        form.setValue('coinGeckoId', undefined);
-                    }} value={field.value}>
-                    <FormControl>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Select asset type" />
-                        </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        <SelectItem value="Stock">Stock</SelectItem>
-                        <SelectItem value="ETF">ETF</SelectItem>
-                        <SelectItem value="Crypto">Crypto</SelectItem>
-                        <SelectItem value="Mutual Fund">Mutual Fund</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                    </Select>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
+            
+            <div className="space-y-2">
+              <Label>Enter by</Label>
+              <RadioGroup defaultValue="quantity" onValueChange={(v) => setEntryMode(v as any)} className="flex gap-4">
+                <div className="flex items-center space-x-2"><RadioGroupItem value="quantity" id="r-quantity" /><Label htmlFor="r-quantity">Quantity</Label></div>
+                <div className="flex items-center space-x-2"><RadioGroupItem value="totalAmount" id="r-total" /><Label htmlFor="r-total">Total Cost</Label></div>
+              </RadioGroup>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
-                <FormField
-                    control={form.control}
-                    name="quantity"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Quantity</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="10" {...field} step="any"/>
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="purchaseDate"
-                    render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                            <FormLabel>Purchase Date</FormLabel>
-                            <Popover>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                                >
-                                    {field.value ? (format(field.value, "PPP")) : (<span>Pick a date</span>)}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                            </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+              <FormField control={form.control} name="quantity" render={({ field }) => (
+                <FormItem><FormLabel>Quantity</FormLabel><FormControl>
+                    <Input type="number" placeholder="10" {...field} step="any" readOnly={entryMode === 'totalAmount'}/>
+                </FormControl><FormMessage /></FormItem>
+              )} />
+              <FormItem><FormLabel>Total Cost ({userProfile?.currencyPreference})</FormLabel><FormControl>
+                <Input type="number" placeholder="1000.00" value={totalCost} onChange={handleTotalCostChange} readOnly={entryMode === 'quantity'} />
+              </FormControl></FormItem>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-                <FormField
-                    control={form.control}
-                    name="purchasePrice"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Avg. Purchase Price</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="150.00" {...field} step="any"/>
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="currentPrice"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Current Market Price</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="175.00" {...field} step="any" readOnly={assetType === 'Crypto'}/>
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
+                <FormField control={form.control} name="purchasePrice" render={({ field }) => (
+                    <FormItem><FormLabel>Avg. Purchase Price</FormLabel><FormControl>
+                        <Input type="number" placeholder="150.00" {...field} step="any"/>
+                    </FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="currentPrice" render={({ field }) => (
+                    <FormItem><FormLabel>Current Market Price</FormLabel><FormControl>
+                        <Input type="number" placeholder="175.00" {...field} step="any" readOnly={assetType === 'Crypto'}/>
+                    </FormControl><FormMessage /></FormItem>
+                )} />
             </div>
+
+            <FormField control={form.control} name="purchaseDate" render={({ field }) => (
+                <FormItem className="flex flex-col"><FormLabel>Purchase Date</FormLabel>
+                    <Popover><PopoverTrigger asChild><FormControl>
+                        <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                            {field.value ? (format(field.value, "PPP")) : (<span>Pick a date</span>)}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                    </FormControl></PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                    </Popover><FormMessage />
+                </FormItem>
+            )} />
 
 
             <DialogFooter className="pt-4">
