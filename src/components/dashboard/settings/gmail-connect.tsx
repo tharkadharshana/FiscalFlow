@@ -13,12 +13,9 @@ export function GmailConnect() {
   const handleConnect = () => {
     if (userProfile?.uid) {
       logger.info('Initiating Gmail connection', { userId: userProfile.uid });
-      // Use window.top.location.href to ensure the redirect happens at the top-level,
-      // breaking out of any potential iframes from the development environment.
-      // This is crucial for Google's OAuth flow to prevent framing errors.
-      if (window.top) {
-        window.top.location.href = `/api/auth/google?userId=${userProfile.uid}`;
-      }
+      const targetUrl = `/api/auth/google?userId=${userProfile.uid}`;
+      // Use window.open to initiate the auth flow in a new tab, bypassing iframe restrictions.
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
     } else {
       logger.warn('Gmail connect clicked but no user ID was available.');
     }
@@ -33,6 +30,8 @@ export function GmailConnect() {
     );
   }
 
+  // Use a button with an onClick handler instead of a Link/a tag
+  // to programmatically open the new window.
   return (
     <Button onClick={handleConnect} disabled={!userProfile?.uid}>
       <Icons.google className="mr-2 h-4 w-4" />
