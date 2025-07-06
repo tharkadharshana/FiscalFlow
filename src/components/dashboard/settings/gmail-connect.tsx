@@ -5,19 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Icons } from '@/components/icons';
 import { useAppContext } from '@/contexts/app-context';
 import { CheckCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 export function GmailConnect() {
   const { userProfile } = useAppContext();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const handleConnect = () => {
     if (!userProfile?.uid) return;
     setLoading(true);
-    // Redirect to our own API route which will then redirect to Google
-    router.push(`/api/auth/google?userId=${userProfile.uid}`);
+    // Use window.location.href for a full browser navigation.
+    // This correctly handles the server-side redirect to Google's OAuth page.
+    window.location.href = `/api/auth/google?userId=${userProfile.uid}`;
   };
 
   if (userProfile?.gmailConnected) {
