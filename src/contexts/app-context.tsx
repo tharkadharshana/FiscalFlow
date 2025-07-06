@@ -454,10 +454,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const userDocRef = doc(db, 'users', user.uid);
-        const { date, financialPlanId, planItemId, isTaxDeductible, ...restOfTransaction } = transaction;
-        const carbonFootprint = estimateCarbonFootprint(transaction);
+        const { date, financialPlanId, planItemId, isTaxDeductible, items, ...restOfTransaction } = transaction;
+        
+        const finalAmount = items && items.length > 0
+          ? items.reduce((sum, item) => sum + item.amount, 0)
+          : transaction.amount;
 
-        const transactionData = { ...restOfTransaction, date: Timestamp.fromDate(new Date(date)),
+        const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
+
+        const transactionData = { 
+          ...restOfTransaction, 
+          amount: finalAmount,
+          items: items || [],
+          date: Timestamp.fromDate(new Date(date)),
           createdAt: serverTimestamp(), userId: user.uid, financialPlanId: financialPlanId || null, planItemId: planItemId || null,
           isTaxDeductible: isTaxDeductible || false,
           carbonFootprint,
@@ -468,13 +477,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const monthlyRoundups = userProfile.subscription.monthlyRoundups;
         const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
         
-        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(transaction.amount)) {
+        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
             const roundupGoalRef = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
             const roundupGoalSnap = await getDocs(roundupGoalRef);
             if (!roundupGoalSnap.empty) {
                 const goalDoc = roundupGoalSnap.docs[0];
                 const goal = goalDoc.data() as SavingsGoal;
-                const roundupAmount = Math.ceil(transaction.amount) - transaction.amount;
+                const roundupAmount = Math.ceil(finalAmount) - finalAmount;
                 
                 if (roundupAmount > 0) {
                     const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
@@ -498,7 +507,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (!planDoc.exists()) throw new Error("Financial plan not found!");
           const planData = planDoc.data() as FinancialPlan;
           const updatedItems = planData.items.map(item =>
-            item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + transaction.amount } : item
+            item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
           );
           const newTotalActualCost = updatedItems.reduce((sum, item) => sum + (item.actualCost || 0), 0);
           firestoreTransaction.update(planRef, { items: updatedItems, totalActualCost: newTotalActualCost });

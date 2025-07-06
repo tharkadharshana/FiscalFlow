@@ -1,10 +1,9 @@
 
-
-
-
-
-
-
+export interface TransactionItem {
+  id: string;
+  description: string;
+  amount: number;
+}
 
 export interface BudgetItem {
   id: string;
@@ -32,6 +31,7 @@ export interface Transaction {
   date: string; // ISO string
   source: string;
   notes?: string;
+  items?: TransactionItem[];
   icon: React.ComponentType<{ className?: string }>;
   imageURL?: string;
   tags?: string[];

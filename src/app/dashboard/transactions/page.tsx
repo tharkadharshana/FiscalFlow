@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -13,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { Transaction } from '@/types';
 import { RecurringTransactions } from '@/components/dashboard/recurring-transactions';
-import { Repeat, MoreVertical, Pencil, Trash2, Leaf, Sparkles } from 'lucide-react';
+import { Repeat, MoreVertical, Pencil, Trash2, Leaf, Sparkles, ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export default function TransactionsPage() {
   const { transactions, categories, deleteTransaction, formatCurrency, isPremium } = useAppContext();
@@ -70,75 +72,111 @@ export default function TransactionsPage() {
 
   const TransactionRow = ({ transaction }: { transaction: Transaction }) => {
     const Icon = categories[transaction.category] || categories['Food'];
+    const hasItems = transaction.items && transaction.items.length > 0;
+
     return (
-      <TableRow>
-        <TableCell>
-          <div className="flex items-center gap-4">
-            <Avatar className="hidden h-9 w-9 sm:flex">
-              <AvatarFallback className={cn(
-                'font-bold',
-                transaction.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-              )}>
-                <Icon className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
-            <div className="grid gap-1">
-              <p className="font-medium truncate">{transaction.source}</p>
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="hidden text-sm text-muted-foreground md:block">
-                  {transaction.notes || 'No notes'}
-                </p>
-                {isPremium && transaction.carbonFootprint && transaction.carbonFootprint > 0 && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="flex items-center gap-1 font-normal border-green-200 bg-green-50 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300">
-                          <Leaf className="h-3 w-3" />
-                          {transaction.carbonFootprint.toFixed(1)} kg CO₂e
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Estimated Carbon Dioxide Equivalent based on spending category.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
+      <Collapsible asChild>
+        <>
+        <TableRow>
+          <TableCell>
+            <div className="flex items-center gap-4">
+              <Avatar className="hidden h-9 w-9 sm:flex">
+                <AvatarFallback className={cn(
+                  'font-bold',
+                  transaction.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                )}>
+                  <Icon className="h-4 w-4" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid gap-1">
+                <p className="font-medium truncate">{transaction.source}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {hasItems ? (
+                      <Badge variant="secondary">{transaction.items!.length} items</Badge>
+                  ) : (
+                    <p className="hidden text-sm text-muted-foreground md:block">
+                      {transaction.notes || 'No notes'}
+                    </p>
+                  )}
+                  {isPremium && transaction.carbonFootprint && transaction.carbonFootprint > 0 && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="flex items-center gap-1 font-normal border-green-200 bg-green-50 text-green-800 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300">
+                            <Leaf className="h-3 w-3" />
+                            {transaction.carbonFootprint.toFixed(1)} kg CO₂e
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Estimated Carbon Dioxide Equivalent based on spending category.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </TableCell>
-        <TableCell className="hidden md:table-cell">
-          <Badge variant="outline">{transaction.category}</Badge>
-        </TableCell>
-        <TableCell className="hidden sm:table-cell">
-          {format(parseISO(transaction.date), 'MMMM d, yyyy')}
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-2">
-            <p className={cn(
-              'font-bold text-lg',
-              transaction.type === 'income' ? 'text-green-600' : 'text-slate-800'
-            )}>
-              {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
-            </p>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleEdit(transaction)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleDelete(transaction)} className="text-destructive">
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </TableCell>
-      </TableRow>
+          </TableCell>
+          <TableCell className="hidden md:table-cell">
+            <Badge variant="outline">{transaction.category}</Badge>
+          </TableCell>
+          <TableCell className="hidden sm:table-cell">
+            {format(parseISO(transaction.date), 'MMMM d, yyyy')}
+          </TableCell>
+          <TableCell className="text-right">
+            <div className="flex items-center justify-end gap-1">
+              <p className={cn(
+                'font-bold text-lg',
+                transaction.type === 'income' ? 'text-green-600' : 'text-slate-800'
+              )}>
+                {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
+              </p>
+              {hasItems && (
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:bg-accent">
+                    <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
+                  </Button>
+                </CollapsibleTrigger>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleEdit(transaction)}>
+                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleDelete(transaction)} className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </TableCell>
+        </TableRow>
+        {hasItems && (
+            <CollapsibleContent asChild>
+                <TableRow>
+                    <TableCell colSpan={4} className="p-0">
+                        <div className="p-4 bg-muted/50">
+                            <h4 className="font-semibold mb-2 ml-4">Itemized Details</h4>
+                            <ul className="space-y-1 pl-8">
+                                {transaction.items!.map(item => (
+                                    <li key={item.id} className="flex justify-between text-sm text-muted-foreground">
+                                        <span>- {item.description}</span>
+                                        <span className="font-mono">{formatCurrency(item.amount)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </TableCell>
+                </TableRow>
+            </CollapsibleContent>
+        )}
+        </>
+      </Collapsible>
     );
   };
 
