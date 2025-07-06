@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Wand2, CheckCircle, Camera, Upload, RotateCcw } from 'lucide-react';
+import { Loader2, Wand2, CheckCircle, Camera, Upload, RotateCcw, SwitchCamera } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAppContext } from '@/contexts/app-context';
 import {
@@ -39,6 +39,11 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [parsedData, setParsedData] = useState<ParseReceiptOutput | null>(null);
 
+  // Camera-specific state
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
+  const streamRef = useRef<MediaStream | null>(null);
+
   // Form state
   const [amount, setAmount] = useState<number | string>('');
   const [source, setSource] = useState('');
@@ -60,31 +65,80 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Request camera permission on mount
+  // Get list of cameras on mount
   useEffect(() => {
-    const getCameraPermission = async () => {
+    const getDevices = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({video: true});
-        setHasCameraPermission(true);
+        await navigator.mediaDevices.getUserMedia({ video: true }); // Prompt for permission first
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(device => device.kind === 'videoinput');
+        setVideoDevices(cameras);
 
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        if (cameras.length > 0) {
+          // Prefer the back camera if available
+          const backCamera = cameras.find(device => device.label.toLowerCase().includes('back'));
+          setSelectedDeviceId(backCamera ? backCamera.deviceId : cameras[0].deviceId);
+        } else {
+            setHasCameraPermission(false); // No cameras found
         }
       } catch (error) {
-        console.error('Error accessing camera:', error);
+        console.error('Error enumerating devices:', error);
         setHasCameraPermission(false);
       }
     };
-    getCameraPermission();
-
+    getDevices();
+    
+    // Cleanup function to stop stream on unmount
     return () => {
-      // Cleanup: stop video stream when component unmounts
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
-    }
+    };
   }, []);
+
+  // Start stream when a device is selected
+  useEffect(() => {
+    if (!selectedDeviceId) return;
+
+    // Stop any previous stream
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+    }
+
+    const getStream = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: selectedDeviceId } }
+            });
+            streamRef.current = stream; // Keep a ref to the stream for cleanup
+            setHasCameraPermission(true);
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            setHasCameraPermission(false);
+            if (error instanceof Error && error.name === "NotAllowedError") {
+                 showNotification({
+                    type: 'error',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings.'
+                });
+            }
+        }
+    };
+
+    getStream();
+  }, [selectedDeviceId, showNotification]);
+
+  const handleSwitchCamera = () => {
+    if (videoDevices.length < 2) return;
+    const currentIndex = videoDevices.findIndex(device => device.deviceId === selectedDeviceId);
+    const nextIndex = (currentIndex + 1) % videoDevices.length;
+    setSelectedDeviceId(videoDevices[nextIndex].deviceId);
+  };
+
 
   // Effect to populate form when AI analysis is complete
   useEffect(() => {
@@ -349,6 +403,19 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
                     </Alert>
                 )}
             </>
+        )}
+        
+        {videoDevices.length > 1 && !imageUri && (
+            <Button
+                type="button"
+                onClick={handleSwitchCamera}
+                variant="outline"
+                size="icon"
+                className="absolute bottom-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50"
+            >
+                <SwitchCamera className="h-5 w-5" />
+                <span className="sr-only">Switch Camera</span>
+            </Button>
         )}
         </Card>
 
