@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import { useMemo, useEffect } from 'react';
-import type { Transaction } from '@/types';
+import type { Transaction, ChecklistItem } from '@/types';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
@@ -43,11 +43,14 @@ const formSchema = z.object({
   financialPlanId: z.string().optional(),
   planItemId: z.string().optional(),
   isTaxDeductible: z.boolean().optional(),
+  checklistId: z.string().optional(),
+  checklistItemId: z.string().optional(),
 });
 
 type ManualEntryFormProps = {
   onFormSubmit: () => void;
   transactionToEdit?: Transaction | null;
+  itemToConvert?: { checklistId: string; item: ChecklistItem } | null;
 }
 
 const defaultValues = {
@@ -59,9 +62,11 @@ const defaultValues = {
   financialPlanId: undefined,
   planItemId: undefined,
   isTaxDeductible: false,
+  checklistId: undefined,
+  checklistItemId: undefined,
 };
 
-export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntryFormProps) {
+export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
   const { addTransaction, updateTransaction, financialPlans, expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -71,19 +76,22 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntry
   useEffect(() => {
     if (transactionToEdit) {
       form.reset({
-        amount: transactionToEdit.amount,
-        source: transactionToEdit.source,
-        category: transactionToEdit.category,
+        ...defaultValues,
+        ...transactionToEdit,
         date: parseISO(transactionToEdit.date),
-        notes: transactionToEdit.notes || '',
-        financialPlanId: transactionToEdit.financialPlanId || undefined,
-        planItemId: transactionToEdit.planItemId || undefined,
-        isTaxDeductible: transactionToEdit.isTaxDeductible || false,
       });
+    } else if (itemToConvert) {
+        form.reset({
+            ...defaultValues,
+            amount: itemToConvert.item.predictedCost,
+            source: itemToConvert.item.description,
+            checklistId: itemToConvert.checklistId,
+            checklistItemId: itemToConvert.item.id,
+        });
     } else {
       form.reset(defaultValues);
     }
-  }, [transactionToEdit, form]);
+  }, [transactionToEdit, itemToConvert, form]);
 
   const selectedPlanId = form.watch('financialPlanId');
 

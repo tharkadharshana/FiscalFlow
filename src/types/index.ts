@@ -43,6 +43,8 @@ export interface Transaction {
   planItemId?: string; // ID of the item within the plan
   isTaxDeductible?: boolean;
   carbonFootprint?: number; // in kg CO2e
+  checklistId?: string; // ID of the Checklist
+  checklistItemId?: string; // ID of the item within the checklist
 }
 
 export interface UserProfile {

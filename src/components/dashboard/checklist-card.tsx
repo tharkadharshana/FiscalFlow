@@ -18,9 +18,10 @@ type ChecklistCardProps = {
   onEdit: () => void;
   onDelete: () => void;
   onSaveAsTemplate: () => void;
+  onConvertToTransaction: (checklist: Checklist, item: ChecklistItem) => void;
 };
 
-export function ChecklistCard({ checklist, onEdit, onDelete, onSaveAsTemplate }: ChecklistCardProps) {
+export function ChecklistCard({ checklist, onEdit, onDelete, onSaveAsTemplate, onConvertToTransaction }: ChecklistCardProps) {
   const { formatCurrency, updateChecklist } = useAppContext();
 
   const { completedItems, totalItems, totalCost } = useMemo(() => {
@@ -32,11 +33,19 @@ export function ChecklistCard({ checklist, onEdit, onDelete, onSaveAsTemplate }:
 
   const progress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
   
-  const handleItemToggle = (itemId: string, isCompleted: boolean) => {
-    const updatedItems = checklist.items.map(item =>
-      item.id === itemId ? { ...item, isCompleted } : item
-    );
-    updateChecklist(checklist.id, { items: updatedItems });
+  const handleItemToggle = (item: ChecklistItem, isCompleted: boolean) => {
+    if (isCompleted) {
+      // If we are checking the box, trigger the transaction creation flow.
+      // This will mark the item as complete after the transaction is saved.
+      onConvertToTransaction(checklist, item);
+    } else {
+      // If unchecking, just update the state locally.
+      // A more complex flow could ask to delete the linked transaction.
+      const updatedItems = checklist.items.map(i =>
+        i.id === item.id ? { ...i, isCompleted: false } : i
+      );
+      updateChecklist(checklist.id, { items: updatedItems });
+    }
   };
 
   return (
@@ -86,7 +95,7 @@ export function ChecklistCard({ checklist, onEdit, onDelete, onSaveAsTemplate }:
                                     <Checkbox
                                         id={`item-${item.id}`}
                                         checked={item.isCompleted}
-                                        onCheckedChange={(checked) => handleItemToggle(item.id, !!checked)}
+                                        onCheckedChange={(checked) => handleItemToggle(item, !!checked)}
                                     />
                                     <Label htmlFor={`item-${item.id}`} className={item.isCompleted ? 'line-through text-muted-foreground' : ''}>
                                         {item.description}

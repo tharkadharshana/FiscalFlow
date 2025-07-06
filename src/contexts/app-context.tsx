@@ -4,7 +4,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification, Checklist, ChecklistTemplate } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification, Checklist, ChecklistTemplate, ChecklistItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -454,7 +454,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const userDocRef = doc(db, 'users', user.uid);
-        const { date, financialPlanId, planItemId, isTaxDeductible, items, ...restOfTransaction } = transaction;
+        const { date, financialPlanId, planItemId, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
         
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
@@ -462,16 +462,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
 
-        const transactionData = { 
-          ...restOfTransaction, 
+        const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
+        firestoreTransaction.set(newTransactionRef, {
+          ...restOfTransaction,
           amount: finalAmount,
           items: items || [],
           date: Timestamp.fromDate(new Date(date)),
-          createdAt: serverTimestamp(), userId: user.uid, financialPlanId: financialPlanId || null, planItemId: planItemId || null,
+          createdAt: serverTimestamp(),
+          userId: user.uid,
+          financialPlanId: financialPlanId || null,
+          planItemId: planItemId || null,
           isTaxDeductible: isTaxDeductible || false,
           carbonFootprint,
-        };
-        firestoreTransaction.set(doc(collection(db, 'users', user.uid, 'transactions')), transactionData);
+          checklistId: checklistId || null,
+          checklistItemId: checklistItemId || null,
+        });
+
+        // If the transaction came from a checklist, mark the item as completed.
+        if (checklistId && checklistItemId) {
+          const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
+          const checklistDoc = await firestoreTransaction.get(checklistRef);
+          if (checklistDoc.exists()) {
+            const checklistData = checklistDoc.data() as Checklist;
+            const updatedItems = checklistData.items.map(item =>
+              item.id === checklistItemId ? { ...item, isCompleted: true } : item
+            );
+            firestoreTransaction.update(checklistRef, { items: updatedItems });
+          }
+        }
 
         const currentMonth = new Date().toISOString().slice(0, 7);
         const monthlyRoundups = userProfile.subscription.monthlyRoundups;
