@@ -57,6 +57,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
 
     const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
     const [userQuery, setUserQuery] = useState('');
+    const [activeTab, setActiveTab] = useState('text');
     
     // Voice state
     const [isRecording, setIsRecording] = useState(false);
@@ -108,6 +109,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 setView('review');
             } else {
                 resetToInputView();
+                setActiveTab('text');
                 form.reset({ title: '', items: [] });
             }
         } else {
@@ -163,8 +165,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
     
     // Camera logic
     useEffect(() => {
-        const isCameraTabActive = document.querySelector('[data-radix-collection-item][data-state="active"]')?.getAttribute('data-value') === 'camera';
-        if (!isCameraTabActive || view !== 'input') {
+        if (activeTab !== 'camera' || view !== 'input') {
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach(track => track.stop());
                 streamRef.current = null;
@@ -185,15 +186,17 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
     
             const backCam = cameras.find(d => d.label.toLowerCase().includes('back'));
             const deviceId = selectedDeviceId || backCam?.deviceId || cameras[0].deviceId;
-            setSelectedDeviceId(deviceId);
-    
-            if(!streamRef.current) {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
-                streamRef.current = stream;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
+            
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
             }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            setSelectedDeviceId(deviceId); // Set it after successfully getting the stream
             setHasCameraPermission(true);
           } catch (error) {
             console.error('Error accessing camera:', error);
@@ -209,7 +212,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
             streamRef.current = null;
           }
         };
-      }, [view, selectedDeviceId]);
+      }, [activeTab, view, selectedDeviceId]);
 
     const handleSwitchCamera = () => {
         if (videoDevices.length < 2) return;
@@ -309,7 +312,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
             </div>
             <div className="space-y-2">
                 <Label>Plan Items</Label>
-                <ScrollArea className="max-h-60 pr-4">
+                <ScrollArea className="pr-4">
                     <div className="space-y-3">
                         {fields.map((field, index) => (
                             <div key={field.id} className={cn(
@@ -379,7 +382,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
 
         // Otherwise, view is 'input', so show the Tabs
         return (
-          <Tabs defaultValue="text" className="w-full pt-4" onValueChange={() => form.reset({ title: '', items: [] })}>
+          <Tabs defaultValue="text" value={activeTab} className="w-full pt-4" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-5 h-auto">
               <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> Text</TabsTrigger>
               <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> Voice</TabsTrigger>
@@ -398,9 +401,9 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 </DialogFooter>
             </TabsContent>
 
-            <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center py-10">
+            <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center">
                 <DialogDescription>Start speaking and the AI will transcribe and create your plan.</DialogDescription>
-                <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
+                <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full my-4", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
                     {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                 </Button>
                 <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
@@ -434,7 +437,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 )}
             </TabsContent>
 
-            <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center py-10 space-y-4">
+            <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center space-y-4">
                 <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
                 <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
                     <Upload className="mr-2 h-4 w-4" />
