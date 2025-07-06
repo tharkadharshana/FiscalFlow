@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -54,7 +55,7 @@ type FormData = z.infer<typeof formSchema>;
 export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanDialogProps) {
     const { addFinancialPlan, updateFinancialPlan, showNotification } = useAppContext();
 
-    const [view, setView] = useState<'selection' | 'typing' | 'voice' | 'camera' | 'loading' | 'review'>('selection');
+    const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
     const [userQuery, setUserQuery] = useState('');
     
     // Voice state
@@ -82,8 +83,8 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
       name: 'items',
     });
 
-    const resetToSelection = () => {
-        setView('selection');
+    const resetToInputView = () => {
+        setView('input');
         setUserQuery('');
         setImageUri(null);
         if (isRecording) {
@@ -106,7 +107,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 setUserQuery(planToEdit.description || '');
                 setView('review');
             } else {
-                resetToSelection();
+                resetToInputView();
                 form.reset({ title: '', items: [] });
             }
         } else {
@@ -140,7 +141,6 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                     if (event.error === 'not-allowed') showNotification({ type: 'error', title: 'Microphone Access Denied' });
                     else showNotification({ type: 'error', title: 'Speech Recognition Error', description: event.error });
                     setIsRecording(false);
-                    setView('selection');
                 };
                 recognitionRef.current.onend = () => setIsRecording(false);
             }
@@ -163,7 +163,8 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
     
     // Camera logic
     useEffect(() => {
-        if (view !== 'camera') {
+        const isCameraTabActive = document.querySelector('[data-radix-collection-item][data-state="active"]')?.getAttribute('data-value') === 'camera';
+        if (!isCameraTabActive || view !== 'input') {
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach(track => track.stop());
                 streamRef.current = null;
@@ -235,7 +236,6 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         const reader = new FileReader();
         reader.onload = (e) => {
             const dataUri = e.target?.result as string;
-            setImageUri(dataUri);
             handleAnalyze(dataUri);
         };
         reader.readAsDataURL(file);
@@ -249,7 +249,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         const result = await parseDocumentAction({ photoDataUri: finalImageUri });
         if ('error' in result) {
             showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
-            resetToSelection();
+            resetToInputView();
         } else {
             handleGeneratePlan(result.text);
         }
@@ -266,7 +266,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         
         if ('error' in result) {
             showNotification({ type: 'error', title: 'AI Error', description: result.error });
-            resetToSelection();
+            resetToInputView();
         } else {
             form.reset({
                 title: result.title,
@@ -294,112 +294,13 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
         onOpenChange(false);
     };
 
-    const renderSelectionView = () => (
-        <div className="pt-4">
-            <DialogDescription>How would you like to create your plan?</DialogDescription>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => setView('typing')}>
-                    <Keyboard className="h-6 w-6" />
-                    <span>Describe with Text</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => setView('voice')}>
-                    <Mic className="h-6 w-6" />
-                    <span>Use Voice</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => setView('camera')}>
-                    <Camera className="h-6 w-6" />
-                    <span>Scan with Camera</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex-col gap-1" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="h-6 w-6" />
-                    <span>Upload Document</span>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                </Button>
-            </div>
-            <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
-            </div>
-            <Button className="w-full" onClick={() => {
-                form.reset({ title: '', items: [] });
-                setView('review');
-            }}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Manually
-            </Button>
-        </div>
-    );
-    
-    const renderTypingView = () => (
-        <div className="pt-4 space-y-4">
-            <DialogDescription>Describe your financial plan. The AI will structure it into an itemized plan.</DialogDescription>
-            <Textarea placeholder="e.g., A trip to Japan for two weeks..." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
-            <DialogFooter>
-                <Button type="button" variant="ghost" onClick={resetToSelection}>Back</Button>
-                <Button onClick={() => handleGeneratePlan(userQuery)} disabled={!userQuery}>
-                    <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
-                </Button>
-            </DialogFooter>
-        </div>
-    );
-
-    const renderVoiceView = () => (
-        <div className="pt-4 space-y-4 flex flex-col items-center justify-center min-h-[250px]">
-            <DialogDescription>Start speaking and the AI will transcribe and create your plan.</DialogDescription>
-            <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
-                {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
-            </Button>
-            <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
-            <DialogFooter className="w-full pt-4">
-                <Button type="button" variant="ghost" onClick={resetToSelection} className="w-full">Back to Selection</Button>
-            </DialogFooter>
-        </div>
-    );
-
-    const renderCameraView = () => (
-        <div className="pt-4 space-y-4">
-            <DialogDescription>Position your document in the frame and capture an image to scan it.</DialogDescription>
-            <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
-                <canvas ref={canvasRef} className="hidden" />
-                {imageUri ? (
-                    <Image src={imageUri} alt="Plan document preview" layout="fill" objectFit="contain" />
-                ) : (
-                    <>
-                        <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-                        {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle></Alert>}
-                    </>
-                )}
-                 {videoDevices.length > 1 && !imageUri && (
-                    <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50">
-                        <SwitchCamera className="h-5 w-5" />
-                    </Button>
-                )}
-            </div>
-            {imageUri ? (
-                <div className="grid grid-cols-2 gap-4">
-                    <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
-                    <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
-                </div>
-            ) : (
-                <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture Photo</Button>
-            )}
-            <DialogFooter>
-                <Button type="button" variant="ghost" onClick={resetToSelection} className="w-full">Back to Selection</Button>
-            </DialogFooter>
-        </div>
-    );
-    
-    const renderLoadingView = () => (
-        <div className="flex flex-col items-center justify-center space-y-4 h-64">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-muted-foreground">AI is crafting your plan...</p>
-        </div>
-    );
-
-    const renderReviewView = () => (
+    const renderPlanForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
         <form onSubmit={form.handleSubmit(handleSavePlan)} className="space-y-4 pt-4">
             <DialogDescription>
-              The AI has generated the following plan. Review the items and make any necessary changes before saving.
+              {isReviewMode 
+                ? "The AI has generated the following plan. Review the items and make any necessary changes before saving."
+                : "Manually add a title and items to create your financial plan."
+              }
             </DialogDescription>
             <div className="space-y-2">
                 <Label htmlFor="plan-title">Plan Title</Label>
@@ -439,7 +340,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 {form.formState.errors.items && <p className="text-sm text-destructive mt-2">There are errors in your plan items.</p>}
             </div>
     
-            {!planToEdit && (
+            {isReviewMode && !planToEdit && (
               <Alert>
                 <Sparkles className="h-4 w-4" />
                 <AlertTitle>Want to add more?</AlertTitle>
@@ -447,7 +348,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
               </Alert>
             )}
             
-            {!planToEdit && (
+            {isReviewMode && !planToEdit && (
                 <div className="space-y-2">
                     <Textarea 
                         placeholder="Type here to add more details to your plan..." 
@@ -459,24 +360,96 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
             )}
     
             <DialogFooter>
-                <Button type="button" variant="ghost" onClick={resetToSelection}>Back to Selection</Button>
+                {isReviewMode && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
                 <Button type="submit" disabled={form.formState.isSubmitting}>Save Plan</Button>
             </DialogFooter>
         </form>
     );
 
+    const renderLoadingView = () => (
+        <div className="flex flex-col items-center justify-center space-y-4 h-64">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-muted-foreground">AI is crafting your plan...</p>
+        </div>
+    );
+    
     const renderContent = () => {
-        switch(view) {
-            case 'selection': return renderSelectionView();
-            case 'typing': return renderTypingView();
-            case 'voice': return renderVoiceView();
-            case 'camera': return renderCameraView();
-            case 'loading': return renderLoadingView();
-            case 'review': return renderReviewView();
-            default: return renderSelectionView();
-        }
-    }
+        if (view === 'loading') return renderLoadingView();
+        if (view === 'review') return renderPlanForm({ isReviewMode: true });
 
+        // Otherwise, view is 'input', so show the Tabs
+        return (
+          <Tabs defaultValue="text" className="w-full pt-4" onValueChange={() => form.reset({ title: '', items: [] })}>
+            <TabsList className="grid w-full grid-cols-5 h-auto">
+              <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> Text</TabsTrigger>
+              <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> Voice</TabsTrigger>
+              <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> Camera</TabsTrigger>
+              <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
+              <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="text" className="pt-4 space-y-4">
+                <DialogDescription>Describe your financial plan. The AI will structure it into an itemized plan.</DialogDescription>
+                <Textarea placeholder="e.g., A trip to Japan for two weeks..." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+                <DialogFooter>
+                    <Button onClick={() => handleGeneratePlan(userQuery)} disabled={!userQuery}>
+                        <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
+                    </Button>
+                </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center min-h-[250px]">
+                <DialogDescription>Start speaking and the AI will transcribe and create your plan.</DialogDescription>
+                <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
+                    {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+                </Button>
+                <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
+            </TabsContent>
+
+            <TabsContent value="camera" className="pt-4 space-y-4">
+                <DialogDescription>Position your document in the frame and capture an image to scan it.</DialogDescription>
+                <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
+                    <canvas ref={canvasRef} className="hidden" />
+                    {imageUri ? (
+                        <Image src={imageUri} alt="Plan document preview" layout="fill" objectFit="contain" />
+                    ) : (
+                        <>
+                            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                            {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle></Alert>}
+                        </>
+                    )}
+                     {videoDevices.length > 1 && !imageUri && (
+                        <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50">
+                            <SwitchCamera className="h-5 w-5" />
+                        </Button>
+                    )}
+                </div>
+                {imageUri ? (
+                    <div className="grid grid-cols-2 gap-4">
+                        <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
+                        <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
+                    </div>
+                ) : (
+                    <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture Photo</Button>
+                )}
+            </TabsContent>
+
+            <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center min-h-[250px] space-y-4">
+                <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Choose File
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+            </TabsContent>
+
+            <TabsContent value="manual" className="pt-0">
+               {renderPlanForm({ isReviewMode: false })}
+            </TabsContent>
+
+          </Tabs>
+        )
+    }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -485,9 +458,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                     <DialogHeader>
                         <DialogTitle className="font-headline text-2xl">{planToEdit ? 'Edit Financial Plan' : 'Create a New Financial Plan'}</DialogTitle>
                     </DialogHeader>
-                    <div className="py-4">
-                        {renderContent()}
-                    </div>
+                    {renderContent()}
                 </ScrollArea>
             </DialogContent>
         </Dialog>
