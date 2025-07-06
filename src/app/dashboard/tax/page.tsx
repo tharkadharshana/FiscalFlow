@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles } from 'lucide-react';
+import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles, AlertCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -28,13 +28,13 @@ import { VehicleImportCalculator } from '@/components/dashboard/tax/vehicle-impo
 import { IncomeTaxCalculator } from '@/components/dashboard/tax/income-tax-calculator';
 import { VatCalculator } from '@/components/dashboard/tax/vat-calculator';
 import { StampDutyCalculator } from '@/components/dashboard/tax/stamp-duty-calculator';
-import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/ai/flows/analyze-taxes-flow';
+import type { AnalyzeTaxesOutput } from '@/ai/flows/analyze-taxes-flow';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function TaxPage() {
-    const { transactions, formatCurrency, isPremium, canRunTaxAnalysis, analyzeTaxesWithLimit } = useAppContext();
+    const { userProfile, transactions, formatCurrency, isPremium, canRunTaxAnalysis, analyzeTaxesWithLimit } = useAppContext();
     const [analysisResult, setAnalysisResult] = useState<AnalyzeTaxesOutput | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function TaxPage() {
         setAnalysisResult(null);
         setAnalysisError(null);
 
-        const analysisInput: AnalyzeTaxesInput = {
+        const result = await analyzeTaxesWithLimit({
             transactions: transactions.map(t => ({
                 id: t.id,
                 type: t.type,
@@ -73,9 +73,7 @@ export default function TaxPage() {
                 date: t.date,
             })),
             taxDocument: taxDocument,
-        };
-
-        const result = await analyzeTaxesWithLimit(analysisInput);
+        });
         
         if (result && 'error' in result) {
             setAnalysisError(result.error);
@@ -142,7 +140,7 @@ export default function TaxPage() {
                             {!isPremium && <Sparkles className="h-5 w-5 text-amber-500" />}
                         </CardTitle>
                         <CardDescription>
-                            Automatically detect potential direct and indirect taxes based on your transaction history.
+                            Automatically detect potential tax liabilities based on your transaction history and selected country.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -271,6 +269,15 @@ export default function TaxPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {userProfile?.countryCode !== 'LK' && (
+                            <Alert variant="destructive" className="mb-6">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>Country Mismatch Warning</AlertTitle>
+                                <AlertDescription>
+                                    These calculators are based on Sri Lankan (LK) tax laws. Your profile is set to {userProfile?.countryCode}, so these results may be inaccurate for you. Use the AI Tax Analysis for personalized calculations.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                        <Tabs defaultValue="income" className="w-full">
                            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
                                <TabsTrigger value="income"><Wallet className="mr-2 h-4 w-4" />Income Tax</TabsTrigger>

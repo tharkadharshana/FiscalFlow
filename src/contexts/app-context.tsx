@@ -100,7 +100,7 @@ interface AppContextType {
   downgradeFromPremium: () => Promise<void>;
   markOnboardingComplete: () => Promise<void>;
   canRunTaxAnalysis: boolean;
-  analyzeTaxesWithLimit: (input: AnalyzeTaxesInput) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
+  analyzeTaxesWithLimit: (input: Omit<AnalyzeTaxesInput, 'countryCode'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
   canGenerateReport: boolean;
   generateReportWithLimit: () => Promise<boolean>;
   canGenerateInsights: boolean;
@@ -899,10 +899,11 @@ const deleteTransaction = async (transactionId: string) => {
     }
   }
 
-  const analyzeTaxesWithLimit = async (input: AnalyzeTaxesInput): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
-    if (!user || !userProfile) { 
-      showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
-      return { error: 'Not authenticated' };
+  const analyzeTaxesWithLimit = async (input: Omit<AnalyzeTaxesInput, 'countryCode'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
+    if (!user || !userProfile || !userProfile.countryCode) { 
+      const errorMsg = 'Country code is not set in user profile.';
+      showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
+      return { error: errorMsg };
     }
 
     if (!canRunTaxAnalysis) {
@@ -910,7 +911,11 @@ const deleteTransaction = async (transactionId: string) => {
         return { error: 'Limit Reached' };
     }
 
-    const result = await analyzeTaxesAction(input);
+    const fullInput: AnalyzeTaxesInput = {
+      ...input,
+      countryCode: userProfile.countryCode,
+    };
+    const result = await analyzeTaxesAction(fullInput);
 
     if (!('error' in result) && !isPremium) {
         const currentMonth = new Date().toISOString().slice(0, 7);

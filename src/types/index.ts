@@ -4,6 +4,7 @@
 
 
 
+
 export interface BudgetItem {
   id: string;
   description: string;
@@ -47,6 +48,7 @@ export interface UserProfile {
   uid: string;
   displayName: string;
   email: string;
+  countryCode: string; // e.g., 'US', 'LK', 'GB'
   currencyPreference: string;
   darkModeBanner: boolean;
   notificationPreferences: {

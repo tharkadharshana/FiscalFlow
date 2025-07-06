@@ -22,9 +22,11 @@ import { defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-d
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
+import { countries } from '@/data/countries';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
+  countryCode: z.string(),
   currencyPreference: z.string(),
   darkModeBanner: z.boolean(),
   notificationPreferences: z.object({
@@ -41,6 +43,7 @@ export default function SettingsPage() {
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       displayName: '',
+      countryCode: 'US',
       currencyPreference: 'USD',
       darkModeBanner: false,
       notificationPreferences: {
@@ -54,6 +57,7 @@ export default function SettingsPage() {
     if (userProfile) {
       form.reset({
         displayName: userProfile.displayName || '',
+        countryCode: userProfile.countryCode || 'US',
         currencyPreference: userProfile.currencyPreference || 'USD',
         darkModeBanner: userProfile.darkModeBanner || false,
         notificationPreferences: {
@@ -254,11 +258,35 @@ export default function SettingsPage() {
               <CardContent className="space-y-6">
                 <FormField
                   control={form.control}
+                  name="countryCode"
+                  render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Country / Region</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select your country"/>
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {countries.map(c => (
+                                    <SelectItem key={c.value} value={c.value}>
+                                        {c.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormDescription>Your country selection determines the tax rules used by the AI engine.</FormDescription>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="currencyPreference"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Currency</FormLabel>
-                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a currency" />

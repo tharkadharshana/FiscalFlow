@@ -1,6 +1,7 @@
+
 'use server';
 /**
- * @fileOverview An AI flow to automatically analyze transactions and identify tax liabilities, with support for custom user-provided tax documentation.
+ * @fileOverview A generic AI flow to analyze transactions and identify tax liabilities for any country.
  *
  * - analyzeTaxes - A function that handles the tax analysis process.
  * - AnalyzeTaxesInput - The input type for the analyzeTaxes function.
@@ -9,59 +10,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-
-// Schemas for Tools
-const PayeInputSchema = z.object({
-    annualIncome: z.number().describe('The total annual income from all sources.'),
-});
-
-const VatInputSchema = z.object({
-    amount: z.number().describe('The gross amount of the transaction.'),
-    category: z.string().describe('The category of the transaction (e.g., Food, Groceries, Fuel).'),
-});
-
-// Tool Definitions
-const calculatePayeTax = ai.defineTool(
-    {
-        name: 'calculatePayeTax',
-        description: 'Calculates the annual Personal Income Tax (PAYE) for a given gross annual income based on Sri Lankan tax brackets.',
-        inputSchema: PayeInputSchema,
-        outputSchema: z.number().describe('The total annual tax liability.'),
-    },
-    async ({ annualIncome }) => {
-        if (annualIncome <= 1_200_000) return 0;
-    
-        let tax = 0;
-        let incomeLeft = annualIncome;
-    
-        if (incomeLeft > 3_700_000) { tax += (incomeLeft - 3_700_000) * 0.36; incomeLeft = 3_700_000; }
-        if (incomeLeft > 3_200_000) { tax += (incomeLeft - 3_200_000) * 0.30; incomeLeft = 3_200_000; }
-        if (incomeLeft > 2_700_000) { tax += (incomeLeft - 2_700_000) * 0.24; incomeLeft = 2_700_000; }
-        if (incomeLeft > 2_200_000) { tax += (incomeLeft - 2_200_000) * 0.18; incomeLeft = 2_200_000; }
-        if (incomeLeft > 1_700_000) { tax += (incomeLeft - 1_700_000) * 0.12; incomeLeft = 1_700_000; }
-        if (incomeLeft > 1_200_000) { tax += (incomeLeft - 1_200_000) * 0.06; }
-        return tax;
-    }
-);
-
-const calculateVat = ai.defineTool(
-    {
-        name: 'calculateVat',
-        description: 'Calculates the Value Added Tax (VAT) for a given transaction amount and category. Returns 0 if the item is exempt.',
-        inputSchema: VatInputSchema,
-        outputSchema: z.number().describe('The calculated VAT amount.'),
-    },
-    async ({ amount, category }) => {
-        const VAT_RATE = 0.18;
-        const EXEMPT_CATEGORIES = ['Rent', 'Gifts', 'Gift Income', 'Salary', 'Freelance', 'Investments', 'Bonus'];
-        
-        if (EXEMPT_CATEGORIES.includes(category)) {
-            return 0;
-        }
-        // This calculation assumes the amount is inclusive of VAT.
-        return amount - (amount / (1 + VAT_RATE));
-    }
-);
 
 // Main Flow Schemas
 const TransactionSchema = z.object({
@@ -75,15 +23,16 @@ const TransactionSchema = z.object({
 
 const AnalyzeTaxesInputSchema = z.object({
   transactions: z.array(TransactionSchema),
-  taxDocument: z.string().optional().describe('User-provided text describing tax rules and regulations. This should be treated as the primary source of truth.'),
+  countryCode: z.string().describe("The user's country code (e.g., US, LK, GB). This is the primary context for determining tax rules."),
+  taxDocument: z.string().optional().describe('User-provided text describing tax rules. This should be treated as the highest priority source of truth.'),
 });
 export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
 
 
 const TaxLiabilitySchema = z.object({
-    taxType: z.string().describe('The type of tax, e.g., "PAYE", "VAT".'),
-    description: z.string().describe('A brief description of the tax source.'),
-    amount: z.number().describe('The calculated tax amount.'),
+    taxType: z.string().describe('The official name of the tax, e.g., "Value Added Tax (VAT)", "Goods and Services Tax (GST)", "PAYE (Income Tax)".'),
+    description: z.string().describe('A brief, helpful description of how the tax was calculated (e.g., "Calculated on total income based on 2025 brackets.").'),
+    amount: z.number().describe('The calculated tax amount. The AI must perform the calculation and return the final number.'),
     sourceTransactionIds: z.array(z.string()).optional().describe('IDs of source transactions, if applicable.'),
 });
 
@@ -103,17 +52,20 @@ const taxAnalysisPrompt = ai.definePrompt({
     name: 'taxAnalysisPrompt',
     input: { schema: AnalyzeTaxesInputSchema },
     output: { schema: AnalyzeTaxesOutputSchema },
-    tools: [calculatePayeTax, calculateVat],
-    system: `You are an expert financial analyst specializing in Sri Lankan tax law. Your task is to analyze a list of transactions and identify all potential tax liabilities.
+    system: `You are an expert global financial analyst specializing in tax law. Your task is to analyze a list of transactions for a user in the specified country ({{countryCode}}) and identify all potential tax liabilities.
 
-    **Primary instructions:**
-    1.  If the user provides custom tax documentation, you MUST prioritize it over your internal knowledge or the hardcoded tool logic. Use the tools for calculation, but let the document guide your decisions on what to calculate and which rates to apply. For example, if the document specifies a different VAT rate, you should use that rate in your reasoning, though the tool itself will use its hardcoded rate. You must mention this discrepancy in your description.
-    2.  Calculate the total PAYE (income tax) on the user's total income. To do this, first sum up all 'income' type transactions and then call the \`calculatePayeTax\` tool with the total.
-    3.  Iterate through all 'expense' transactions and use the \`calculateVat\` tool to determine the VAT paid on each applicable item. Sum these amounts to get a total VAT liability.
-    4.  Aggregate the results into a final list of liabilities. Provide a clear, concise description for each liability.
-    
+    **Core Instructions:**
+    1.  **Identify Country & Rules:** Use the provided 'countryCode' to determine the applicable national tax laws. Your knowledge should cover common taxes like Income Tax (e.g., PAYE, Federal/State Income Tax), Consumption Tax (e.g., VAT, GST), Corporate Tax, etc.
+    2.  **Calculate Liabilities:**
+        -   **Income Tax:** Sum all 'income' type transactions to get the gross annual income. Based on the tax laws for {{countryCode}}, calculate the personal income tax liability. You MUST perform the calculation based on the country's tax brackets and rates.
+        -   **Consumption Tax (VAT/GST):** For each 'expense' transaction, determine if it is subject to VAT/GST in {{countryCode}}. Calculate the tax paid on applicable items and sum them for a total.
+        -   **Other Taxes:** Identify any other relevant taxes based on the transaction data and country.
+    3.  **Perform Calculations:** You are responsible for the calculations. Do not use placeholder text. You must return a final, calculated number for the 'amount' field in each liability.
+    4.  **Prioritize User Document:** If the user provides custom tax documentation in the 'taxDocument' field, you MUST prioritize it over your internal knowledge. Your 'description' for the liability should mention that you are using the custom rules provided.
+    5.  **Return Structured Output:** Format your entire response as a single JSON object that strictly adheres to the 'AnalyzeTaxesOutput' schema. If no liabilities are found, return an empty 'liabilities' array.
+
     {{#if taxDocument}}
-    **User-Provided Tax Documentation (Primary Source of Truth):**
+    **User-Provided Tax Documentation (Highest Priority Source of Truth):**
     ---
     {{{taxDocument}}}
     ---
@@ -131,54 +83,10 @@ const analyzeTaxesFlow = ai.defineFlow(
   async (input) => {
     
     const llmResponse = await taxAnalysisPrompt(input);
-    const output = llmResponse.output;
-
-    if (!output || !output.liabilities || output.liabilities.length === 0) {
-        console.log("AI did not return liabilities, running programmatic fallback.");
-        const liabilities: z.infer<typeof TaxLiabilitySchema>[] = [];
-        
-        const totalIncome = input.transactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0);
-
-        if (totalIncome > 0) {
-            const payeTax = await calculatePayeTax({ annualIncome: totalIncome });
-            if (payeTax > 0) {
-                liabilities.push({
-                    taxType: 'PAYE (Income Tax)',
-                    description: `Estimated annual income tax on a total income of ${totalIncome.toFixed(2)}.`,
-                    amount: payeTax,
-                });
-            }
-        }
-
-        let totalVat = 0;
-        const vatTransactionIds: string[] = [];
-
-        for (const transaction of input.transactions) {
-            if (transaction.type === 'expense') {
-                const vatAmount = await calculateVat({
-                    amount: transaction.amount,
-                    category: transaction.category,
-                });
-                if (vatAmount > 0) {
-                    totalVat += vatAmount;
-                    vatTransactionIds.push(transaction.id);
-                }
-            }
-        }
-
-        if (totalVat > 0) {
-            liabilities.push({
-                taxType: 'VAT (Value Added Tax)',
-                description: 'Estimated total VAT paid on goods and services.',
-                amount: totalVat,
-                sourceTransactionIds: vatTransactionIds,
-            });
-        }
-        return { liabilities };
-    }
-
-    return output;
+    
+    // The structured output is now fully reliant on the LLM.
+    // The Zod schema validation on the prompt output will ensure the structure is correct.
+    // If the LLM fails to produce a valid output, Genkit will throw an error which is caught by the server action.
+    return llmResponse.output!;
   }
 );

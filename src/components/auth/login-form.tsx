@@ -24,6 +24,8 @@ import {
 import { doc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAppContext } from '@/contexts/app-context';
 import Link from 'next/link';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { countries } from '@/data/countries';
 
 export function LoginForm() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export function LoginForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [country, setCountry] = useState('US');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
@@ -58,13 +61,14 @@ export function LoginForm() {
     }
   };
 
-  const handleNewUserSetup = async (user: any) => {
+  const handleNewUserSetup = async (user: any, countryCode: string) => {
     try {
         await setDoc(doc(db, "users", user.uid), {
             displayName: user.displayName,
             email: user.email,
             createdAt: serverTimestamp(),
             lastLoginAt: serverTimestamp(),
+            countryCode: countryCode,
             currencyPreference: 'USD',
             darkModeBanner: false,
             notificationPreferences: {
@@ -113,7 +117,7 @@ export function LoginForm() {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        await handleNewUserSetup(userCredential.user);
+        await handleNewUserSetup(userCredential.user, country);
         await sendEmailVerification(userCredential.user);
         showNotification({
           type: 'success',
@@ -141,7 +145,7 @@ export function LoginForm() {
       const additionalInfo = getAdditionalUserInfo(result);
       
       if (additionalInfo?.isNewUser) {
-        await handleNewUserSetup(result.user);
+        await handleNewUserSetup(result.user, 'US'); // Default to US for social logins
         showNotification({
           type: 'success',
           title: 'Welcome!',
@@ -182,7 +186,7 @@ export function LoginForm() {
       const additionalInfo = getAdditionalUserInfo(result);
       
       if (additionalInfo?.isNewUser) {
-        await handleNewUserSetup(result.user);
+        await handleNewUserSetup(result.user, 'US'); // Default to US for social logins
         showNotification({
           type: 'success',
           title: 'Welcome!',
@@ -309,6 +313,23 @@ export function LoginForm() {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
+                 {authMode === 'signup' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country</Label>
+                    <Select onValueChange={setCountry} defaultValue={country}>
+                        <SelectTrigger id="country">
+                            <SelectValue placeholder="Select your country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {countries.map(c => (
+                                <SelectItem key={c.value} value={c.value}>
+                                    {c.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <Button type="submit" className="w-full font-bold" disabled={isLoading || isGoogleLoading || isAppleLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {authMode === 'login' ? 'Log In' : 'Sign Up'}
