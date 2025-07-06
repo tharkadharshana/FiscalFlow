@@ -19,7 +19,7 @@ import { createChecklistAction, parseDocumentAction } from '@/lib/actions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import type { ChecklistTemplate } from '@/types';
+import type { Checklist, ChecklistTemplate } from '@/types';
 
 
 const itemSchema = z.object({
@@ -40,10 +40,11 @@ type ChecklistDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template?: ChecklistTemplate;
+  checklistToEdit?: Checklist | null;
 };
 
-export function ChecklistDialog({ open, onOpenChange, template }: ChecklistDialogProps) {
-  const { addChecklist, showNotification } = useAppContext();
+export function ChecklistDialog({ open, onOpenChange, template, checklistToEdit }: ChecklistDialogProps) {
+  const { addChecklist, updateChecklist, showNotification } = useAppContext();
   
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
   const [activeTab, setActiveTab] = useState('text');
@@ -93,7 +94,16 @@ export function ChecklistDialog({ open, onOpenChange, template }: ChecklistDialo
 
   useEffect(() => {
     if (open) {
-      if (template) {
+      if (checklistToEdit) {
+        form.reset({
+          title: checklistToEdit.title,
+          items: checklistToEdit.items.map(item => ({
+            ...item,
+            predictedCost: item.predictedCost || 0,
+          })),
+        });
+        setView('review');
+      } else if (template) {
         form.reset({
           title: template.title,
           items: template.items.map(item => ({
@@ -116,7 +126,7 @@ export function ChecklistDialog({ open, onOpenChange, template }: ChecklistDialo
         streamRef.current = null;
       }
     }
-  }, [open, template, form]);
+  }, [open, template, checklistToEdit, form]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -255,7 +265,11 @@ export function ChecklistDialog({ open, onOpenChange, template }: ChecklistDialo
   };
 
   async function onSubmit(values: FormData) {
-    await addChecklist(values);
+    if (checklistToEdit) {
+      await updateChecklist(checklistToEdit.id, values);
+    } else {
+      await addChecklist(values);
+    }
     onOpenChange(false);
   }
   
@@ -344,9 +358,9 @@ const handleCapture = () => {
           </Button>
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          {isReviewMode && !template && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
+          {isReviewMode && !template && !checklistToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
           <Button type="submit" disabled={form.formState.isSubmitting}>
-            Create Checklist
+            {checklistToEdit ? 'Save Changes' : 'Create Checklist'}
           </Button>
         </DialogFooter>
       </form>
@@ -354,8 +368,13 @@ const handleCapture = () => {
   );
 
   const renderContent = () => {
-    if (view === 'loading') return renderLoadingView();
-    if (view === 'review') return renderReviewForm({ isReviewMode: true });
+    if (checklistToEdit || view === 'review') {
+      return renderReviewForm({ isReviewMode: true });
+    }
+    
+    if (view === 'loading') {
+      return renderLoadingView();
+    }
 
     return (
         <Tabs defaultValue="text" value={activeTab} className="w-full pt-4" onValueChange={setActiveTab}>
@@ -428,11 +447,13 @@ const handleCapture = () => {
     )
   }
 
+  const dialogTitle = checklistToEdit ? "Edit Checklist" : "New Financial Checklist";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Financial Checklist</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
         <div className="py-4">
           {renderContent()}

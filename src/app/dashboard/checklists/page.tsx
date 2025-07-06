@@ -20,8 +20,14 @@ export default function ChecklistsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
+  const [checklistToEdit, setChecklistToEdit] = useState<Checklist | null>(null);
   const [checklistToDelete, setChecklistToDelete] = useState<Checklist | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<ChecklistTemplate | null>(null);
+
+  const handleEditChecklist = (checklist: Checklist) => {
+    setChecklistToEdit(checklist);
+    setIsDialogOpen(true);
+  };
 
   const handleDeleteChecklist = (checklist: Checklist) => {
     setChecklistToDelete(checklist);
@@ -33,6 +39,13 @@ export default function ChecklistsPage() {
     setTemplateToDelete(template);
     setChecklistToDelete(null);
     setIsDeleteDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setChecklistToEdit(null);
+    }
+    setIsDialogOpen(open);
   };
 
   const confirmDelete = async () => {
@@ -77,6 +90,7 @@ export default function ChecklistsPage() {
                                 <ChecklistCard 
                                     key={checklist.id}
                                     checklist={checklist}
+                                    onEdit={() => handleEditChecklist(checklist)}
                                     onDelete={() => handleDeleteChecklist(checklist)}
                                     onSaveAsTemplate={() => createTemplateFromChecklist(checklist)}
                                 />
@@ -124,7 +138,11 @@ export default function ChecklistsPage() {
         </main>
       </div>
       
-      <ChecklistDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      <ChecklistDialog 
+        open={isDialogOpen} 
+        onOpenChange={handleDialogClose}
+        checklistToEdit={checklistToEdit}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import type { Checklist, ChecklistItem } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { MoreVertical, Trash2, Save } from "lucide-react";
+import { MoreVertical, Trash2, Save, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Progress } from "../ui/progress";
 import { useAppContext } from "@/contexts/app-context";
@@ -15,11 +15,12 @@ import { Label } from '../ui/label';
 
 type ChecklistCardProps = {
   checklist: Checklist;
+  onEdit: () => void;
   onDelete: () => void;
   onSaveAsTemplate: () => void;
 };
 
-export function ChecklistCard({ checklist, onDelete, onSaveAsTemplate }: ChecklistCardProps) {
+export function ChecklistCard({ checklist, onEdit, onDelete, onSaveAsTemplate }: ChecklistCardProps) {
   const { formatCurrency, updateChecklist } = useAppContext();
 
   const { completedItems, totalItems, totalCost } = useMemo(() => {
@@ -55,6 +56,9 @@ export function ChecklistCard({ checklist, onDelete, onSaveAsTemplate }: Checkli
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={onEdit}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={onSaveAsTemplate}>
                                     <Save className="mr-2 h-4 w-4" /> Save as Template
                                 </DropdownMenuItem>
