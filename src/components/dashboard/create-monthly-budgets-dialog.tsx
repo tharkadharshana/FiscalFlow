@@ -204,7 +204,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
       </DialogDescription>
       <div className="space-y-4 pt-4">
           <div className="grid w-full gap-2">
-              <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+              <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation" value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
               <div className="flex gap-2">
                   <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
                       {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
