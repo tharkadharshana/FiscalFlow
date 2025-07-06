@@ -51,15 +51,14 @@ export async function GET(request: NextRequest) {
 
         console.log(`Gmail tokens stored successfully for user ${userId}`);
         
-        const redirectUrl = new URL('/dashboard/settings', request.nextUrl.origin);
-        redirectUrl.searchParams.set('status', 'gmail_connected');
-
+        // Redirect to a simple success page
+        const redirectUrl = new URL('/api/auth/google/success', request.nextUrl.origin);
         return NextResponse.redirect(redirectUrl.toString());
 
     } catch (error) {
         console.error('Error exchanging code for tokens or storing them:', error);
-        const redirectUrl = new URL('/dashboard/settings', request.nextUrl.origin);
-        redirectUrl.searchParams.set('status', 'gmail_failed');
+        // Redirect to a simple failure page
+        const redirectUrl = new URL('/api/auth/google/failure', request.nextUrl.origin);
         return NextResponse.redirect(redirectUrl.toString());
     }
 }
