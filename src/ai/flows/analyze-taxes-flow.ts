@@ -21,8 +21,22 @@ const TransactionSchema = z.object({
     date: z.string(),
 });
 
+const SimplifiedInvestmentSchema = z.object({
+    name: z.string(),
+    assetType: z.string(),
+    marketValue: z.number(),
+});
+
+const SimplifiedSavingsGoalSchema = z.object({
+    title: z.string(),
+    currentAmount: z.number(),
+});
+
+
 const AnalyzeTaxesInputSchema = z.object({
   transactions: z.array(TransactionSchema),
+  investments: z.array(SimplifiedInvestmentSchema).optional().describe("A list of the user's current investment holdings."),
+  savingsGoals: z.array(SimplifiedSavingsGoalSchema).optional().describe("A list of the user's savings goals, which may generate interest income."),
   countryCode: z.string().describe("The user's country code (e.g., US, LK, GB). This is the primary context for determining tax rules."),
   taxDocument: z.string().optional().describe('User-provided text describing tax rules. This should be treated as the highest priority source of truth.'),
 });
@@ -30,7 +44,7 @@ export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
 
 
 const TaxLiabilitySchema = z.object({
-    taxType: z.string().describe('The official name of the tax, e.g., "Value Added Tax (VAT)", "Goods and Services Tax (GST)", "PAYE (Income Tax)".'),
+    taxType: z.string().describe('The official name of the tax, e.g., "Value Added Tax (VAT)", "Goods and Services Tax (GST)", "PAYE (Income Tax)", "Capital Gains Tax".'),
     description: z.string().describe('A brief, helpful description of how the tax was calculated (e.g., "Calculated on total income based on 2025 brackets.").'),
     amount: z.number().describe('The calculated tax amount. The AI must perform the calculation and return the final number.'),
     sourceTransactionIds: z.array(z.string()).optional().describe('IDs of source transactions, if applicable.'),
@@ -52,15 +66,17 @@ const taxAnalysisPrompt = ai.definePrompt({
     name: 'taxAnalysisPrompt',
     input: { schema: AnalyzeTaxesInputSchema },
     output: { schema: AnalyzeTaxesOutputSchema },
-    system: `You are an expert global financial analyst specializing in tax law. Your task is to analyze a list of transactions for a user in the specified country ({{countryCode}}) and identify all potential tax liabilities.
+    system: `You are an expert global financial analyst specializing in tax law. Your task is to analyze a user's complete financial picture for the specified country ({{countryCode}}) and identify all potential tax liabilities.
 
     **Core Instructions:**
-    1.  **Identify Country & Rules:** Use the provided 'countryCode' to determine the applicable national tax laws. Your knowledge should cover common taxes like Income Tax (e.g., PAYE, Federal/State Income Tax), Consumption Tax (e.g., VAT, GST), Corporate Tax, etc.
+    1.  **Analyze All Data Sources:** You will be given transactions, investments, and savings goals. You must consider all of them.
     2.  **Calculate Liabilities:**
-        -   **Income Tax:** Sum all 'income' type transactions to get the gross annual income. Based on the tax laws for {{countryCode}}, calculate the personal income tax liability. You MUST perform the calculation based on the country's tax brackets and rates.
-        -   **Consumption Tax (VAT/GST):** For each 'expense' transaction, determine if it is subject to VAT/GST in {{countryCode}}. Calculate the tax paid on applicable items and sum them for a total.
-        -   **Other Taxes:** Identify any other relevant taxes based on the transaction data and country.
-    3.  **Perform Calculations:** You are responsible for the calculations. Do not use placeholder text. You must return a final, calculated number for the 'amount' field in each liability.
+        -   **Income Tax (e.g., PAYE):** Sum all 'income' type transactions to get the gross annual income. Based on the tax laws for {{countryCode}}, calculate the personal income tax liability.
+        -   **Consumption Tax (e.g., VAT/GST):** For each 'expense' transaction, determine if it is subject to VAT/GST in {{countryCode}}. Calculate the tax paid on applicable items and sum them for a total.
+        -   **Capital Gains Tax:** Review the list of investments. While you don't know if they were sold, mention a potential capital gains tax liability if the country has one. You DO NOT need to calculate an amount, but you should create a liability item with amount 0 and a description explaining it.
+        -   **Interest Income Tax:** Review the list of savings goals. If the country taxes interest on savings, calculate a potential tax based on the saved amount. Assume a conservative interest rate (e.g., 2%) if not specified.
+        -   **Other Taxes:** Identify any other relevant taxes based on all the provided data and country context.
+    3.  **Perform Calculations:** You are responsible for the calculations. Do not use placeholder text (except for Capital Gains). You must return a final, calculated number for the 'amount' field in each liability.
     4.  **Prioritize User Document:** If the user provides custom tax documentation in the 'taxDocument' field, you MUST prioritize it over your internal knowledge. Your 'description' for the liability should mention that you are using the custom rules provided.
     5.  **Return Structured Output:** Format your entire response as a single JSON object that strictly adheres to the 'AnalyzeTaxesOutput' schema. If no liabilities are found, return an empty 'liabilities' array.
 
