@@ -13,8 +13,12 @@ export function GmailConnect() {
   const handleConnect = () => {
     if (userProfile?.uid) {
       logger.info('Initiating Gmail connection', { userId: userProfile.uid });
-      // Force a full-page redirect to the OAuth endpoint, bypassing Next.js router.
-      window.location.href = `/api/auth/google?userId=${userProfile.uid}`;
+      // Use window.top.location.href to ensure the redirect happens at the top-level,
+      // breaking out of any potential iframes from the development environment.
+      // This is crucial for Google's OAuth flow to prevent framing errors.
+      if (window.top) {
+        window.top.location.href = `/api/auth/google?userId=${userProfile.uid}`;
+      }
     } else {
       logger.warn('Gmail connect clicked but no user ID was available.');
     }
@@ -29,8 +33,6 @@ export function GmailConnect() {
     );
   }
 
-  // Using a button with a direct window.location.href call is the most robust way
-  // to ensure a full page navigation for an external OAuth flow.
   return (
     <Button onClick={handleConnect} disabled={!userProfile?.uid}>
       <Icons.google className="mr-2 h-4 w-4" />
