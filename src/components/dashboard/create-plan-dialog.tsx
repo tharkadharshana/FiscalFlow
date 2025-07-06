@@ -312,7 +312,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
             </div>
             <div className="space-y-2">
                 <Label>Plan Items</Label>
-                <ScrollArea className="pr-4">
+                <ScrollArea className="max-h-60 pr-4">
                     <div className="space-y-3">
                         {fields.map((field, index) => (
                             <div key={field.id} className={cn(

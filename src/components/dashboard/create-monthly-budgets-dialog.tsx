@@ -322,47 +322,49 @@ const handleCapture = () => {
                 : "Manually add a budget for a category."
             }
         </DialogDescription>
-        <div className="space-y-3">
-            {fields.map((field, index) => (
-                <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
-                    <div className="flex items-end gap-2">
-                        <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
-                            <div className="col-span-3">
-                               <Label className="text-xs text-muted-foreground">Category</Label>
-                               <Controller
-                                 control={form.control}
-                                 name={`budgets.${index}.category`}
-                                 render={({ field }) => (
-                                   <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
-                                     <SelectTrigger className="h-8">
-                                       <SelectValue placeholder="Select category" />
-                                     </SelectTrigger>
-                                     <SelectContent>
-                                       {expenseCategories.map(cat => (
-                                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                       ))}
-                                     </SelectContent>
-                                   </Select>
-                                 )}
-                               />
+        <ScrollArea className="max-h-60 pr-2">
+            <div className="space-y-3">
+                {fields.map((field, index) => (
+                    <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
+                        <div className="flex items-end gap-2">
+                            <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
+                                <div className="col-span-3">
+                                   <Label className="text-xs text-muted-foreground">Category</Label>
+                                   <Controller
+                                     control={form.control}
+                                     name={`budgets.${index}.category`}
+                                     render={({ field }) => (
+                                       <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
+                                         <SelectTrigger className="h-8">
+                                           <SelectValue placeholder="Select category" />
+                                         </SelectTrigger>
+                                         <SelectContent>
+                                           {expenseCategories.map(cat => (
+                                             <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                           ))}
+                                         </SelectContent>
+                                       </Select>
+                                     )}
+                                   />
+                                </div>
+                                <div className="col-span-2">
+                                   <Label className="text-xs text-muted-foreground">Monthly Limit ($)</Label>
+                                   <Input {...form.register(`budgets.${index}.limit`)} type="number" className="h-8"/>
+                                </div>
                             </div>
-                            <div className="col-span-2">
-                               <Label className="text-xs text-muted-foreground">Monthly Limit ($)</Label>
-                               <Input {...form.register(`budgets.${index}.limit`)} type="number" className="h-8"/>
-                            </div>
+                            {!budgetToEdit && (
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                                </Button>
+                            )}
                         </div>
-                        {!budgetToEdit && (
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)}>
-                                <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                            </Button>
-                        )}
                     </div>
-                </div>
-            ))}
-            {fields.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">The AI didn't find any new budgets to create based on your request, or they already exist.</p>
-            )}
-        </div>
+                ))}
+                {fields.length === 0 && (
+                    <p className="text-center text-muted-foreground py-4">The AI didn't find any new budgets to create based on your request, or they already exist.</p>
+                )}
+            </div>
+        </ScrollArea>
         {!budgetToEdit && (
             <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
                 <Plus className="mr-2 h-4 w-4" /> Add Budget
