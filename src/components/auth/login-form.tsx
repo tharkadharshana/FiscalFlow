@@ -14,11 +14,10 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   OAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
   createUserWithEmailAndPassword,
   updateProfile,
   sendEmailVerification,
-  getAdditionalUserInfo,
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
@@ -141,39 +140,14 @@ export function LoginForm() {
     setIsGoogleLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const additionalInfo = getAdditionalUserInfo(result);
-      
-      if (additionalInfo?.isNewUser) {
-        await handleNewUserSetup(result.user, 'US'); // Default to US for social logins
-        showNotification({
-          type: 'success',
-          title: 'Welcome!',
-          description: 'Your account has been created successfully.',
-        });
-      } else {
-        await updateDoc(doc(db, "users", result.user.uid), {
-            lastLoginAt: serverTimestamp(),
-        });
-      }
-      
-      router.push('/dashboard');
+      await signInWithRedirect(auth, provider);
+      // The user will be redirected. The result is handled in app-context.tsx
     } catch (error: any) {
-      const errorCode = error.code;
-      if (errorCode === 'auth/popup-closed-by-user' || errorCode === 'auth/cancelled-popup-request' || errorCode === 'auth/internal-error') {
-        showNotification({
-          type: 'info',
-          title: 'Sign-in Cancelled',
-          description: 'The sign-in window was closed before completion.',
-        });
-      } else {
-        showNotification({
-          type: 'error',
-          title: 'Google Login Failed',
-          description: error.message,
-        });
-      }
-    } finally {
+      showNotification({
+        type: 'error',
+        title: 'Google Login Failed',
+        description: error.message,
+      });
       setIsGoogleLoading(false);
     }
   };
@@ -182,39 +156,14 @@ export function LoginForm() {
     setIsAppleLoading(true);
     try {
       const provider = new OAuthProvider('apple.com');
-      const result = await signInWithPopup(auth, provider);
-      const additionalInfo = getAdditionalUserInfo(result);
-      
-      if (additionalInfo?.isNewUser) {
-        await handleNewUserSetup(result.user, 'US'); // Default to US for social logins
-        showNotification({
-          type: 'success',
-          title: 'Welcome!',
-          description: 'Your account has been created successfully.',
-        });
-      } else {
-        await updateDoc(doc(db, "users", result.user.uid), {
-            lastLoginAt: serverTimestamp(),
-        });
-      }
-      
-      router.push('/dashboard');
+      await signInWithRedirect(auth, provider);
+      // The user will be redirected. The result is handled in app-context.tsx
     } catch (error: any) {
-      const errorCode = error.code;
-      if (errorCode === 'auth/popup-closed-by-user' || errorCode === 'auth/cancelled-popup-request' || errorCode === 'auth/internal-error') {
-          showNotification({
-              type: 'info',
-              title: 'Sign-in Cancelled',
-              description: 'The sign-in window was closed before completion.',
-          });
-      } else {
-        showNotification({
-          type: 'error',
-          title: 'Apple Login Failed',
-          description: error.message,
-        });
-      }
-    } finally {
+      showNotification({
+        type: 'error',
+        title: 'Apple Login Failed',
+        description: error.message,
+      });
       setIsAppleLoading(false);
     }
   };
