@@ -36,6 +36,12 @@ import {
     createSavingsGoal,
     type CreateSavingsGoalInput,
 } from '@/ai/flows/create-savings-goal-flow';
+import {
+    createChecklist,
+    type CreateChecklistInput,
+    type CreateChecklistOutput,
+} from '@/ai/flows/create-checklist-flow';
+
 import type { CreateSavingsGoalOutput } from '@/types';
 import { logger } from './logger';
 import type { CoinGeckoMarketData } from '@/types';
@@ -50,6 +56,7 @@ type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
 type ParseDocumentResult = { text: string } | { error: string };
 type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
+type ChecklistResult = CreateChecklistOutput | { error: string };
 
 // Note: In a real production app, you would add server-side logging here
 // using a library like Winston or Pino, and you would not log full inputs
@@ -189,5 +196,17 @@ export async function createSavingsGoalAction(
     } catch (error) {
         console.error('Error in createSavingsGoalAction:', error);
         return { error: 'Failed to generate savings goal. Please try again later.' };
+    }
+}
+
+export async function createChecklistAction(
+    input: CreateChecklistInput
+): Promise<ChecklistResult> {
+    try {
+        const result = await createChecklist(input);
+        return result;
+    } catch (error) {
+        console.error('Error in createChecklistAction:', error);
+        return { error: 'Failed to generate checklist from your text. Please try again.' };
     }
 }

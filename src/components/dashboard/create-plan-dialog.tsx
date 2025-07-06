@@ -19,11 +19,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan, Sparkles, Lightbulb } from 'lucide-react';
+import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan, Sparkles, Lightbulb, Plus } from 'lucide-react';
 import { createFinancialPlanAction, parseDocumentAction } from '@/lib/actions';
 import type { FinancialPlan } from '@/types';
 import { useAppContext } from '@/contexts/app-context';
 import { cn } from '@/lib/utils';
+import { nanoid } from 'nanoid';
 
 type CreatePlanDialogProps = {
   open: boolean;
@@ -215,8 +216,9 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                   <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
               </div>
           </div>
-          <DialogFooter>
-              <Button onClick={handleGeneratePlan} disabled={!userQuery} className="w-full">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button onClick={() => setView('review')} variant="secondary" className="w-full sm:w-auto">Create Manually</Button>
+              <Button onClick={handleGeneratePlan} disabled={!userQuery} className="w-full sm:w-auto">
                   <Wand2 className="mr-2 h-4 w-4" /> {planToEdit ? 'Update Plan with AI' : 'Generate Plan with AI'}
               </Button>
           </DialogFooter>
@@ -268,6 +270,9 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                     ))}
                 </div>
             </ScrollArea>
+             <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => append({ id: nanoid(), description: '', category: 'Uncategorized', predictedCost: 0, actualCost: null, isAiSuggested: false })}>
+                <Plus className="mr-2 h-4 w-4" /> Add Item
+            </Button>
             {form.formState.errors.items && <p className="text-sm text-destructive mt-2">There are errors in your plan items.</p>}
         </div>
 

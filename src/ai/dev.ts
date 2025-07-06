@@ -8,3 +8,4 @@ import '@/ai/flows/create-monthly-budgets-flow.ts';
 import '@/ai/flows/assistant-flow.ts';
 import '@/ai/flows/analyze-taxes-flow.ts';
 import '@/ai/flows/create-savings-goal-flow.ts';
+import '@/ai/flows/create-checklist-flow.ts';
