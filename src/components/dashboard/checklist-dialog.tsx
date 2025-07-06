@@ -12,10 +12,14 @@ import { Input } from '@/components/ui/input';
 import { useAppContext } from '@/contexts/app-context';
 import { ScrollArea } from '../ui/scroll-area';
 import { nanoid } from 'nanoid';
-import { Plus, Trash2, Wand2, Mic, MicOff, FileScan, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Wand2, Mic, MicOff, FileScan, Loader2, Keyboard, Camera, Upload, RotateCcw, SwitchCamera } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { createChecklistAction, parseDocumentAction } from '@/lib/actions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import type { ChecklistTemplate } from '@/types';
 
 
 const itemSchema = z.object({
@@ -35,15 +39,30 @@ type FormData = z.infer<typeof formSchema>;
 type ChecklistDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  template?: ChecklistTemplate;
 };
 
-export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
+export function ChecklistDialog({ open, onOpenChange, template }: ChecklistDialogProps) {
   const { addChecklist, showNotification } = useAppContext();
   
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
+  const [activeTab, setActiveTab] = useState('text');
   const [userQuery, setUserQuery] = useState('');
+
+  // Voice state
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Camera state
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Refs
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormData>({
@@ -58,35 +77,67 @@ export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
     control: form.control,
     name: 'items'
   });
+  
+  const resetToInputView = () => {
+    setView('input');
+    setUserQuery('');
+    setImageUri(null);
+    if (isRecording) {
+        recognitionRef.current?.stop();
+    }
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+    }
+  }
 
   useEffect(() => {
     if (open) {
-      setView('input');
-      setUserQuery('');
-      form.reset({
-        title: '',
-        items: []
-      });
+      if (template) {
+        form.reset({
+          title: template.title,
+          items: template.items.map(item => ({
+            ...item,
+            predictedCost: item.predictedCost || 0,
+            id: nanoid(),
+            isCompleted: false,
+          })),
+        });
+        setView('review');
+      } else {
+        resetToInputView();
+        setActiveTab('text');
+        form.reset({ title: '', items: [] });
+      }
+    } else {
+      // Cleanup when dialog closes
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     }
-  }, [open, form]);
+  }, [open, template, form]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
+        recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = true;
         recognitionRef.current.onresult = (event: any) => {
           let finalTranscript = '';
           for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
           }
-          setUserQuery(prev => prev + finalTranscript);
+          if (finalTranscript) {
+              setUserQuery(finalTranscript);
+              handleGenerateChecklist(finalTranscript);
+          }
         };
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
-            if (event.error === 'not-allowed') showNotification({ type: 'error', title: 'Microphone Access Denied', description: "Please allow microphone access in your browser's site settings."});
+            if (event.error === 'not-allowed') showNotification({ type: 'error', title: 'Microphone Access Denied'});
             else showNotification({ type: 'error', title: 'Speech Recognition Error', description: event.error });
             setIsRecording(false);
         };
@@ -94,6 +145,57 @@ export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
       }
     }
   }, [showNotification]);
+  
+  useEffect(() => {
+    if (activeTab !== 'camera' || view !== 'input') {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        return;
+    }
+
+    const startCamera = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+        setVideoDevices(cameras);
+
+        if (cameras.length === 0) {
+          setHasCameraPermission(false);
+          return;
+        }
+
+        const backCam = cameras.find(d => d.label.toLowerCase().includes('back'));
+        const deviceId = selectedDeviceId || backCam?.deviceId || cameras[0].deviceId;
+        
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
+        streamRef.current = stream;
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+        }
+        setSelectedDeviceId(deviceId);
+        setHasCameraPermission(true);
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [activeTab, view, selectedDeviceId]);
+
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
@@ -104,38 +206,45 @@ export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
     else {
       setUserQuery('');
       recognitionRef.current.start();
+      setIsRecording(true);
     }
-    setIsRecording(!isRecording);
   };
   
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setView('loading');
     const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async (e) => {
-        const photoDataUri = e.target?.result as string;
-        const result = await parseDocumentAction({ photoDataUri });
-        if ('error' in result) {
-            showNotification({ type: 'error', title: 'OCR Failed', description: result.error });
-            setView('input');
-        } else {
-            setUserQuery(result.text);
-            setView('input');
-        }
+    reader.onload = (e) => {
+        const dataUri = e.target?.result as string;
+        handleAnalyze(dataUri);
     };
+    reader.readAsDataURL(file);
+  };
+  
+  const handleAnalyze = async (dataUri?: string) => {
+    const finalImageUri = dataUri || imageUri;
+    if (!finalImageUri) return;
+
+    setView('loading');
+    const result = await parseDocumentAction({ photoDataUri: finalImageUri });
+    if ('error' in result) {
+        showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
+        resetToInputView();
+    } else {
+        handleGenerateChecklist(result.text);
+    }
   };
 
-  const handleGenerateChecklist = async () => {
-    if (!userQuery) return;
+  const handleGenerateChecklist = async (query: string) => {
+    if (!query) return;
     setView('loading');
-    const result = await createChecklistAction({ userQuery });
+    setUserQuery(query);
+    const result = await createChecklistAction({ userQuery: query });
     
     if ('error' in result) {
         showNotification({ type: 'error', title: 'AI Error', description: result.error });
-        setView('input');
+        resetToInputView();
     } else {
         form.reset({
           title: result.title,
@@ -149,36 +258,24 @@ export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
     await addChecklist(values);
     onOpenChange(false);
   }
+  
+  const handleSwitchCamera = () => {
+    if (videoDevices.length < 2) return;
+    const currentIndex = videoDevices.findIndex(d => d.deviceId === selectedDeviceId);
+    const nextIndex = (currentIndex + 1) % videoDevices.length;
+    setSelectedDeviceId(videoDevices[nextIndex].deviceId);
+};
 
-  const renderInputView = () => (
-    <>
-      <DialogDescription>
-          Describe your checklist. You can type, use your voice, or scan a document. The AI will structure it for you.
-      </DialogDescription>
-      <div className="space-y-4 pt-4">
-          <div className="grid w-full gap-2">
-              <Textarea placeholder="e.g., Shopping list with milk, bread for $5, and eggs." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={5} />
-              <div className="flex gap-2">
-                  <Button onClick={handleToggleRecording} variant={isRecording ? 'destructive' : 'outline'} className="flex-1">
-                      {isRecording ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                      {isRecording ? 'Stop' : 'Record'}
-                  </Button>
-                  <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="flex-1">
-                      <FileScan className="mr-2 h-4 w-4" />
-                      Scan
-                  </Button>
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-              </div>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button onClick={() => setView('review')} variant="secondary" className="w-full sm:w-auto">Create Manually</Button>
-              <Button onClick={handleGenerateChecklist} disabled={!userQuery} className="w-full sm:w-auto">
-                  <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
-              </Button>
-          </DialogFooter>
-      </div>
-    </>
-  );
+const handleCapture = () => {
+    if (videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d')?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        setImageUri(canvas.toDataURL('image/jpeg'));
+    }
+};
 
   const renderLoadingView = () => (
     <div className="flex flex-col items-center justify-center space-y-4 h-64">
@@ -187,11 +284,14 @@ export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
     </div>
   );
   
-  const renderReviewView = () => (
+  const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
         <DialogDescription>
-            Review the details below. Add, edit, or remove items as needed before creating the checklist.
+            {isReviewMode
+                ? "The AI has generated the following checklist. Review and make any changes."
+                : "Manually add a title and items to create your checklist."
+            }
         </DialogDescription>
         <FormField
           control={form.control}
@@ -244,7 +344,7 @@ export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
           </Button>
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button type="button" variant="ghost" onClick={() => setView('input')}>Back to AI</Button>
+          {isReviewMode && !template && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
           <Button type="submit" disabled={form.formState.isSubmitting}>
             Create Checklist
           </Button>
@@ -253,15 +353,90 @@ export function ChecklistDialog({ open, onOpenChange }: ChecklistDialogProps) {
     </Form>
   );
 
+  const renderContent = () => {
+    if (view === 'loading') return renderLoadingView();
+    if (view === 'review') return renderReviewForm({ isReviewMode: true });
+
+    return (
+        <Tabs defaultValue="text" value={activeTab} className="w-full pt-4" onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-5 h-auto">
+                <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> Text</TabsTrigger>
+                <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> Voice</TabsTrigger>
+                <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> Camera</TabsTrigger>
+                <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
+                <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="text" className="pt-4 space-y-4">
+                <DialogDescription>Describe your checklist. The AI will structure it into an itemized list.</DialogDescription>
+                <Textarea placeholder="e.g., Shopping list for milk, bread for $5, and eggs" value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+                <DialogFooter>
+                    <Button onClick={() => handleGenerateChecklist(userQuery)} disabled={!userQuery}>
+                        <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
+                    </Button>
+                </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center">
+                <DialogDescription>Start speaking and the AI will transcribe and create your checklist.</DialogDescription>
+                <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full my-4", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
+                    {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+                </Button>
+                <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
+            </TabsContent>
+
+            <TabsContent value="camera" className="pt-4 space-y-4">
+                <DialogDescription>Position a document in the frame and capture an image to scan it.</DialogDescription>
+                <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
+                    <canvas ref={canvasRef} className="hidden" />
+                    {imageUri ? (
+                        <Image src={imageUri} alt="Document preview" fill objectFit="contain" />
+                    ) : (
+                        <>
+                            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                            {hasCameraPermission === false && <p className="absolute text-destructive-foreground bg-destructive/80 p-2 rounded-md">Camera Access Denied</p>}
+                        </>
+                    )}
+                    {videoDevices.length > 1 && !imageUri && (
+                        <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50">
+                            <SwitchCamera className="h-5 w-5" />
+                        </Button>
+                    )}
+                </div>
+                {imageUri ? (
+                    <div className="grid grid-cols-2 gap-4">
+                        <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
+                        <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
+                    </div>
+                ) : (
+                    <Button onClick={handleCapture} disabled={hasCameraPermission !== true} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture Photo</Button>
+                )}
+            </TabsContent>
+
+            <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center space-y-4">
+                <DialogDescription>Upload an image of a document, like a shopping list.</DialogDescription>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
+                    <Upload className="mr-2 h-4 w-4" /> Choose File
+                </Button>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+            </TabsContent>
+
+            <TabsContent value="manual" className="pt-0">
+               {renderReviewForm({ isReviewMode: false })}
+            </TabsContent>
+        </Tabs>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New Financial Checklist</DialogTitle>
         </DialogHeader>
-        {view === 'input' && renderInputView()}
-        {view === 'loading' && renderLoadingView()}
-        {view === 'review' && renderReviewView()}
+        <div className="py-4">
+          {renderContent()}
+        </div>
       </DialogContent>
     </Dialog>
   );
