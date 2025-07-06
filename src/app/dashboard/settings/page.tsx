@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Loader2, Trash2, Sparkles, Star } from 'lucide-react';
+import { Loader2, Trash2, Sparkles, Star, Mail } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { countries } from '@/data/countries';
+import { GmailConnect } from '@/components/dashboard/settings/gmail-connect';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
@@ -249,6 +250,25 @@ export default function SettingsPage() {
             </Card>
             
             {SubscriptionCard}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Integrations</CardTitle>
+                    <CardDescription>Connect other services to automate your financial tracking.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                            <Mail className="h-6 w-6 text-muted-foreground" />
+                            <div>
+                                <h3 className="font-semibold">Gmail</h3>
+                                <p className="text-sm text-muted-foreground">Automatically import bills & receipts.</p>
+                            </div>
+                        </div>
+                        <GmailConnect />
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
