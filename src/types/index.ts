@@ -5,6 +5,7 @@
 
 
 
+
 export interface BudgetItem {
   id: string;
   description: string;
@@ -72,6 +73,7 @@ export interface UserProfile {
     monthlyInsights?: { count: number; month: string };
   };
   hasCompletedOnboarding?: boolean;
+  gmailConnected?: boolean;
 }
 
 export interface PlanItem {

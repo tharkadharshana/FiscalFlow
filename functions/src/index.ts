@@ -6,6 +6,8 @@ import * as admin from "firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { Logging } from '@google-cloud/logging';
 import * as cors from 'cors';
+import { google } from 'googleapis';
+import * as cheerio from 'cheerio';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -227,3 +229,202 @@ function shouldGenerateTransaction(tx: admin.firestore.DocumentData, now: Date):
 
   return now.setHours(0, 0, 0, 0) >= nextDate.getTime();
 }
+
+// --- GMAIL INTEGRATION ---
+
+const oauth2Client = new google.auth.OAuth2(
+    functions.config().google.client_id,
+    functions.config().google.client_secret,
+    functions.config().google.redirect_uri
+);
+
+// Helper to get an authenticated Gmail service client for a user
+async function getGmailService(userId: string) {
+    const doc = await db.collection('gmail_tokens').doc(userId).get();
+    if (!doc.exists) throw new Error('No Gmail tokens found for user.');
+    
+    const data = doc.data()!;
+    oauth2Client.setCredentials({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expiry_date: data.expiry_date,
+        scope: data.scope,
+    });
+    
+    // google-auth-library will automatically use the refresh_token if the access_token is expired.
+    // We can check if it was refreshed and update our stored tokens.
+    oauth2Client.on('tokens', async (tokens) => {
+        if (tokens.refresh_token) {
+            // New refresh token, update it.
+            await db.collection('gmail_tokens').doc(userId).update({
+                refresh_token: tokens.refresh_token,
+            });
+        }
+        await db.collection('gmail_tokens').doc(userId).update({
+            access_token: tokens.access_token,
+            expiry_date: tokens.expiry_date,
+            last_updated: new Date().toISOString()
+        });
+        functions.logger.info(`Refreshed tokens for user ${userId}`);
+    });
+    
+    return google.gmail({ version: 'v1', auth: oauth2Client });
+}
+
+function getEmailBody(msgPayload: any): string {
+    let bodyContent = "";
+    if (msgPayload.body.size > 0) {
+        bodyContent = Buffer.from(msgPayload.body.data, 'base64').toString('utf-8');
+        if (msgPayload.mimeType === 'text/html') {
+            const $ = cheerio.load(bodyContent);
+            return $('body').text();
+        }
+        return bodyContent;
+    }
+
+    const parts = msgPayload.parts || [];
+    const plainTextPart = parts.find((part: any) => part.mimeType === 'text/plain');
+    if (plainTextPart) {
+        return Buffer.from(plainTextPart.body.data, 'base64').toString('utf-8');
+    }
+
+    const htmlPart = parts.find((part: any) => part.mimeType === 'text/html');
+    if (htmlPart) {
+        const htmlContent = Buffer.from(htmlPart.body.data, 'base64').toString('utf-8');
+        const $ = cheerio.load(htmlContent);
+        return $('body').text();
+    }
+    return "";
+}
+
+function extractFinancialData(emailBody: string, subject = "") {
+    const financialDetails: { amount?: number; invoice_number?: string; due_date?: string; source?: string } = {};
+    const lowerBody = emailBody.toLowerCase();
+    const lowerSubject = subject.toLowerCase();
+
+    const financialKeywords = ["invoice", "bill", "payment", "transaction", "receipt", "order confirmation", "statement", "due date", "amount due", "total amount"];
+    const isFinancialEmail = financialKeywords.some(keyword => lowerBody.includes(keyword) || lowerSubject.includes(keyword));
+    if (!isFinancialEmail) return null;
+    
+    functions.logger.info("Potential financial email detected. Attempting extraction...");
+
+    const amountPattern = /(?:total|amount|balance|due)\s*[:=\-]?\s*(?:(?:RS|INR|USD|EUR|GBP)\s*|\$|€|£|₹)?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/i;
+    const matchAmount = emailBody.match(amountPattern);
+    if (matchAmount && matchAmount[1]) {
+        financialDetails.amount = parseFloat(matchAmount[1].replace(/,/g, ''));
+    }
+
+    const invoicePattern = /(?:invoice|inv|bill|ref|po|order)[_ -]?#?\s*(\w{4,})/i;
+    const matchInvoice = emailBody.match(invoicePattern);
+    if (matchInvoice) {
+        financialDetails.invoice_number = matchInvoice[1].trim();
+    }
+    
+    return Object.keys(financialDetails).length > 0 ? financialDetails : null;
+}
+
+async function inputIntoYourSystem(emailId: string, userId: string, extractedData: any, from: string, subject: string) {
+    if (!extractedData || !extractedData.amount) return false;
+    
+    const sourceMatch = from.match(/(.*)<.*>/);
+    const source = sourceMatch ? sourceMatch[1].trim() : from;
+    
+    let category = 'Miscellaneous';
+    if(from.toLowerCase().includes('uber') || from.toLowerCase().includes('lyft')) category = 'Transport';
+    if(from.toLowerCase().includes('amazon')) category = 'Shopping';
+    if(subject.toLowerCase().includes('invoice')) category = 'Bills';
+
+    const transactionData = {
+        type: 'expense',
+        amount: extractedData.amount,
+        category: category,
+        date: Timestamp.now(),
+        source: source,
+        notes: `From email: "${subject}". ${extractedData.invoice_number ? `Ref: ${extractedData.invoice_number}` : ''}`,
+        userId: userId,
+        createdAt: Timestamp.now(),
+    };
+    
+    await db.collection('users').doc(userId).collection('transactions').add(transactionData);
+    functions.logger.info(`--- Inputted transaction from Email ID: ${emailId} for User: ${userId} ---`);
+    return true;
+}
+
+async function markEmailAsRead(service: any, messageId: string) {
+    try {
+        await service.users.messages.modify({
+            userId: 'me',
+            id: messageId,
+            requestBody: { removeLabelIds: ['UNREAD'] }
+        });
+        functions.logger.info(`Email ID: ${messageId} marked as read.`);
+    } catch (error) {
+        functions.logger.error(`Error marking email ${messageId} as read:`, error);
+    }
+}
+
+async function processUserEmails(userId: string) {
+    functions.logger.info(`Starting scheduled email processing for user: ${userId}`);
+    let gmailService;
+    try {
+        gmailService = await getGmailService(userId);
+    } catch (error) {
+        functions.logger.error(`Failed to get Gmail service for ${userId} during scheduled scan:`, error);
+        return null;
+    }
+
+    try {
+        const query = 'is:unread category:primary'; // Focus on unread primary emails
+        const res = await gmailService.users.messages.list({ userId: 'me', q: query, maxResults: 20 });
+        const messages = res.data.messages || [];
+
+        if (messages.length === 0) {
+            functions.logger.info(`No new unread emails for user ${userId}.`);
+            return null;
+        }
+        functions.logger.info(`Found ${messages.length} unread messages for user ${userId}.`);
+
+        for (const message of messages) {
+            const msg = await gmailService.users.messages.get({ userId: 'me', id: message.id, format: 'full' });
+            const headers = msg.data.payload.headers;
+            const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
+            const sender = headers.find(h => h.name === 'From')?.value || 'Unknown Sender';
+            const emailBody = getEmailBody(msg.data.payload);
+            const extractedDetails = extractFinancialData(emailBody, subject);
+            if (extractedDetails) {
+                if (await inputIntoYourSystem(message.id, userId, extractedDetails, sender, subject)) {
+                    await markEmailAsRead(gmailService, message.id);
+                }
+            }
+        }
+        functions.logger.info(`Finished scheduled email processing for user: ${userId}`);
+        return null;
+
+    } catch (error) {
+        functions.logger.error(`Error processing emails for user ${userId}:`, error);
+        return null;
+    }
+}
+
+export const scheduledGmailScan = functions.pubsub.schedule('every 60 minutes').onRun(async () => {
+    functions.logger.info('Running scheduled Gmail scan for all active users.');
+    const usersSnapshot = await db.collection('gmail_tokens').where('refresh_token', '!=', null).get();
+    const processPromises = usersSnapshot.docs.map(doc => processUserEmails(doc.id));
+    await Promise.allSettled(processPromises);
+    functions.logger.info('Scheduled Gmail scan complete.');
+    return null;
+});
+
+export const onTokenUpdateScan = functions.firestore.document('gmail_tokens/{userId}').onUpdate(async (change, context) => {
+    const userId = context.params.userId;
+    const oldData = change.before.data();
+    const newData = change.after.data();
+
+    if (oldData.refresh_token === newData.refresh_token) {
+        functions.logger.info(`No new refresh token for user ${userId}. Skipping process on update.`);
+        return null;
+    }
+    
+    await processUserEmails(userId);
+    return null;
+});
