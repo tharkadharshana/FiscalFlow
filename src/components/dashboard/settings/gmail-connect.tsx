@@ -5,19 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Icons } from '@/components/icons';
 import { useAppContext } from '@/contexts/app-context';
 import { CheckCircle } from 'lucide-react';
-import { useState } from 'react';
 
 export function GmailConnect() {
   const { userProfile } = useAppContext();
-  const [loading, setLoading] = useState(false);
-
-  const handleConnect = () => {
-    if (!userProfile?.uid) return;
-    setLoading(true);
-    // Use window.location.href for a full browser navigation.
-    // This correctly handles the server-side redirect to Google's OAuth page.
-    window.location.href = `/api/auth/google?userId=${userProfile.uid}`;
-  };
 
   if (userProfile?.gmailConnected) {
     return (
@@ -28,10 +18,14 @@ export function GmailConnect() {
     );
   }
 
+  // Use a standard anchor tag styled as a button to ensure a full-page redirect,
+  // bypassing the Next.js client-side router which can cause issues with external OAuth flows.
   return (
-    <Button onClick={handleConnect} disabled={loading}>
-      {loading ? 'Connecting...' : <Icons.google className="mr-2 h-4 w-4" />}
-      {loading ? 'Redirecting...' : 'Connect Gmail Account'}
+    <Button asChild disabled={!userProfile?.uid}>
+      <a href={userProfile?.uid ? `/api/auth/google?userId=${userProfile.uid}` : '#'}>
+        <Icons.google className="mr-2 h-4 w-4" />
+        Connect Gmail Account
+      </a>
     </Button>
   );
 }
