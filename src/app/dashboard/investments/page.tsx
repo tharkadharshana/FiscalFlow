@@ -59,7 +59,7 @@ export default function InvestmentsPage() {
 
       if (cryptoIds.length > 0) {
         setIsLoadingPrices(true);
-        const result = await getCoinGeckoMarketData({ coinIds });
+        const result = await getCoinGeckoMarketData({ coinIds: cryptoIds });
         if ('error' in result) {
             logger.error('Failed to fetch live crypto prices', new Error(result.error));
             showNotification({ type: 'error', title: 'Could not fetch live prices', description: result.error });
