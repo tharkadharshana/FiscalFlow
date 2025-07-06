@@ -11,6 +11,21 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Check for missing config values and provide a better error message.
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  if (process.env.NODE_ENV !== 'production') {
+      console.error(`
+  ********************************************************************************
+  * FIREBASE CONFIGURATION ERROR                                                 *
+  *------------------------------------------------------------------------------*
+  * Your Firebase environment variables are missing or incomplete.               *
+  * Please check your .env.local file and ensure all NEXT_PUBLIC_FIREBASE_*      *
+  * variables are set correctly.                                                 *
+  ********************************************************************************
+  `);
+  }
+}
+
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);

@@ -1,7 +1,7 @@
 // /app/api/auth/google/callback/route.ts
 import { google } from 'googleapis';
 import { type NextRequest, NextResponse } from 'next/server';
-import { db, authAdmin } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -14,11 +14,18 @@ export async function GET(request: NextRequest) {
         return new Response('Authorization code or state missing.', { status: 400 });
     }
 
-    const oauth2Client = new google.auth.OAuth2(
-        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
-    );
+    const {
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: clientId,
+        GOOGLE_CLIENT_SECRET: clientSecret,
+        NEXT_PUBLIC_GOOGLE_REDIRECT_URI: redirectUri
+    } = process.env;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+        console.error("Missing Google OAuth environment variables.");
+        return new Response('Server configuration error.', { status: 500 });
+    }
+
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
     try {
         const { tokens } = await oauth2Client.getToken(code);

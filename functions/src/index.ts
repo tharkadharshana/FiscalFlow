@@ -297,8 +297,8 @@ function getEmailBody(msgPayload: any): string {
     return "";
 }
 
-function extractFinancialData(emailBody: string, subject = "") {
-    const financialDetails: { amount?: number; invoice_number?: string; due_date?: string; source?: string } = {};
+function extractFinancialData(emailBody: string, subject = ""): { amount?: number; invoice_number?: string; due_date?: string; } | null {
+    const financialDetails: { amount?: number; invoice_number?: string; due_date?: string; } = {};
     const lowerBody = emailBody.toLowerCase();
     const lowerSubject = subject.toLowerCase();
 
@@ -323,16 +323,16 @@ function extractFinancialData(emailBody: string, subject = "") {
     return Object.keys(financialDetails).length > 0 ? financialDetails : null;
 }
 
-async function inputIntoYourSystem(emailId: string, userId: string, extractedData: any, from: string, subject: string) {
+async function inputIntoYourSystem(emailId: string, userId: string, extractedData: any, from: string, subject: string): Promise<boolean> {
     if (!extractedData || !extractedData.amount) return false;
     
     const sourceMatch = from.match(/(.*)<.*>/);
     const source = sourceMatch ? sourceMatch[1].trim() : from;
     
-    let category = 'Miscellaneous';
+    let category = 'Miscellaneous'; // A default category
     if(from.toLowerCase().includes('uber') || from.toLowerCase().includes('lyft')) category = 'Transport';
     if(from.toLowerCase().includes('amazon')) category = 'Shopping';
-    if(subject.toLowerCase().includes('invoice')) category = 'Bills';
+    if(subject.toLowerCase().includes('invoice')) category = 'Utilities';
 
     const transactionData = {
         type: 'expense',
@@ -343,6 +343,7 @@ async function inputIntoYourSystem(emailId: string, userId: string, extractedDat
         notes: `From email: "${subject}". ${extractedData.invoice_number ? `Ref: ${extractedData.invoice_number}` : ''}`,
         userId: userId,
         createdAt: Timestamp.now(),
+        ocrParsed: true,
     };
     
     await db.collection('users').doc(userId).collection('transactions').add(transactionData);
@@ -385,10 +386,13 @@ async function processUserEmails(userId: string) {
         functions.logger.info(`Found ${messages.length} unread messages for user ${userId}.`);
 
         for (const message of messages) {
+            if (!message.id) continue;
             const msg = await gmailService.users.messages.get({ userId: 'me', id: message.id, format: 'full' });
-            const headers = msg.data.payload.headers;
-            const subject = headers.find(h => h.name === 'Subject')?.value || 'No Subject';
-            const sender = headers.find(h => h.name === 'From')?.value || 'Unknown Sender';
+            if (!msg.data.payload) continue;
+
+            const headers = msg.data.payload.headers || [];
+            const subject = headers.find((h: any) => h.name === 'Subject')?.value || 'No Subject';
+            const sender = headers.find((h: any) => h.name === 'From')?.value || 'Unknown Sender';
             const emailBody = getEmailBody(msg.data.payload);
             const extractedDetails = extractFinancialData(emailBody, subject);
             if (extractedDetails) {
@@ -415,16 +419,19 @@ export const scheduledGmailScan = functions.pubsub.schedule('every 60 minutes').
     return null;
 });
 
-export const onTokenUpdateScan = functions.firestore.document('gmail_tokens/{userId}').onUpdate(async (change, context) => {
+export const onTokenUpdateScan = functions.firestore.document('gmail_tokens/{userId}').onWrite(async (change, context) => {
     const userId = context.params.userId;
-    const oldData = change.before.data();
-    const newData = change.after.data();
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
 
-    if (oldData.refresh_token === newData.refresh_token) {
-        functions.logger.info(`No new refresh token for user ${userId}. Skipping process on update.`);
-        return null;
+    // If there is no afterData, the token document was deleted, so do nothing.
+    if (!afterData) return null;
+
+    // Trigger on initial creation or if the refresh_token changes.
+    if (!beforeData || beforeData.refresh_token !== afterData.refresh_token) {
+        functions.logger.info(`New or updated refresh token for user ${userId}. Triggering initial email scan.`);
+        await processUserEmails(userId);
     }
     
-    await processUserEmails(userId);
     return null;
 });

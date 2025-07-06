@@ -10,11 +10,18 @@ export async function GET(request: NextRequest) {
     return new Response('User ID is required to link Gmail.', { status: 400 });
   }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI
-  );
+  const { 
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: clientId, 
+    GOOGLE_CLIENT_SECRET: clientSecret, 
+    NEXT_PUBLIC_GOOGLE_REDIRECT_URI: redirectUri 
+  } = process.env;
+
+  if (!clientId || !clientSecret || !redirectUri) {
+    console.error("Missing Google OAuth environment variables.");
+    return new Response('Server configuration error. Please check environment variables.', { status: 500 });
+  }
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
   const scopes = [
     'https://www.googleapis.com/auth/gmail.readonly',
