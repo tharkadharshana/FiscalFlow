@@ -30,7 +30,7 @@ export const logMessage = functions.https.onRequest((req, res) => {
         // The cors middleware handles preflight (OPTIONS) requests automatically.
         // We only need to handle the actual POST request logic.
         if (req.method === 'POST') {
-            const { level, message, details } = req.body.data || req.body;
+            const { level, message, details } = req.body;
             const uid = details?.userId; 
 
             if (!level || !message) {

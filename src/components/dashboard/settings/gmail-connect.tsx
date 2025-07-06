@@ -29,6 +29,8 @@ export function GmailConnect() {
     );
   }
 
+  // Using a button with a direct window.location.href call is the most robust way
+  // to ensure a full page navigation for an external OAuth flow.
   return (
     <Button onClick={handleConnect} disabled={!userProfile?.uid}>
       <Icons.google className="mr-2 h-4 w-4" />

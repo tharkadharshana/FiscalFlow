@@ -44,10 +44,8 @@ const sendLog = (level: 'info' | 'warn' | 'error', message: string, details: Log
   fetch(finalUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // The body needs to be structured as { data: { ... } } to match callable function format
-      body: JSON.stringify({
-          data: { level, message, details: detailsWithUser }
-      }),
+      // Sending a plain JSON body, not nested under a `data` key.
+      body: JSON.stringify({ level, message, details: detailsWithUser }),
   }).catch((error) => {
       // We console.error here to avoid an infinite loop if the logging function itself fails.
       console.error('Failed to send log to server:', error);
