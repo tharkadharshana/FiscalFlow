@@ -398,7 +398,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 </DialogFooter>
             </TabsContent>
 
-            <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center min-h-[250px]">
+            <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center py-10">
                 <DialogDescription>Start speaking and the AI will transcribe and create your plan.</DialogDescription>
                 <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
                     {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
@@ -411,7 +411,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
                     <canvas ref={canvasRef} className="hidden" />
                     {imageUri ? (
-                        <Image src={imageUri} alt="Plan document preview" layout="fill" objectFit="contain" />
+                        <Image src={imageUri} alt="Plan document preview" fill objectFit="contain" />
                     ) : (
                         <>
                             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
@@ -434,7 +434,7 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
                 )}
             </TabsContent>
 
-            <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center min-h-[250px] space-y-4">
+            <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center py-10 space-y-4">
                 <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
                 <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
                     <Upload className="mr-2 h-4 w-4" />
