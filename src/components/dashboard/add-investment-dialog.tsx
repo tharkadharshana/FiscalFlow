@@ -52,6 +52,7 @@ const formSchema = z.object({
   currentPrice: z.coerce.number().min(0, "Current price can't be negative."),
   purchaseDate: z.date(),
   coinGeckoId: z.string().optional(),
+  totalCost: z.coerce.number().optional(),
 });
 
 type AddInvestmentDialogProps = {
@@ -67,7 +68,6 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
 
   const [entryMode, setEntryMode] = useState<'quantity' | 'totalAmount'>('quantity');
-  const [totalCost, setTotalCost] = useState<string>('');
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -80,6 +80,7 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
       currentPrice: 0,
       purchaseDate: new Date(),
       coinGeckoId: undefined,
+      totalCost: 0,
     },
   });
   
@@ -87,6 +88,7 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
   const coinGeckoId = form.watch('coinGeckoId');
   const quantity = form.watch('quantity');
   const purchasePrice = form.watch('purchasePrice');
+  const totalCost = form.watch('totalCost');
 
   // --- Effects ---
   useEffect(() => {
@@ -119,10 +121,17 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
 
   // Sync quantity and total cost fields
   useEffect(() => {
-    if (entryMode === 'quantity' && quantity > 0 && purchasePrice > 0) {
-        setTotalCost((quantity * purchasePrice).toFixed(4));
+    if (entryMode === 'quantity' && quantity >= 0 && purchasePrice > 0) {
+        form.setValue('totalCost', quantity * purchasePrice, { shouldValidate: true });
     }
-  }, [quantity, purchasePrice, entryMode]);
+  }, [quantity, purchasePrice, entryMode, form]);
+
+  useEffect(() => {
+    if (entryMode === 'totalAmount' && totalCost && totalCost >= 0 && purchasePrice > 0) {
+        form.setValue('quantity', totalCost / purchasePrice, { shouldValidate: true });
+    }
+  }, [totalCost, purchasePrice, entryMode, form]);
+
 
   // Reset form state on open/close or when switching between edit/new
   useEffect(() => {
@@ -131,15 +140,15 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
             form.reset({
                 ...investmentToEdit,
                 purchaseDate: parseISO(investmentToEdit.purchaseDate),
+                totalCost: (investmentToEdit.quantity * investmentToEdit.purchasePrice),
             });
-            setTotalCost((investmentToEdit.quantity * investmentToEdit.purchasePrice).toFixed(4));
         } else {
             form.reset({
                 name: '', symbol: '', assetType: 'Stock', quantity: 0,
                 purchasePrice: 0, currentPrice: 0, purchaseDate: new Date(),
                 coinGeckoId: undefined,
+                totalCost: 0,
             });
-            setTotalCost('');
             setEntryMode('quantity');
         }
     }
@@ -148,28 +157,19 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
 
   // --- Handlers ---
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const dataToSave = {
-        ...values,
+    const { totalCost, ...dataToSave} = values; // Exclude totalCost from final object
+    const finalData = {
+        ...dataToSave,
         purchaseDate: values.purchaseDate.toISOString(),
     }
     if (investmentToEdit) {
-      await updateInvestment(investmentToEdit.id, dataToSave);
+      await updateInvestment(investmentToEdit.id, finalData);
     } else {
-      await addInvestment(dataToSave);
+      await addInvestment(finalData);
     }
     onOpenChange(false);
   }
   
-  const handleTotalCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTotalCost = e.target.value;
-    setTotalCost(newTotalCost);
-    const total = parseFloat(newTotalCost);
-    if (total >= 0 && purchasePrice > 0) {
-        form.setValue('quantity', total / purchasePrice, { shouldValidate: true });
-    }
-  };
-
-
   // --- Render ---
   const CryptoSelector = (
     <FormField
@@ -198,8 +198,11 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                       <CommandItem
                         value={coin.name}
                         key={coin.id}
-                        onSelect={() => {
-                          form.setValue('coinGeckoId', coin.id);
+                        onSelect={(currentValue) => {
+                          const selectedCoin = cryptoList.find(c => c.name.toLowerCase() === currentValue.toLowerCase());
+                          if (selectedCoin) {
+                            form.setValue('coinGeckoId', selectedCoin.id);
+                          }
                           setIsComboboxOpen(false);
                         }}
                         className="flex items-center gap-2"
@@ -258,21 +261,30 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
             
             <div className="space-y-2">
               <Label>Enter by</Label>
-              <RadioGroup defaultValue="quantity" onValueChange={(v) => setEntryMode(v as any)} className="flex gap-4">
+              <RadioGroup value={entryMode} onValueChange={(v) => setEntryMode(v as any)} className="flex gap-4">
                 <div className="flex items-center space-x-2"><RadioGroupItem value="quantity" id="r-quantity" /><Label htmlFor="r-quantity">Quantity</Label></div>
                 <div className="flex items-center space-x-2"><RadioGroupItem value="totalAmount" id="r-total" /><Label htmlFor="r-total">Total Cost</Label></div>
               </RadioGroup>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="quantity" render={({ field }) => (
-                <FormItem><FormLabel>Quantity</FormLabel><FormControl>
-                    <Input type="number" placeholder="10" {...field} step="any" readOnly={entryMode === 'totalAmount'}/>
-                </FormControl><FormMessage /></FormItem>
-              )} />
-              <FormItem><FormLabel>Total Cost ({userProfile?.currencyPreference})</FormLabel><FormControl>
-                <Input type="number" placeholder="1000.00" value={totalCost} onChange={handleTotalCostChange} readOnly={entryMode === 'quantity'} />
-              </FormControl></FormItem>
+            <div className="grid grid-cols-1">
+                {entryMode === 'quantity' ? (
+                    <FormField control={form.control} name="quantity" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Quantity</FormLabel>
+                            <FormControl><Input type="number" placeholder="10" {...field} step="any" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                ) : (
+                    <FormField control={form.control} name="totalCost" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Total Cost ({userProfile?.currencyPreference})</FormLabel>
+                            <FormControl><Input type="number" placeholder="1000.00" {...field} step="any" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                )}
             </div>
             
             <div className="grid grid-cols-2 gap-4">
