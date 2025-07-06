@@ -1,4 +1,3 @@
-
 # FiscalFlow - Comprehensive QA Test Plan
 
 ## 1. Introduction
@@ -38,8 +37,7 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-DASH-003 | Top Categories | Verify the top spending categories are displayed correctly. | 1. Add expenses across multiple categories, with some categories having higher totals. | The "Top Spending Categories" card shows the top 3 expense categories, ordered by total amount, with correct progress bars. | |
 | FF-DASH-004 | Recent Transactions | Verify the recent transactions list is accurate. | 1. Add 5+ transactions. | The "Recent Transactions" card shows the latest 5 transactions in reverse chronological order. | |
 | FF-DASH-005 | Portfolio Overview | Verify the investment portfolio overview is correct. | 1. Add multiple investments of different types. | The chart displays the allocation by asset type. The total value is calculated correctly. | |
-| FF-DASH-006 | Carbon Footprint | Verify the carbon footprint card shows the correct monthly total. | 1. Add several expenses in categories with carbon factors (e.g., Transport, Food). | The card shows the sum of `amount * carbon_factor` for all expenses in the current month. | |
-| FF-DASH-007 | Smart Insights | Verify AI insights are generated based on transaction data. | 1. Add at least 3-5 transactions. 2. Wait for the "Smart Insights" card to load. | The card displays 2-3 relevant, actionable financial tips based on the logged transactions. | |
+| FF-DASH-006 | Smart Insights | Verify AI insights are generated based on transaction data. | 1. Add at least 3-5 transactions. 2. Wait for the "Smart Insights" card to load. | The card displays 2-3 relevant, actionable financial tips based on the logged transactions. | |
 
 ### 2.3. Transaction Management
 
@@ -55,7 +53,7 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 ### 2.4. Savings Goals & Gamification
 
 | Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
-| :--- | :--- | :--- | :--- | :--- |
+| :--- | :--- | :--- | :--- | :--- | :--- |
 | FF-SAVE-001 | Create Goal | Verify a new savings goal can be created. | 1. Navigate to the "Savings Goals" page. 2. Click "New Goal". 3. Fill in the title, target amount, and an optional deadline. 4. Submit. | The new goal appears on the page as a card with a progress bar at 0%. | |
 | FF-SAVE-002 | Round-up Savings | Verify the micro-savings feature works correctly. | 1. Create a savings goal and mark it as the "Micro-Savings Goal". 2. Add a new expense with a decimal value (e.g., $15.75). | The transaction is recorded for $15.75. The `currentAmount` of the designated savings goal increases by $0.25. | |
 | FF-SAVE-003 | Badge Achievement | Verify badges are awarded for milestones. | 1. Create a savings goal with a target of $100. 2. Manually edit the goal's `currentAmount` in Firestore (or add transactions) to cross the $25, $50, $75, and $100 marks. | The goal card displays new badges ('25% Mark', '50% Mark', etc.) as each milestone is reached. A notification appears for each achievement. | |

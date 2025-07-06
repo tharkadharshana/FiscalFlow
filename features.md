@@ -1,4 +1,3 @@
-
 # FiscalFlow: Your Intelligent Financial Co-pilot
 
 Welcome to FiscalFlow, the all-in-one personal finance application designed to bring clarity, intelligence, and simplicity to your financial life. Harnessing the power of AI, FiscalFlow goes beyond simple tracking to become your proactive partner in achieving your financial goals.

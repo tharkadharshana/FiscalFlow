@@ -1,4 +1,3 @@
-
 # FiscalFlow: Technical Documentation
 
 This document provides a comprehensive technical overview of the FiscalFlow application, covering its architecture, data models, AI integration, and key component logic.
@@ -11,7 +10,7 @@ FiscalFlow is a modern web application built with a focus on performance, type s
 
 *   **Framework:** [Next.js](https://nextjs.org/) 15 (using the App Router)
 *   **Language:** [TypeScript](https://www.typescriptlang.org/)
-*   **UI Library:** [React](https://react.dev/) 18
+*   **UI Library:** [React](https://react.dev/) 19
 *   **Styling:** [Tailwind CSS](https://tailwindcss.com/) with [ShadCN/UI](https://ui.shadcn.com/) for pre-built, accessible components.
 *   **Backend & Database:** [Firebase](https://firebase.google.com/) (Authentication, Firestore, Cloud Functions)
 *   **AI/Generative Features:** [Firebase Genkit](https://firebase.google.com/docs/genkit) (v1.x) with the Google AI provider (Gemini models).
@@ -73,7 +72,7 @@ This is the heart of the application's client-side state management. It provides
 
 ### 3.2. Firebase Firestore Schema
 
-All user data is stored in Firestore, organized under a top-level `users` collection.
+All user data is stored in Firestore, organized under a top-level `users` collection. Security rules (`firestore.rules`) ensure that users can only access their own data.
 
 *   `/users/{userId}`: Stores `UserProfile` data.
     *   `/transactions/{transactionId}`: Individual income/expense records.
@@ -81,6 +80,11 @@ All user data is stored in Firestore, organized under a top-level `users` collec
     *   `/financialPlans/{planId}`: AI-generated plans for large goals.
     *   `/recurringTransactions/{recurringId}`: Templates for scheduled transactions.
     *   `/savingsGoals/{goalId}`: User-defined savings goals with progress.
+    *   `/investments/{investmentId}`: User's investment holdings.
+    *   `/checklists/{checklistId}`: User's checklists for planned spending.
+    *   `/checklistTemplates/{templateId}`: Reusable checklist templates.
+    *   `/notifications/{notificationId}`: History of user notifications.
+
 
 ### 3.3. Firebase Cloud Functions (`functions/src/index.ts`)
 
