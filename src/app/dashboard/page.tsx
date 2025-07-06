@@ -12,6 +12,7 @@ import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
 import { useAppContext } from '@/contexts/app-context';
 import { useState, useEffect } from 'react';
 import { OnboardingDialog } from '@/components/dashboard/onboarding-dialog';
+import { CarbonFootprintCard } from '@/components/dashboard/carbon-footprint-card';
 
 export default function DashboardPage() {
   const { userProfile } = useAppContext();
@@ -37,6 +38,7 @@ export default function DashboardPage() {
              <RecentTransactions />
              <div className="space-y-6">
                 <PortfolioOverview />
+                <CarbonFootprintCard />
                 <SmartInsights />
              </div>
           </div>
