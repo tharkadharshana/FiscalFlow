@@ -61,7 +61,7 @@ type AddInvestmentDialogProps = {
 };
 
 export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: AddInvestmentDialogProps) {
-  const { addInvestment, updateInvestment, showNotification, formatCurrency } = useAppContext();
+  const { addInvestment, updateInvestment, showNotification, formatCurrency, userProfile } = useAppContext();
   const [isCryptoListLoading, setIsCryptoListLoading] = useState(false);
   const [cryptoList, setCryptoList] = useState<CoinGeckoMarketData[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
