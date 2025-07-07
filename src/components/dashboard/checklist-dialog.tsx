@@ -322,8 +322,7 @@ const handleCapture = () => {
         />
         <div>
           <Label>Items</Label>
-          <ScrollArea className="max-h-60 w-full pr-4 mt-2">
-            <div className="space-y-3">
+          <div className="space-y-3 mt-2">
               {fields.map((field, index) => (
                 <div key={field.id} className="flex items-end gap-2">
                   <FormField
@@ -352,7 +351,6 @@ const handleCapture = () => {
                 </div>
               ))}
             </div>
-          </ScrollArea>
           <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => append({ id: nanoid(), description: '', predictedCost: 0, isCompleted: false })}>
             <Plus className="mr-2 h-4 w-4" /> Add Item
           </Button>
@@ -451,13 +449,15 @@ const handleCapture = () => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg p-0 flex flex-col max-h-[90vh]">
+        <DialogHeader className="p-6 pb-4">
           <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
-        <div className="py-4">
-          {renderContent()}
-        </div>
+        <ScrollArea className="flex-1">
+            <div className="px-6 pb-6">
+                {renderContent()}
+            </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

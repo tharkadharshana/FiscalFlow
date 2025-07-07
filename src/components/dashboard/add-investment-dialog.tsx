@@ -42,6 +42,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import Image from 'next/image';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
+import { ScrollArea } from '../ui/scroll-area';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Asset name is required.'),
@@ -236,91 +237,95 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg p-0 flex flex-col max-h-[90vh]">
+        <DialogHeader className="p-6 pb-4">
           <DialogTitle>{investmentToEdit ? 'Edit' : 'Add'} Investment</DialogTitle>
           <DialogDescription>
             Manually add an asset to your portfolio. For crypto, prices update live.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-6 pl-1">
-            
-            <FormField control={form.control} name="assetType" render={({ field }) => (
-                <FormItem><FormLabel>Asset Type</FormLabel>
-                    <Select onValueChange={(value) => { field.onChange(value); form.reset({ ...form.getValues(), name: '', symbol: '', coinGeckoId: undefined }); }} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select asset type" /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="Stock">Stock</SelectItem><SelectItem value="ETF">ETF</SelectItem><SelectItem value="Crypto">Crypto</SelectItem><SelectItem value="Mutual Fund">Mutual Fund</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
-                    </Select><FormMessage />
-                </FormItem>
-            )} />
-
-            <div className="grid grid-cols-2 gap-4">
-                {assetType === 'Crypto' ? CryptoSelector : StockSelector}
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Enter by</Label>
-              <RadioGroup value={entryMode} onValueChange={(v) => setEntryMode(v as any)} className="flex gap-4">
-                <div className="flex items-center space-x-2"><RadioGroupItem value="quantity" id="r-quantity" /><Label htmlFor="r-quantity">Quantity</Label></div>
-                <div className="flex items-center space-x-2"><RadioGroupItem value="totalAmount" id="r-total" /><Label htmlFor="r-total">Total Cost</Label></div>
-              </RadioGroup>
-            </div>
-
-            <div className="grid grid-cols-1">
-                {entryMode === 'quantity' ? (
-                    <FormField control={form.control} name="quantity" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Quantity</FormLabel>
-                            <FormControl><Input type="number" placeholder="10" {...field} step="any" /></FormControl>
-                            <FormMessage />
+        <ScrollArea className="flex-1">
+            <div className="px-6 pb-6">
+                <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    
+                    <FormField control={form.control} name="assetType" render={({ field }) => (
+                        <FormItem><FormLabel>Asset Type</FormLabel>
+                            <Select onValueChange={(value) => { field.onChange(value); form.reset({ ...form.getValues(), name: '', symbol: '', coinGeckoId: undefined }); }} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select asset type" /></SelectTrigger></FormControl>
+                                <SelectContent><SelectItem value="Stock">Stock</SelectItem><SelectItem value="ETF">ETF</SelectItem><SelectItem value="Crypto">Crypto</SelectItem><SelectItem value="Mutual Fund">Mutual Fund</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                            </Select><FormMessage />
                         </FormItem>
                     )} />
-                ) : (
-                    <FormField control={form.control} name="totalCost" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Total Cost ({userProfile?.currencyPreference})</FormLabel>
-                            <FormControl><Input type="number" placeholder="1000.00" {...field} step="any" /></FormControl>
-                            <FormMessage />
+
+                    <div className="grid grid-cols-2 gap-4">
+                        {assetType === 'Crypto' ? CryptoSelector : StockSelector}
+                    </div>
+                    
+                    <div className="space-y-2">
+                    <Label>Enter by</Label>
+                    <RadioGroup value={entryMode} onValueChange={(v) => setEntryMode(v as any)} className="flex gap-4">
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="quantity" id="r-quantity" /><Label htmlFor="r-quantity">Quantity</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="totalAmount" id="r-total" /><Label htmlFor="r-total">Total Cost</Label></div>
+                    </RadioGroup>
+                    </div>
+
+                    <div className="grid grid-cols-1">
+                        {entryMode === 'quantity' ? (
+                            <FormField control={form.control} name="quantity" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Quantity</FormLabel>
+                                    <FormControl><Input type="number" placeholder="10" {...field} step="any" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        ) : (
+                            <FormField control={form.control} name="totalCost" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Total Cost ({userProfile?.currencyPreference})</FormLabel>
+                                    <FormControl><Input type="number" placeholder="1000.00" {...field} step="any" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="purchasePrice" render={({ field }) => (
+                            <FormItem><FormLabel>Avg. Purchase Price</FormLabel><FormControl>
+                                <Input type="number" placeholder="150.00" {...field} step="any"/>
+                            </FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="currentPrice" render={({ field }) => (
+                            <FormItem><FormLabel>Current Market Price</FormLabel><FormControl>
+                                <Input type="number" placeholder="175.00" {...field} step="any" readOnly={assetType === 'Crypto'}/>
+                            </FormControl><FormMessage /></FormItem>
+                        )} />
+                    </div>
+
+                    <FormField control={form.control} name="purchaseDate" render={({ field }) => (
+                        <FormItem className="flex flex-col"><FormLabel>Purchase Date</FormLabel>
+                            <Popover><PopoverTrigger asChild><FormControl>
+                                <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                    {field.value ? (format(field.value, "PPP")) : (<span>Pick a date</span>)}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                            </FormControl></PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                            </Popover><FormMessage />
                         </FormItem>
                     )} />
-                )}
+
+
+                    <DialogFooter className="pt-4">
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                        {investmentToEdit ? 'Save Changes' : 'Add Investment'}
+                    </Button>
+                    </DialogFooter>
+                </form>
+                </Form>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="purchasePrice" render={({ field }) => (
-                    <FormItem><FormLabel>Avg. Purchase Price</FormLabel><FormControl>
-                        <Input type="number" placeholder="150.00" {...field} step="any"/>
-                    </FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="currentPrice" render={({ field }) => (
-                    <FormItem><FormLabel>Current Market Price</FormLabel><FormControl>
-                        <Input type="number" placeholder="175.00" {...field} step="any" readOnly={assetType === 'Crypto'}/>
-                    </FormControl><FormMessage /></FormItem>
-                )} />
-            </div>
-
-            <FormField control={form.control} name="purchaseDate" render={({ field }) => (
-                <FormItem className="flex flex-col"><FormLabel>Purchase Date</FormLabel>
-                    <Popover><PopoverTrigger asChild><FormControl>
-                        <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                            {field.value ? (format(field.value, "PPP")) : (<span>Pick a date</span>)}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                    </FormControl></PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
-                    </Popover><FormMessage />
-                </FormItem>
-            )} />
-
-
-            <DialogFooter className="pt-4">
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {investmentToEdit ? 'Save Changes' : 'Add Investment'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

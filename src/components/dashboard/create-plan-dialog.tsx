@@ -312,31 +312,29 @@ export function CreatePlanDialog({ open, onOpenChange, planToEdit }: CreatePlanD
             </div>
             <div className="space-y-2">
                 <Label>Plan Items</Label>
-                <ScrollArea className="max-h-60 pr-4">
-                    <div className="space-y-3">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className={cn(
-                                "flex items-start gap-2 rounded-md border p-3",
-                                field.isAiSuggested && "border-amber-400/50 bg-amber-50/50 dark:bg-amber-900/10"
-                            )}>
-                                {field.isAiSuggested && <Lightbulb className="h-5 w-5 mt-5 text-amber-500 flex-shrink-0"/>}
-                                <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
-                                    <div className="col-span-3">
-                                    <Label className="text-xs text-muted-foreground">Description</Label>
-                                    <Input {...form.register(`items.${index}.description`)} className="h-8"/>
-                                    </div>
-                                    <div className="col-span-2">
-                                    <Label className="text-xs text-muted-foreground">Predicted Cost ($)</Label>
-                                    <Input {...form.register(`items.${index}.predictedCost`)} type="number" className="h-8"/>
-                                    </div>
+                <div className="space-y-3">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className={cn(
+                            "flex items-start gap-2 rounded-md border p-3",
+                            field.isAiSuggested && "border-amber-400/50 bg-amber-50/50 dark:bg-amber-900/10"
+                        )}>
+                            {field.isAiSuggested && <Lightbulb className="h-5 w-5 mt-5 text-amber-500 flex-shrink-0"/>}
+                            <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
+                                <div className="col-span-3">
+                                <Label className="text-xs text-muted-foreground">Description</Label>
+                                <Input {...form.register(`items.${index}.description`)} className="h-8"/>
                                 </div>
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 mt-4" onClick={() => remove(index)}>
-                                    <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                                </Button>
+                                <div className="col-span-2">
+                                <Label className="text-xs text-muted-foreground">Predicted Cost ($)</Label>
+                                <Input {...form.register(`items.${index}.predictedCost`)} type="number" className="h-8"/>
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                </ScrollArea>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 mt-4" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                            </Button>
+                        </div>
+                    ))}
+                </div>
                  <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => append({ id: nanoid(), description: '', category: 'Uncategorized', predictedCost: 0, actualCost: null, isAiSuggested: false })}>
                     <Plus className="mr-2 h-4 w-4" /> Add Item
                 </Button>

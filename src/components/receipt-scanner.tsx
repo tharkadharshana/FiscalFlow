@@ -340,30 +340,28 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
                     <div className="space-y-2">
                         <Label>Items</Label>
                         <div className="rounded-md border p-2">
-                            <ScrollArea className="max-h-32 w-full pr-2">
-                                <div className="space-y-2">
-                                {items.map((item) => (
-                                    <div key={item.id} className="flex items-center gap-2">
-                                    <Input
-                                        placeholder="Item description"
-                                        value={item.description}
-                                        onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                                        className="flex-1"
-                                    />
-                                    <Input
-                                        type="number"
-                                        placeholder="Amount"
-                                        value={item.amount}
-                                        onChange={(e) => handleItemChange(item.id, 'amount', e.target.value)}
-                                        className="w-24"
-                                    />
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)} className="shrink-0">
-                                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                    </Button>
-                                    </div>
-                                ))}
+                            <div className="space-y-2">
+                            {items.map((item) => (
+                                <div key={item.id} className="flex items-center gap-2">
+                                <Input
+                                    placeholder="Item description"
+                                    value={item.description}
+                                    onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                                    className="flex-1"
+                                />
+                                <Input
+                                    type="number"
+                                    placeholder="Amount"
+                                    value={item.amount}
+                                    onChange={(e) => handleItemChange(item.id, 'amount', e.target.value)}
+                                    className="w-24"
+                                />
+                                <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)} className="shrink-0">
+                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                </Button>
                                 </div>
-                            </ScrollArea>
+                            ))}
+                            </div>
                             <Button type="button" variant="outline" size="sm" onClick={handleAddItem} className="w-full mt-2">
                                 <Plus className="mr-2 h-4 w-4" /> Add Item
                             </Button>
