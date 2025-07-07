@@ -12,14 +12,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ManualEntryForm } from './manual-entry-form';
 import { ReceiptScanner } from './receipt-scanner';
-import { ScanLine, MinusCircle, PlusCircle, Sparkles } from 'lucide-react';
+import { ScanLine, MinusCircle, PlusCircle, Sparkles, FileText } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { IncomeEntryForm } from './income-entry-form';
 import type { Transaction, ChecklistItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { useAppContext } from '@/contexts/app-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import Link from 'next/link';
+import { StatementImporter } from './statement-importer';
 
 type AddTransactionDialogProps = {
   open: boolean;
@@ -29,7 +29,7 @@ type AddTransactionDialogProps = {
 };
 
 export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, itemToConvert }: AddTransactionDialogProps) {
-  const { canScanReceipt } = useAppContext();
+  const { canScanReceipt, isPremium } = useAppContext();
   
   const ScanReceiptTab = (
      <TabsTrigger value="scan" disabled={!canScanReceipt}>
@@ -38,12 +38,22 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
         {!canScanReceipt && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
       </TabsTrigger>
   );
+
+  const ImportStatementTab = (
+    <TabsTrigger value="import" disabled={!isPremium}>
+        <FileText className="mr-2 h-4 w-4" />
+        Import Statement
+        {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
+    </TabsTrigger>
+  );
   
   const defaultTab = transactionToEdit?.type || (itemToConvert ? 'expense' : 'expense');
+  
+  const isEditing = !!transactionToEdit || !!itemToConvert;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] flex h-full max-h-[90svh] flex-col">
+      <DialogContent className="sm:max-w-[520px] flex h-full max-h-[90svh] flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{transactionToEdit ? 'Edit' : (itemToConvert ? 'Confirm Transaction' : 'Add Transaction')}</DialogTitle>
           <DialogDescription>
@@ -52,7 +62,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
         </DialogHeader>
         <ScrollArea className="pr-2">
             <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className={cn("grid w-full", (transactionToEdit || itemToConvert) ? "grid-cols-2" : "grid-cols-3")}>
+              <TabsList className={cn("grid w-full", isEditing ? "grid-cols-2" : "grid-cols-4")}>
                   <TabsTrigger value="expense">
                     <MinusCircle className="mr-2 h-4 w-4" />
                     Expense
@@ -61,12 +71,12 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Income
                   </TabsTrigger>
-                  {!(transactionToEdit || itemToConvert) && (
-                    canScanReceipt ? ScanReceiptTab : (
+                  {!isEditing && (
+                    <>
+                    {canScanReceipt ? ScanReceiptTab : (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            {/* The extra div is needed for Tooltip to correctly attach to a disabled element */}
                             <div>{ScanReceiptTab}</div>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -74,7 +84,16 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    )
+                    )}
+                    {isPremium ? ImportStatementTab : (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild><div>{ImportStatementTab}</div></TooltipTrigger>
+                                <TooltipContent><p>Upgrade to Premium to import statements.</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                    </>
                   )}
               </TabsList>
               <TabsContent value="expense" className="pt-4">
@@ -83,10 +102,15 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
               <TabsContent value="income" className="pt-4">
                   <IncomeEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} />
               </TabsContent>
-              {!transactionToEdit && (
+              {!isEditing && (
+                <>
                 <TabsContent value="scan" className="pt-4">
                     <ReceiptScanner onTransactionAdded={() => onOpenChange(false)} />
                 </TabsContent>
+                <TabsContent value="import" className="pt-4">
+                    <StatementImporter onTransactionsAdded={() => onOpenChange(false)} />
+                </TabsContent>
+                </>
               )}
             </Tabs>
         </ScrollArea>

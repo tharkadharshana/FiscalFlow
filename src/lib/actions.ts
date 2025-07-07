@@ -41,6 +41,12 @@ import {
     type CreateChecklistInput,
     type CreateChecklistOutput,
 } from '@/ai/flows/create-checklist-flow';
+import {
+    parseBankStatement,
+    type ParseBankStatementInput,
+    type ParseBankStatementOutput,
+} from '@/ai/flows/parse-bank-statement-flow';
+
 
 import type { CreateSavingsGoalOutput } from '@/types';
 import { logger } from './logger';
@@ -57,6 +63,7 @@ type ParseDocumentResult = { text: string } | { error: string };
 type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 type ChecklistResult = CreateChecklistOutput | { error: string };
+type BankStatementParseResult = ParseBankStatementOutput | { error: string };
 
 // Note: In a real production app, you would add server-side logging here
 // using a library like Winston or Pino, and you would not log full inputs
@@ -208,5 +215,22 @@ export async function createChecklistAction(
     } catch (error) {
         console.error('Error in createChecklistAction:', error);
         return { error: 'Failed to generate checklist from your text. Please try again.' };
+    }
+}
+
+export async function parseBankStatementAction(
+    input: ParseBankStatementInput
+): Promise<BankStatementParseResult> {
+    if (!input.fileDataUri) {
+        return { error: 'Please provide a bank statement file.' };
+    }
+    
+    try {
+        const result = await parseBankStatement(input);
+        return result;
+    } catch (error) {
+        logger.error('Error in parseBankStatementAction:', error as Error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to parse bank statement. The document may be too complex or in an unsupported format.';
+        return { error: errorMessage };
     }
 }
