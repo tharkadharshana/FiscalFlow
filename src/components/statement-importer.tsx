@@ -1,10 +1,10 @@
 'use client';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader2, Upload, Wand2, FileText, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAppContext } from '@/contexts/app-context';
 import { parseBankStatementAction } from '@/lib/actions';
 import { ScrollArea } from './ui/scroll-area';
