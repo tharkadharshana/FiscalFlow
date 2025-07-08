@@ -23,29 +23,31 @@ const sendLog = (level: 'info' | 'warn' | 'error', message: string, details: Log
     }
   }
   
-  // Do not send logs if user is not authenticated.
-  if (!auth.currentUser) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Log not sent to server (user not authenticated): "${message}"`);
-    }
-    return;
-  }
-  
+  // Do not send logs if user is not authenticated for some client-side events.
+  // We still want to log failed login attempts.
+  const userId = auth.currentUser?.uid || 'unauthenticated';
+
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  // This can be 'us-central1' or your function's region
-  const region = functions.region || 'us-central1'; 
+  const region = functions.region || 'us-central1';
   const finalUrl = `https://${region}-${projectId}.cloudfunctions.net/logMessage`;
 
   const detailsWithUser = {
       ...details,
-      userId: auth.currentUser.uid,
+      userId: userId,
+  };
+
+  const payload = {
+    data: {
+      level,
+      message,
+      details: detailsWithUser,
+    }
   };
 
   fetch(finalUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // Sending a plain JSON body, not nested under a `data` key.
-      body: JSON.stringify({ level, message, details: detailsWithUser }),
+      body: JSON.stringify(payload),
   }).catch((error) => {
       // We console.error here to avoid an infinite loop if the logging function itself fails.
       console.error('Failed to send log to server:', error);

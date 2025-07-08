@@ -23,13 +23,15 @@ const log = logging.log('fiscalflow-app-logs');
  * HTTP function for client-side logging.
  */
 export const logMessage = functions.https.onRequest((req, res) => {
-    // Wrap the function logic with the CORS middleware
     corsHandler(req, res, async () => {
-        // The cors middleware handles preflight (OPTIONS) requests automatically.
-        // We only need to handle the actual POST request logic.
-        if (req.method === 'POST') {
-            const { level, message, details } = req.body.data || req.body;
-            const uid = details?.userId; 
+        if (req.method !== 'POST') {
+            res.status(405).send({ error: { message: 'Method Not Allowed' } });
+            return;
+        }
+
+        try {
+            const { level, message, details } = req.body.data;
+            const uid = details?.userId;
 
             if (!level || !message) {
                 res.status(400).send({ error: { message: 'Missing level or message in request body.' } });
@@ -58,16 +60,12 @@ export const logMessage = functions.https.onRequest((req, res) => {
             
             const logEntry = log.entry(metadata, logEntryPayload);
             
-            try {
-                await log.write(logEntry);
-                res.status(200).send({ data: { success: true } });
-            } catch (error) {
-                console.error("Failed to write log entry:", error);
-                res.status(500).send({ error: { message: 'Could not write log entry.' } });
-            }
-        } else {
-             // For any method other than POST that isn't a preflight, like GET.
-            res.status(405).send({ error: { message: 'Method Not Allowed' } });
+            await log.write(logEntry);
+            res.status(200).send({ data: { success: true } });
+
+        } catch (error) {
+            console.error("Failed to process log request:", error);
+            res.status(500).send({ error: { message: 'Could not process log request.' } });
         }
     });
 });

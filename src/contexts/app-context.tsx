@@ -218,38 +218,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const handleNewUserSetup = async (user: User, countryCode: string) => {
-    try {
-        await setDoc(doc(db, "users", user.uid), {
-            displayName: user.displayName,
-            email: user.email,
-            createdAt: serverTimestamp(),
-            lastLoginAt: serverTimestamp(),
-            countryCode: countryCode,
-            currencyPreference: 'USD',
-            darkModeBanner: false,
-            notificationPreferences: {
-                budgetThreshold: true,
-                recurringPayment: true,
-            },
-            profilePictureURL: user.photoURL || null,
-            subscription: {
-              tier: 'free',
-              isActive: true,
-              expiryDate: null,
-            },
-            hasCompletedOnboarding: false,
-          }, { merge: true });
-    } catch (error) {
-        console.error("CRITICAL: Failed to create user document in Firestore.", error);
-        showNotification({
-            type: 'error',
-            title: 'Account Setup Failed',
-            description: 'Could not save your user profile. Please contact support.',
-        });
-    }
-  }
-
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       setUser(user);
@@ -259,39 +227,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribeAuth();
-  }, []);
-
-  // Handle redirect result for social logins
-  useEffect(() => {
-    const processRedirect = async () => {
-        try {
-            const result = await getRedirectResult(auth);
-            if (result) {
-                const user = result.user;
-                const additionalInfo = getAdditionalUserInfo(result);
-                if (additionalInfo?.isNewUser) {
-                    await handleNewUserSetup(user, 'US');
-                    showNotification({
-                        type: 'success',
-                        title: 'Welcome!',
-                        description: 'Your account has been created successfully.',
-                    });
-                } else {
-                    await updateDoc(doc(db, "users", user.uid), {
-                        lastLoginAt: serverTimestamp(),
-                    });
-                }
-            }
-        } catch (error: any) {
-            console.error("Login with redirect failed", error);
-            showNotification({
-                type: 'error',
-                title: 'Login Failed',
-                description: error.message,
-            });
-        }
-    };
-    processRedirect();
   }, []);
 
   // Effect to toggle dark mode

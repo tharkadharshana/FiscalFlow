@@ -14,17 +14,20 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   OAuthProvider,
-  signInWithRedirect,
   createUserWithEmailAndPassword,
   updateProfile,
   sendEmailVerification,
   sendPasswordResetEmail,
+  signInWithPopup,
+  getAdditionalUserInfo,
+  type User,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { useAppContext } from '@/contexts/app-context';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { countries } from '@/data/countries';
+import { logger } from '@/lib/logger';
 
 export function LoginForm() {
   const router = useRouter();
@@ -38,29 +41,8 @@ export function LoginForm() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   
-  const handlePasswordReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, email);
-      showNotification({
-        type: 'success',
-        title: 'Password Reset Email Sent',
-        description: 'Please check your inbox for instructions to reset your password.',
-      });
-      setAuthMode('login');
-    } catch (error: any) {
-      showNotification({
-        type: 'error',
-        title: 'Reset Failed',
-        description: error.message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleNewUserSetup = async (user: any, countryCode: string) => {
+  const handleNewUserSetup = async (user: User, countryCode: string) => {
+    logger.info('Starting new user setup in Firestore', { userId: user.uid, email: user.email });
     try {
         await setDoc(doc(db, "users", user.uid), {
             displayName: user.displayName,
@@ -82,27 +64,57 @@ export function LoginForm() {
             },
             hasCompletedOnboarding: false,
           }, { merge: true });
+        logger.info('Successfully created user document in Firestore', { userId: user.uid });
     } catch (error) {
-        console.error("CRITICAL: Failed to create user document in Firestore.", error);
+        logger.error("CRITICAL: Failed to create user document in Firestore.", error as Error, { userId: user.uid });
         showNotification({
             type: 'error',
             title: 'Account Setup Failed',
             description: 'Could not save your user profile. Please contact support.',
         });
+        throw error; // re-throw to stop the auth flow
     }
   }
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    logger.info('Password reset initiated', { email });
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showNotification({
+        type: 'success',
+        title: 'Password Reset Email Sent',
+        description: 'Please check your inbox for instructions to reset your password.',
+      });
+      logger.info('Password reset email sent successfully', { email });
+      setAuthMode('login');
+    } catch (error: any) {
+      logger.error('Password reset failed', error, { email });
+      showNotification({
+        type: 'error',
+        title: 'Reset Failed',
+        description: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     if (authMode === 'login') {
+      logger.info('Login attempt started', { email });
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         await updateDoc(doc(db, "users", userCredential.user.uid), {
             lastLoginAt: serverTimestamp(),
         });
+        logger.info('Login successful, redirecting to dashboard', { userId: userCredential.user.uid });
         router.push('/dashboard');
       } catch (error: any) {
+        logger.error('Email/password login failed', error, { email });
         showNotification({
           type: 'error',
           title: 'Login Failed',
@@ -113,11 +125,13 @@ export function LoginForm() {
       }
     } else {
       // Signup mode
+      logger.info('Signup attempt started', { email });
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
         await handleNewUserSetup(userCredential.user, country);
         await sendEmailVerification(userCredential.user);
+        logger.info('Signup successful, verification email sent', { userId: userCredential.user.uid });
         showNotification({
           type: 'success',
           title: 'Account Created',
@@ -125,6 +139,7 @@ export function LoginForm() {
         });
         router.push('/dashboard');
       } catch (error: any) {
+        logger.error('Email/password signup failed', error, { email });
         showNotification({
           type: 'error',
           title: 'Sign Up Failed',
@@ -136,35 +151,32 @@ export function LoginForm() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-      // The user will be redirected. The result is handled in app-context.tsx
-    } catch (error: any) {
-      showNotification({
-        type: 'error',
-        title: 'Google Login Failed',
-        description: error.message,
-      });
-      setIsGoogleLoading(false);
-    }
-  };
+  const handleSocialLogin = async (provider: GoogleAuthProvider | OAuthProvider) => {
+    const providerId = provider.providerId;
+    logger.info('Social login initiated', { providerId });
+    if (providerId.includes('google')) setIsGoogleLoading(true);
+    if (providerId.includes('apple')) setIsAppleLoading(true);
 
-  const handleAppleLogin = async () => {
-    setIsAppleLoading(true);
     try {
-      const provider = new OAuthProvider('apple.com');
-      await signInWithRedirect(auth, provider);
-      // The user will be redirected. The result is handled in app-context.tsx
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        const additionalInfo = getAdditionalUserInfo(result);
+        
+        if (additionalInfo?.isNewUser) {
+            logger.info('New social login user detected', { userId: user.uid });
+            await handleNewUserSetup(user, 'US'); // Default to 'US' for social signups
+            showNotification({ type: 'success', title: 'Welcome!', description: 'Your account has been created.' });
+        } else {
+            logger.info('Existing social login user detected', { userId: user.uid });
+            await updateDoc(doc(db, "users", user.uid), { lastLoginAt: serverTimestamp() });
+        }
+        router.push('/dashboard');
     } catch (error: any) {
-      showNotification({
-        type: 'error',
-        title: 'Apple Login Failed',
-        description: error.message,
-      });
-      setIsAppleLoading(false);
+        logger.error('Social login failed', error, { providerId });
+        showNotification({ type: 'error', title: 'Login Failed', description: error.message });
+    } finally {
+        if (providerId.includes('google')) setIsGoogleLoading(false);
+        if (providerId.includes('apple')) setIsAppleLoading(false);
     }
   };
 
@@ -293,11 +305,11 @@ export function LoginForm() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" onClick={handleGoogleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
+                <Button variant="outline" onClick={() => handleSocialLogin(new GoogleAuthProvider())} disabled={isLoading || isGoogleLoading || isAppleLoading}>
                   {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.google className="mr-2 h-4 w-4" />}
                   Google
                 </Button>
-                <Button variant="outline" onClick={handleAppleLogin} disabled={isLoading || isGoogleLoading || isAppleLoading}>
+                <Button variant="outline" onClick={() => handleSocialLogin(new OAuthProvider('apple.com'))} disabled={isLoading || isGoogleLoading || isAppleLoading}>
                   {isAppleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icons.apple className="mr-2 h-4 w-4" />}
                   Apple
                 </Button>
