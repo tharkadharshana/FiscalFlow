@@ -4,11 +4,10 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification, Checklist, ChecklistTemplate, ChecklistItem } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification, Checklist, ChecklistTemplate, ChecklistItem, PlanItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
-import { getRedirectResult, getAdditionalUserInfo } from 'firebase/auth';
 import {
   collection,
   addDoc,
@@ -454,16 +453,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        if (financialPlanId && planItemId) {
+        if (financialPlanId) {
           const planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
           const planDoc = await firestoreTransaction.get(planRef);
           if (!planDoc.exists()) throw new Error("Financial plan not found!");
           const planData = planDoc.data() as FinancialPlan;
-          const updatedItems = planData.items.map(item =>
-            item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
-          );
-          const newTotalActualCost = updatedItems.reduce((sum, item) => sum + (item.actualCost || 0), 0);
-          firestoreTransaction.update(planRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+          
+          const newTotalActualCost = (planData.totalActualCost || 0) + finalAmount;
+          const updateData: { totalActualCost: number, items?: PlanItem[] } = { totalActualCost: newTotalActualCost };
+  
+          if (planItemId) {
+              updateData.items = planData.items.map(item =>
+                  item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
+              );
+          }
+          firestoreTransaction.update(planRef, updateData);
         }
       });
       showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
@@ -484,28 +488,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (!oldTxSnap.exists()) throw new Error("Transaction document not found!");
             const oldTxData = oldTxSnap.data() as Transaction;
             
-            if (oldTxData.financialPlanId && oldTxData.planItemId) {
+            // Revert old transaction from plan
+            if (oldTxData.financialPlanId) {
                 const oldPlanRef = doc(db, 'users', user.uid, 'financialPlans', oldTxData.financialPlanId);
                 const oldPlanSnap = await t.get(oldPlanRef);
                 if (oldPlanSnap.exists()) {
                     const plan = oldPlanSnap.data() as FinancialPlan;
-                    t.update(oldPlanRef, { 
-                      items: plan.items.map(i => i.id === oldTxData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - oldTxData.amount) } : i),
-                      totalActualCost: Math.max(0, (plan.totalActualCost || 0) - oldTxData.amount) 
-                    });
+                    const newTotal = (plan.totalActualCost || 0) - oldTxData.amount;
+                    const updatePayload: any = { totalActualCost: Math.max(0, newTotal) };
+                    if (oldTxData.planItemId) {
+                        updatePayload.items = plan.items.map(i => i.id === oldTxData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - oldTxData.amount) } : i);
+                    }
+                    t.update(oldPlanRef, updatePayload);
                 }
             }
     
+            // Apply new transaction to plan
             const { financialPlanId: newPlanId, planItemId: newItemId, amount: newAmount } = updatedData;
-            if (newPlanId && newItemId && newAmount) {
+            if (newPlanId && newAmount) {
                 const newPlanRef = doc(db, 'users', user.uid, 'financialPlans', newPlanId);
                 const newPlanSnap = await t.get(newPlanRef);
                 if (newPlanSnap.exists()) {
                     const plan = newPlanSnap.data() as FinancialPlan;
-                    t.update(newPlanRef, {
-                       items: plan.items.map(i => i.id === newItemId ? { ...i, actualCost: (i.actualCost || 0) + newAmount } : i),
-                       totalActualCost: (plan.totalActualCost || 0) + newAmount
-                    });
+                    const newTotal = (plan.totalActualCost || 0) + newAmount;
+                    const updatePayload: any = { totalActualCost: newTotal };
+                    if (newItemId) {
+                        updatePayload.items = plan.items.map(i => i.id === newItemId ? { ...i, actualCost: (i.actualCost || 0) + newAmount } : i);
+                    }
+                    t.update(newPlanRef, updatePayload);
                 }
             }
 
@@ -532,15 +542,17 @@ const deleteTransaction = async (transactionId: string) => {
             if (!txSnap.exists()) return;
             const txData = txSnap.data() as Transaction;
             
-            if (txData.financialPlanId && txData.planItemId) {
+            if (txData.financialPlanId) {
                 const planRef = doc(db, 'users', user.uid, 'financialPlans', txData.financialPlanId);
                 const planSnap = await t.get(planRef);
                 if (planSnap.exists()) {
                     const plan = planSnap.data() as FinancialPlan;
-                     t.update(planRef, { 
-                      items: plan.items.map(i => i.id === txData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - txData.amount) } : i),
-                      totalActualCost: Math.max(0, (plan.totalActualCost || 0) - txData.amount) 
-                    });
+                    const newTotal = (plan.totalActualCost || 0) - txData.amount;
+                    const updatePayload: any = { totalActualCost: Math.max(0, newTotal) };
+                     if (txData.planItemId) {
+                        updatePayload.items = plan.items.map(i => i.id === txData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - txData.amount) } : i);
+                    }
+                    t.update(planRef, updatePayload);
                 }
             }
             t.delete(txRef);
