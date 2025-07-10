@@ -1,4 +1,5 @@
 
+
 export interface TransactionItem {
   id: string;
   description: string;
@@ -132,12 +133,6 @@ export interface SavingsGoal {
   isRoundupGoal?: boolean;
   badges: Badge[];
 }
-
-export type CreateSavingsGoalOutput = {
-    title: string;
-    targetAmount: number;
-    deadline?: string;
-};
 
 export interface Investment {
     id: string;
