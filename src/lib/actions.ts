@@ -41,11 +41,9 @@ import {
     type CreateChecklistInput,
     type CreateChecklistOutput,
 } from '@/ai/flows/create-checklist-flow';
-import {
-    parseBankStatement,
-    type ParseBankStatementInput,
-    type ParseBankStatementOutput,
-} from '@/ai/flows/parse-bank-statement-flow';
+import { parseBankStatementFlow } from '@/ai/flows/parse-bank-statement-flow';
+import { z } from 'genkit';
+import { defaultCategories } from '@/data/mock-data';
 
 
 import type { CreateSavingsGoalOutput } from '@/types';
@@ -63,12 +61,26 @@ type ParseDocumentResult = { text: string } | { error: string };
 type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 type ChecklistResult = CreateChecklistOutput | { error: string };
-type BankStatementParseResult = ParseBankStatementOutput | { error: string };
+type BankStatementParseResult = z.infer<typeof ParseBankStatementOutputSchema> | { error: string };
 
-// Note: In a real production app, you would add server-side logging here
-// using a library like Winston or Pino, and you would not log full inputs
-// that might contain PII unless you have explicit user consent and proper
-// data handling policies. For this example, we'll use console.error.
+// --- Bank Statement Schemas ---
+const ParsedTransactionSchema = z.object({
+    date: z.string().describe('The transaction date in YYYY-MM-DD format. If no year is present, assume the current year.'),
+    description: z.string().describe('The full transaction description from the statement.'),
+    amount: z.number().describe('The transaction amount. Use negative numbers for debits/expenses and positive for credits/income.'),
+    category: z.string().describe(`A suggested category for this transaction. Must be one of the following: ${defaultCategories.join(', ')}`),
+});
+export const ParseBankStatementOutputSchema = z.object({
+  transactions: z.array(ParsedTransactionSchema),
+});
+export const ParseBankStatementInputSchema = z.object({
+  fileDataUri: z
+    .string()
+    .describe(
+      "A bank statement file (like a PDF), as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
+});
+// ------------------------------
 
 export async function getCoinGeckoMarketData(
   params: { coinIds?: string[]; page?: number; perPage?: number } = {}
@@ -219,14 +231,19 @@ export async function createChecklistAction(
 }
 
 export async function parseBankStatementAction(
-    input: ParseBankStatementInput
+    input: z.infer<typeof ParseBankStatementInputSchema>
 ): Promise<BankStatementParseResult> {
     if (!input.fileDataUri) {
         return { error: 'Please provide a bank statement file.' };
     }
     
     try {
-        const result = await parseBankStatement(input);
+        // Pass schemas to the flow, so it doesn't need to define/export them.
+        const result = await parseBankStatementFlow({
+            fileDataUri: input.fileDataUri,
+            schema: ParseBankStatementInputSchema,
+            outputSchema: ParseBankStatementOutputSchema
+        } as any);
         return result;
     } catch (error) {
         logger.error('Error in parseBankStatementAction:', error as Error);

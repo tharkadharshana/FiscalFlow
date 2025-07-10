@@ -33,7 +33,7 @@ const SimplifiedSavingsGoalSchema = z.object({
 });
 
 
-const AnalyzeTaxesInputSchema = z.object({
+export const AnalyzeTaxesInputSchema = z.object({
   transactions: z.array(TransactionSchema),
   investments: z.array(SimplifiedInvestmentSchema).optional().describe("A list of the user's current investment holdings."),
   savingsGoals: z.array(SimplifiedSavingsGoalSchema).optional().describe("A list of the user's savings goals, which may generate interest income."),
@@ -50,7 +50,7 @@ const TaxLiabilitySchema = z.object({
     sourceTransactionIds: z.array(z.string()).optional().describe('IDs of source transactions, if applicable.'),
 });
 
-const AnalyzeTaxesOutputSchema = z.object({
+export const AnalyzeTaxesOutputSchema = z.object({
     liabilities: z.array(TaxLiabilitySchema),
 });
 export type AnalyzeTaxesOutput = z.infer<typeof AnalyzeTaxesOutputSchema>;

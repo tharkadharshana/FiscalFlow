@@ -9,4 +9,5 @@ import '@/ai/flows/assistant-flow.ts';
 import '@/ai/flows/analyze-taxes-flow.ts';
 import '@/ai/flows/create-savings-goal-flow.ts';
 import '@/ai/flows/create-checklist-flow.ts';
+// The flow file itself is still needed, but it no longer exports schemas.
 import '@/ai/flows/parse-bank-statement-flow.ts';
