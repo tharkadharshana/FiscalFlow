@@ -383,19 +383,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [userProfile?.currencyPreference]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'icon'>) => {
-    if (!user || !userProfile) { showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' }); return; }
-
+    if (!user || !userProfile) {
+      showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' });
+      return;
+    }
+  
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const userDocRef = doc(db, 'users', user.uid);
         const { date, financialPlanId, planItemId, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
-        
+  
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
           : transaction.amount;
-
+  
+        // --- READS FIRST ---
+        let checklistRef: any, checklistDoc: any, planRef: any, planDoc: any, roundupGoalSnap: any;
+  
+        if (checklistId && checklistItemId) {
+          checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
+          checklistDoc = await firestoreTransaction.get(checklistRef);
+        }
+  
+        if (financialPlanId) {
+          planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
+          planDoc = await firestoreTransaction.get(planRef);
+        }
+  
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const monthlyRoundups = userProfile.subscription.monthlyRoundups;
+        const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
+  
+        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
+          const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
+          roundupGoalSnap = await getDocs(roundupGoalQuery);
+        }
+  
+        // --- WRITES SECOND ---
         const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
-
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         firestoreTransaction.set(newTransactionRef, {
           ...restOfTransaction,
@@ -411,61 +436,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
           checklistId: checklistId || null,
           checklistItemId: checklistItemId || null,
         });
-
-        // If the transaction came from a checklist, mark the item as completed.
-        if (checklistId && checklistItemId) {
-          const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
-          const checklistDoc = await firestoreTransaction.get(checklistRef);
-          if (checklistDoc.exists()) {
-            const checklistData = checklistDoc.data() as Checklist;
-            const updatedItems = checklistData.items.map(item =>
-              item.id === checklistItemId ? { ...item, isCompleted: true } : item
-            );
-            firestoreTransaction.update(checklistRef, { items: updatedItems });
+  
+        if (checklistRef && checklistDoc?.exists()) {
+          const checklistData = checklistDoc.data() as Checklist;
+          const updatedItems = checklistData.items.map(item =>
+            item.id === checklistItemId ? { ...item, isCompleted: true } : item
+          );
+          firestoreTransaction.update(checklistRef, { items: updatedItems });
+        }
+  
+        if (roundupGoalSnap && !roundupGoalSnap.empty) {
+          const goalDoc = roundupGoalSnap.docs[0];
+          const goal = goalDoc.data() as SavingsGoal;
+          const roundupAmount = Math.ceil(finalAmount) - finalAmount;
+  
+          if (roundupAmount > 0) {
+            const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
+            const newBadges = calculateNewBadges(goal, newCurrentAmount);
+            firestoreTransaction.update(goalDoc.ref, {
+              currentAmount: newCurrentAmount,
+              badges: arrayUnion(...newBadges)
+            });
+  
+            if (!isPremium) {
+              const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
+              firestoreTransaction.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
+            }
           }
         }
-
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const monthlyRoundups = userProfile.subscription.monthlyRoundups;
-        const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
-        
-        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
-            const roundupGoalRef = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
-            const roundupGoalSnap = await getDocs(roundupGoalRef);
-            if (!roundupGoalSnap.empty) {
-                const goalDoc = roundupGoalSnap.docs[0];
-                const goal = goalDoc.data() as SavingsGoal;
-                const roundupAmount = Math.ceil(finalAmount) - finalAmount;
-                
-                if (roundupAmount > 0) {
-                    const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
-                    const newBadges = calculateNewBadges(goal, newCurrentAmount);
-                    firestoreTransaction.update(goalDoc.ref, { 
-                        currentAmount: newCurrentAmount,
-                        badges: arrayUnion(...newBadges)
-                    });
-
-                    if (!isPremium) {
-                        const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
-                        firestoreTransaction.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
-                    }
-                }
-            }
-        }
-
-        if (financialPlanId) {
-          const planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
-          const planDoc = await firestoreTransaction.get(planRef);
-          if (!planDoc.exists()) throw new Error("Financial plan not found!");
+  
+        if (planRef && planDoc?.exists()) {
           const planData = planDoc.data() as FinancialPlan;
-          
           const newTotalActualCost = (planData.totalActualCost || 0) + finalAmount;
           const updateData: { totalActualCost: number, items?: PlanItem[] } = { totalActualCost: newTotalActualCost };
   
           if (planItemId) {
-              updateData.items = planData.items.map(item =>
-                  item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
-              );
+            updateData.items = planData.items.map(item =>
+              item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
+            );
           }
           firestoreTransaction.update(planRef, updateData);
         }
