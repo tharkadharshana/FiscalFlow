@@ -34,6 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 
 type CreateMonthlyBudgetsDialogProps = {
@@ -50,8 +51,8 @@ const budgetItemSchema = z.object({
 
 const singleBudgetSchema = z.object({
   id: z.string(),
-  category: z.string().min(1, "Category can't be empty."),
-  limit: z.coerce.number().min(0, 'Limit must be a positive number.'),
+  category: z.string({ required_error: 'Please select a category.' }).min(1, "Category can't be empty."),
+  limit: z.coerce.number().min(0.01, 'Limit must be greater than 0.'),
   items: z.array(budgetItemSchema).optional(),
 });
 
@@ -62,7 +63,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }: CreateMonthlyBudgetsDialogProps) {
-  const { addBudget, updateBudget, budgets: existingBudgets, showNotification, expenseCategories } = useAppContext();
+  const { userProfile, addBudget, updateBudget, budgets: existingBudgets, showNotification, expenseCategories } = useAppContext();
 
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
   const [activeTab, setActiveTab] = useState('text');
@@ -285,7 +286,6 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
       }
     };
   }, [activeTab, view, selectedDeviceId]);
@@ -343,74 +343,92 @@ const handleCapture = () => {
   }
 
   const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
-    <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="flex flex-col h-full">
-        <DialogDescription>
-            {isReviewMode
-                ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
-                : "Manually add a budget for a category, and optionally add checklist items to it."
-            }
-        </DialogDescription>
-        <ScrollArea className="flex-1 -mr-6 pr-6 my-4">
-            <div className="space-y-3">
-                {fields.map((field, index) => (
-                    <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
-                        <div className="flex items-end gap-2">
-                            <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
-                                <div className="col-span-3">
-                                <Label className="text-xs text-muted-foreground">Category</Label>
-                                <Controller
-                                    control={form.control}
-                                    name={`budgets.${index}.category`}
-                                    render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
-                                        <SelectTrigger className="h-8">
-                                        <SelectValue placeholder="Select category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                        {expenseCategories.map(cat => (
-                                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                        ))}
-                                        </SelectContent>
-                                    </Select>
+    <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="flex flex-col h-full">
+            <DialogDescription>
+                {isReviewMode
+                    ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
+                    : "Manually add a budget for a category, and optionally add checklist items to it."
+                }
+            </DialogDescription>
+            <div className="flex-1 min-h-0 my-4">
+                <ScrollArea className="h-full -mr-6 pr-6">
+                    <div className="space-y-3">
+                        {fields.map((field, index) => (
+                            <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
+                                <div className="flex items-start gap-2">
+                                    <div className="flex-1 space-y-2">
+                                        <div className="grid grid-cols-5 gap-x-3">
+                                            <FormField
+                                                control={form.control}
+                                                name={`budgets.${index}.category`}
+                                                render={({ field }) => (
+                                                    <FormItem className="col-span-3">
+                                                        <FormLabel className="text-xs text-muted-foreground">Category</FormLabel>
+                                                        <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="h-8">
+                                                                    <SelectValue placeholder="Select category" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {expenseCategories.map(cat => (
+                                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`budgets.${index}.limit`}
+                                                render={({ field }) => (
+                                                    <FormItem className="col-span-2">
+                                                        <FormLabel className="text-xs text-muted-foreground">Monthly Limit ({userProfile?.currencyPreference || '$'})</FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} type="number" className="h-8" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <BudgetItemsFieldArray budgetIndex={index} />
+                                    </div>
+                                    {!budgetToEdit && (
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(index)}>
+                                            <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                                        </Button>
                                     )}
-                                />
-                                </div>
-                                <div className="col-span-2">
-                                <Label className="text-xs text-muted-foreground">Monthly Limit ($)</Label>
-                                <Input {...form.register(`budgets.${index}.limit`)} type="number" className="h-8"/>
                                 </div>
                             </div>
-                            {!budgetToEdit && (
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(index)}>
-                                    <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                                </Button>
-                            )}
-                        </div>
-                        <BudgetItemsFieldArray budgetIndex={index} />
+                        ))}
+                        {(fields.length === 0 && isReviewMode) && (
+                            <Alert>
+                                <Lightbulb className="h-4 w-4" />
+                                <AlertTitle>No New Budgets Found</AlertTitle>
+                                <AlertDescription>
+                                    The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        {!budgetToEdit && (
+                            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
+                                <Plus className="mr-2 h-4 w-4" /> Add Another Budget
+                            </Button>
+                        )}
                     </div>
-                ))}
-                {(fields.length === 0 && isReviewMode) && (
-                    <Alert>
-                        <Lightbulb className="h-4 w-4" />
-                        <AlertTitle>No New Budgets Found</AlertTitle>
-                        <AlertDescription>
-                            The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                 {!budgetToEdit && (
-                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Another Budget
-                    </Button>
-                )}
+                </ScrollArea>
             </div>
-        </ScrollArea>
-        <DialogFooter>
-            {isReviewMode && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-            <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
-        </DialogFooter>
-    </form>
-  )
+            <DialogFooter>
+                {isReviewMode && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
+                <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
+            </DialogFooter>
+        </form>
+    </Form>
+)
 
     const renderContent = () => {
         if (view === 'loading') return renderLoadingView();
@@ -432,7 +450,7 @@ const handleCapture = () => {
 
                 <TabsContent value="text" className="pt-4 space-y-4 flex-1 flex flex-col">
                     <DialogDescription>Describe your monthly budgets. The AI will structure them for you.</DialogDescription>
-                    <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation..." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} className="flex-1"/>
+                    <Textarea placeholder={`e.g., Budget ${userProfile?.currencyPreference || '$'}500 for Groceries to buy milk, bread, and eggs. Also, ${userProfile?.currencyPreference || '$'}150 for transportation...`} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} className="flex-1"/>
                     <DialogFooter>
                         <Button onClick={() => handleGenerateBudgets(userQuery)} disabled={!userQuery}>
                             <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
