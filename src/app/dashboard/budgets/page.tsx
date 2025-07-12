@@ -31,12 +31,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BudgetDetailsDialog } from '@/components/dashboard/budget-details-dialog';
+import { ReviewBudgetsDialog } from '@/components/dashboard/review-budgets-dialog';
 
 export default function BudgetsPage() {
   const { financialPlans, deleteFinancialPlan, isPremium, budgets, deleteBudget } = useAppContext();
   
   // Dialog states
-  const [isCreateBudgetsDialogOpen, setIsCreateBudgetsDialogOpen] = useState(false);
+  const [isAiCreateBudgetsDialogOpen, setIsAiCreateBudgetsDialogOpen] = useState(false);
+  const [isManualBudgetsDialogOpen, setIsManualBudgetsDialogOpen] = useState(false);
   const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
   const [isBudgetDetailsOpen, setIsBudgetDetailsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -72,14 +74,14 @@ export default function BudgetsPage() {
   }
 
   // Budget handlers
-  const handleCreateBudget = () => {
+  const handleCreateBudgetManually = () => {
     setBudgetToEdit(null);
-    setIsCreateBudgetsDialogOpen(true);
+    setIsManualBudgetsDialogOpen(true);
   }
 
   const handleEditBudget = (budget: Budget) => {
     setBudgetToEdit(budget);
-    setIsCreateBudgetsDialogOpen(true);
+    setIsManualBudgetsDialogOpen(true);
   }
 
   const handleDeleteBudget = (budget: Budget) => {
@@ -93,11 +95,11 @@ export default function BudgetsPage() {
     setIsBudgetDetailsOpen(true);
   }
   
-  const handleBudgetDialogClose = (open: boolean) => {
+  const handleManualBudgetDialogClose = (open: boolean) => {
       if (!open) {
           setBudgetToEdit(null);
       }
-      setIsCreateBudgetsDialogOpen(open);
+      setIsManualBudgetsDialogOpen(open);
   }
 
   const confirmDelete = async () => {
@@ -113,7 +115,7 @@ export default function BudgetsPage() {
   };
 
   const AddBudgetButton = (
-     <Button onClick={handleCreateBudget} disabled={!canAddBudget}>
+     <Button onClick={handleCreateBudgetManually} disabled={!canAddBudget}>
         <PlusCircle className="mr-2 h-4 w-4" />
         Add Budget
       </Button>
@@ -140,17 +142,11 @@ export default function BudgetsPage() {
                       {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
                     </TabsTrigger>
                 </TabsList>
-            </div>
-            
-            <TabsContent value="monthly">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Category Budgets</CardTitle>
-                    <CardDescription>
-                      Set and track your monthly spending limits for each category.
-                    </CardDescription>
-                  </div>
+                <div>
+                  <Button variant="outline" className="mr-2" onClick={() => setIsAiCreateBudgetsDialogOpen(true)}>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Generate with AI
+                  </Button>
                   {canAddBudget ? (
                     AddBudgetButton
                   ) : (
@@ -163,6 +159,16 @@ export default function BudgetsPage() {
                       </Tooltip>
                     </TooltipProvider>
                   )}
+                </div>
+            </div>
+            
+            <TabsContent value="monthly">
+              <Card>
+                <CardHeader>
+                    <CardTitle>Category Budgets</CardTitle>
+                    <CardDescription>
+                      Set and track your monthly spending limits for each category.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <MonthlyBudgets 
@@ -223,7 +229,16 @@ export default function BudgetsPage() {
       </div>
       
       {/* Dialogs */}
-      <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={handleBudgetDialogClose} budgetToEdit={budgetToEdit} />
+      <CreateMonthlyBudgetsDialog 
+        open={isAiCreateBudgetsDialogOpen} 
+        onOpenChange={setIsAiCreateBudgetsDialogOpen} 
+        onBudgetsGenerated={() => setIsManualBudgetsDialogOpen(true)}
+      />
+      <ReviewBudgetsDialog 
+        open={isManualBudgetsDialogOpen} 
+        onOpenChange={handleManualBudgetDialogClose} 
+        budgetToEdit={budgetToEdit}
+      />
       <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
       <BudgetDetailsDialog open={isBudgetDetailsOpen} onOpenChange={setIsBudgetDetailsOpen} budget={selectedBudget} />
 

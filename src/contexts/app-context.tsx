@@ -1,10 +1,11 @@
 
 
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification, PlanItem } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification, PlanItem, Checklist, ChecklistItem, ChecklistTemplate } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -29,9 +30,10 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/ai/flows/analyze-taxes-flow';
-import { analyzeTaxesAction, generateInsightsAction, parseReceiptAction } from '@/lib/actions';
+import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, CreateMonthlyBudgetsOutput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/lib/actions';
+import { analyzeTaxesAction, createMonthlyBudgetsAction, generateInsightsAction, parseDocumentAction, parseReceiptAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
+import { nanoid } from 'nanoid';
 
 
 export const FREE_TIER_LIMITS = {
@@ -107,6 +109,15 @@ interface AppContextType {
   generateInsightsWithLimit: (input: GenerateInsightsInput) => Promise<GenerateInsightsOutput | { error: string } | undefined>;
   canScanReceipt: boolean;
   scanReceiptWithLimit: (input: ParseReceiptInput) => Promise<ParseReceiptOutput | { error: string } | undefined>;
+  checklists: Checklist[];
+  addChecklist: (checklist: Omit<Checklist, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateChecklist: (checklistId: string, data: Partial<Omit<Checklist, 'id'>>) => Promise<void>;
+  deleteChecklist: (checklistId: string) => Promise<void>;
+  checklistTemplates: ChecklistTemplate[];
+  createTemplateFromChecklist: (checklist: Checklist) => Promise<void>;
+  deleteChecklistTemplate: (templateId: string) => Promise<void>;
+  generatedBudgets: Omit<Budget, 'id'>[];
+  setGeneratedBudgets: React.Dispatch<React.SetStateAction<Omit<Budget, 'id'>[]>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -122,6 +133,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
+  const [generatedBudgets, setGeneratedBudgets] = useState<Omit<Budget, 'id'>[]>([]);
   const { toast } = useToast();
   
   const isPremium = useMemo(() => {
@@ -321,6 +335,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } as Notification));
         setNotifications(userNotifications);
       }, (error) => logger.error("Error subscribing to notifications", error));
+
+      const qChecklists = query(collection(db, 'users', user.uid, 'checklists'), orderBy('createdAt', 'desc'));
+      const unsubscribeChecklists = onSnapshot(qChecklists, (snapshot) => {
+        const userChecklists: Checklist[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(),
+            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString(),
+        } as Checklist));
+        setChecklists(userChecklists);
+      }, (error) => logger.error("Error subscribing to checklists", error));
+
+      const qTemplates = query(collection(db, 'users', user.uid, 'checklistTemplates'), orderBy('createdAt', 'desc'));
+      const unsubscribeTemplates = onSnapshot(qTemplates, (snapshot) => {
+        const userTemplates: ChecklistTemplate[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(),
+            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString(),
+        } as ChecklistTemplate));
+        setChecklistTemplates(userTemplates);
+      }, (error) => logger.error("Error subscribing to checklist templates", error));
       
       return () => {
         unsubscribeProfile();
@@ -331,6 +363,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unsubscribeGoals();
         unsubscribeInvestments();
         unsubscribeNotifications();
+        unsubscribeChecklists();
+        unsubscribeTemplates();
       };
     } else {
       setUserProfile(null);
@@ -341,6 +375,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSavingsGoals([]);
       setInvestments([]);
       setNotifications([]);
+      setChecklists([]);
+      setChecklistTemplates([]);
     }
   }, [user]);
 
@@ -362,18 +398,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const userDocRef = doc(db, 'users', user.uid);
-        const { date, financialPlanId, planItemId, isTaxDeductible, items, ...restOfTransaction } = transaction;
+        const { date, financialPlanId, planItemId, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
   
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
           : transaction.amount;
   
         // --- READS FIRST ---
-        let planRef: any, planDoc: any, roundupGoalSnap: any;
+        let planRef: any, planDoc: any, roundupGoalSnap: any, checklistRef: any, checklistDoc: any;
   
         if (financialPlanId) {
           planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
           planDoc = await firestoreTransaction.get(planRef);
+        }
+
+        if (checklistId) {
+            checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
+            checklistDoc = await firestoreTransaction.get(checklistRef);
         }
   
         const currentMonth = new Date().toISOString().slice(0, 7);
@@ -433,6 +474,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           firestoreTransaction.update(planRef, updateData);
         }
+
+        if (checklistRef && checklistDoc?.exists() && checklistItemId) {
+            const checklistData = checklistDoc.data() as Checklist;
+            const updatedItems = checklistData.items.map(item => 
+                item.id === checklistItemId ? { ...item, isCompleted: true } : item
+            );
+            firestoreTransaction.update(checklistRef, { items: updatedItems });
+        }
+
       });
       showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
       logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
@@ -997,6 +1047,68 @@ const deleteTransaction = async (transactionId: string) => {
     logger.info('Receipt scanned');
     return result;
   };
+  
+  // Checklist-related functions
+  const addChecklist = async (checklist: Omit<Checklist, 'id'|'userId'|'createdAt'>) => {
+    if (!user) return;
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'checklists'), { ...checklist, userId: user.uid, createdAt: serverTimestamp() });
+        showNotification({ type: 'success', title: 'Checklist created!' });
+    } catch(e) {
+        logger.error('Error adding checklist', e as Error);
+        showNotification({type: 'error', title: 'Error', description: 'Could not create checklist.'});
+    }
+  };
+
+  const updateChecklist = async (checklistId: string, data: Partial<Omit<Checklist, 'id'>>) => {
+    if (!user) return;
+    try {
+        await updateDoc(doc(db, 'users', user.uid, 'checklists', checklistId), data);
+        showNotification({ type: 'success', title: 'Checklist updated!' });
+    } catch(e) {
+        logger.error('Error updating checklist', e as Error, { checklistId });
+        showNotification({type: 'error', title: 'Error', description: 'Could not update checklist.'});
+    }
+  };
+
+  const deleteChecklist = async (checklistId: string) => {
+    if (!user) return;
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'checklists', checklistId));
+        showNotification({ type: 'success', title: 'Checklist deleted!' });
+    } catch(e) {
+        logger.error('Error deleting checklist', e as Error, { checklistId });
+        showNotification({type: 'error', title: 'Error', description: 'Could not delete checklist.'});
+    }
+  };
+  
+  const createTemplateFromChecklist = async (checklist: Checklist) => {
+    if (!user) return;
+    try {
+        const template: Omit<ChecklistTemplate, 'id'|'userId'|'createdAt'> = {
+            title: `${checklist.title} Template`,
+            items: checklist.items.map(item => ({ id: nanoid(), description: item.description, predictedCost: item.predictedCost, category: item.category })),
+            icon: checklist.icon,
+        }
+        await addDoc(collection(db, 'users', user.uid, 'checklistTemplates'), { ...template, userId: user.uid, createdAt: serverTimestamp() });
+        showNotification({ type: 'success', title: 'Template created!' });
+    } catch (e) {
+        logger.error('Error creating template', e as Error);
+        showNotification({type: 'error', title: 'Error', description: 'Could not create template.'});
+    }
+  };
+  
+  const deleteChecklistTemplate = async (templateId: string) => {
+    if (!user) return;
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'checklistTemplates', templateId));
+        showNotification({ type: 'success', title: 'Template deleted!' });
+    } catch (e) {
+        logger.error('Error deleting template', e as Error, { templateId });
+        showNotification({type: 'error', title: 'Error', description: 'Could not delete template.'});
+    }
+  }
+
 
   const logout = async () => {
     if (user) {
@@ -1023,6 +1135,9 @@ const deleteTransaction = async (transactionId: string) => {
         canGenerateReport, generateReportWithLimit,
         canGenerateInsights, generateInsightsWithLimit,
         canScanReceipt, scanReceiptWithLimit,
+        checklists, addChecklist, updateChecklist, deleteChecklist,
+        checklistTemplates, createTemplateFromChecklist, deleteChecklistTemplate,
+        generatedBudgets, setGeneratedBudgets,
       }}
     >
       {children}

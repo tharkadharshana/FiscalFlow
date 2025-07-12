@@ -1,5 +1,6 @@
 
 
+
 export interface TransactionItem {
   id: string;
   description: string;
@@ -44,6 +45,8 @@ export interface Transaction {
   planItemId?: string; // ID of the item within the plan
   isTaxDeductible?: boolean;
   carbonFootprint?: number; // in kg CO2e
+  checklistId?: string;
+  checklistItemId?: string;
 }
 
 export interface UserProfile {
@@ -172,4 +175,30 @@ export interface CoinGeckoMarketData {
   market_cap_rank: number;
   price_change_percentage_24h: number;
   total_volume: number;
+}
+
+export interface ChecklistItem {
+    id: string;
+    description: string;
+    isCompleted: boolean;
+    predictedCost: number;
+    category: string;
+}
+  
+export interface Checklist {
+    id: string;
+    userId: string;
+    title: string;
+    icon: string;
+    items: ChecklistItem[];
+    createdAt: any;
+}
+
+export interface ChecklistTemplate {
+    id: string;
+    userId: string;
+    title: string;
+    icon: string;
+    items: Omit<ChecklistItem, 'isCompleted'>[];
+    createdAt: any;
 }
