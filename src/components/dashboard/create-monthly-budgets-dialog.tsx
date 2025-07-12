@@ -323,18 +323,16 @@ const handleCapture = () => {
     return (
         <div className="space-y-2 mt-2">
             <Label className="text-xs text-muted-foreground">Checklist Items (Optional)</Label>
-            <ScrollArea className="max-h-32 w-full pr-3">
-                <div className="space-y-2">
-                    {fields.map((item, itemIndex) => (
-                        <div key={item.id} className="flex items-center gap-2">
-                            <Input {...form.register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
-                                <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
+            <div className="space-y-2">
+                {fields.map((item, itemIndex) => (
+                    <div key={item.id} className="flex items-center gap-2">
+                        <Input {...form.register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                    </div>
+                ))}
+            </div>
             <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => append({id: nanoid(), description: ''})}>
                 <Plus className="mr-2 h-4 w-4" /> Add Item
             </Button>
@@ -494,11 +492,9 @@ const handleCapture = () => {
         <DialogHeader className="p-6 pb-4">
             <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Create Monthly Budgets'}</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="flex-1">
-            <div className="px-6 pb-6">
-                {renderContent()}
-            </div>
-        </ScrollArea>
+        <div className="px-6 pb-6 flex-1 min-h-0">
+            {renderContent()}
+        </div>
       </DialogContent>
     </Dialog>
   );
