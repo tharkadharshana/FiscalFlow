@@ -322,35 +322,37 @@ const handleCapture = () => {
         />
         <div>
           <Label>Items</Label>
-          <div className="space-y-3 mt-2">
-              {fields.map((field, index) => (
-                <div key={field.id} className="flex items-end gap-2">
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.description`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormControl><Input placeholder="Item description" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.predictedCost`}
-                    render={({ field }) => (
-                      <FormItem className="w-28">
-                        <FormControl><Input type="number" placeholder="Cost" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+          <ScrollArea className="h-48 w-full pr-3">
+            <div className="space-y-3 mt-2">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="flex items-end gap-2">
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.description`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl><Input placeholder="Item description" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`items.${index}.predictedCost`}
+                      render={({ field }) => (
+                        <FormItem className="w-28">
+                          <FormControl><Input type="number" placeholder="Cost" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
           <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => append({ id: nanoid(), description: '', predictedCost: 0, isCompleted: false })}>
             <Plus className="mr-2 h-4 w-4" /> Add Item
           </Button>

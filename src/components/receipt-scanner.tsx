@@ -339,7 +339,7 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
 
                     <div className="space-y-2">
                         <Label>Items</Label>
-                        <div className="rounded-md border p-2">
+                        <ScrollArea className="h-40 w-full rounded-md border p-2">
                             <div className="space-y-2">
                             {items.map((item) => (
                                 <div key={item.id} className="flex items-center gap-2">
@@ -365,7 +365,7 @@ export function ReceiptScanner({ onTransactionAdded }: ReceiptScannerProps) {
                             <Button type="button" variant="outline" size="sm" onClick={handleAddItem} className="w-full mt-2">
                                 <Plus className="mr-2 h-4 w-4" /> Add Item
                             </Button>
-                        </div>
+                        </ScrollArea>
                     </div>
 
                     <div className="flex justify-between items-center font-bold text-lg border-t pt-4">
