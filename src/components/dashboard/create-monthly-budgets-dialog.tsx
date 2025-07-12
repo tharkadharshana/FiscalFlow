@@ -323,16 +323,18 @@ const handleCapture = () => {
     return (
         <div className="space-y-2 mt-2">
             <Label className="text-xs text-muted-foreground">Checklist Items (Optional)</Label>
-            <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
-            {fields.map((item, itemIndex) => (
-                <div key={item.id} className="flex items-center gap-2">
-                    <Input {...form.register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                    </Button>
+            <ScrollArea className="max-h-32 w-full pr-3">
+                <div className="space-y-2">
+                    {fields.map((item, itemIndex) => (
+                        <div key={item.id} className="flex items-center gap-2">
+                            <Input {...form.register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        </div>
+                    ))}
                 </div>
-            ))}
-            </div>
+            </ScrollArea>
             <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => append({id: nanoid(), description: ''})}>
                 <Plus className="mr-2 h-4 w-4" /> Add Item
             </Button>
