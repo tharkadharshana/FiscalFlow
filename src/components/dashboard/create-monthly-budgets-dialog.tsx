@@ -323,17 +323,19 @@ const handleCapture = () => {
     return (
         <div className="space-y-2 mt-2">
             <Label className="text-xs text-muted-foreground">Checklist Items (Optional)</Label>
-            <div className="space-y-2">
-                {fields.map((item, itemIndex) => (
-                    <div key={item.id} className="flex items-center gap-2">
-                        <Input {...form.register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                    </div>
-                ))}
-            </div>
-            <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => append({id: nanoid(), description: ''})}>
+            <ScrollArea className="max-h-32 w-full pr-3">
+                <div className="space-y-2">
+                    {fields.map((item, itemIndex) => (
+                        <div key={item.id} className="flex items-center gap-2">
+                            <Input {...form.register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
+            <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => append({id: nanoid(), description: '', predictedCost: 0})}>
                 <Plus className="mr-2 h-4 w-4" /> Add Item
             </Button>
         </div>
@@ -341,14 +343,14 @@ const handleCapture = () => {
   }
 
   const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
-    <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="space-y-4 pt-4">
+    <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="flex flex-col h-full">
         <DialogDescription>
             {isReviewMode
                 ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
                 : "Manually add a budget for a category, and optionally add checklist items to it."
             }
         </DialogDescription>
-        <ScrollArea className="max-h-80 w-full pr-3">
+        <ScrollArea className="flex-1 -mr-6 pr-6 my-4">
             <div className="space-y-3">
                 {fields.map((field, index) => (
                     <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
@@ -396,13 +398,13 @@ const handleCapture = () => {
                         </AlertDescription>
                     </Alert>
                 )}
+                 {!budgetToEdit && (
+                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
+                        <Plus className="mr-2 h-4 w-4" /> Add Another Budget
+                    </Button>
+                )}
             </div>
         </ScrollArea>
-        {!budgetToEdit && (
-            <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
-                <Plus className="mr-2 h-4 w-4" /> Add Another Budget
-            </Button>
-        )}
         <DialogFooter>
             {isReviewMode && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
             <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
@@ -412,10 +414,14 @@ const handleCapture = () => {
 
     const renderContent = () => {
         if (view === 'loading') return renderLoadingView();
-        if (view === 'review') return renderReviewForm({ isReviewMode: true });
+        if (view === 'review') return (
+            <div className="pt-4 h-full">
+                {renderReviewForm({ isReviewMode: true })}
+            </div>
+        );
 
         return (
-            <Tabs defaultValue="text" value={activeTab} className="w-full pt-4" onValueChange={setActiveTab}>
+            <Tabs defaultValue="text" value={activeTab} className="w-full pt-4 h-full flex flex-col" onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-5 h-auto">
                 <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> Text</TabsTrigger>
                 <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> Voice</TabsTrigger>
@@ -424,9 +430,9 @@ const handleCapture = () => {
                 <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="text" className="pt-4 space-y-4">
+                <TabsContent value="text" className="pt-4 space-y-4 flex-1 flex flex-col">
                     <DialogDescription>Describe your monthly budgets. The AI will structure them for you.</DialogDescription>
-                    <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation..." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+                    <Textarea placeholder="e.g., Budget $500 for Groceries to buy milk, bread, and eggs. Also, $150 for transportation..." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} className="flex-1"/>
                     <DialogFooter>
                         <Button onClick={() => handleGenerateBudgets(userQuery)} disabled={!userQuery}>
                             <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
@@ -434,7 +440,7 @@ const handleCapture = () => {
                     </DialogFooter>
                 </TabsContent>
 
-                <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center">
+                <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center flex-1">
                     <DialogDescription>Start speaking and the AI will transcribe and create your budgets.</DialogDescription>
                     <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full my-4", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
                         {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
@@ -442,7 +448,7 @@ const handleCapture = () => {
                     <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
                 </TabsContent>
 
-                <TabsContent value="camera" className="pt-4 space-y-4">
+                <TabsContent value="camera" className="pt-4 space-y-4 flex-1 flex flex-col">
                     <DialogDescription>Position a document (like a shopping list) in the frame and capture an image to scan it.</DialogDescription>
                     <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
                         <canvas ref={canvasRef} className="hidden" />
@@ -470,7 +476,7 @@ const handleCapture = () => {
                     )}
                 </TabsContent>
 
-                <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center space-y-4">
+                <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center space-y-4 flex-1">
                     <DialogDescription>Upload an image of a document, like a shopping list or quote.</DialogDescription>
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
                         <Upload className="mr-2 h-4 w-4" />
@@ -479,7 +485,7 @@ const handleCapture = () => {
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                 </TabsContent>
 
-                <TabsContent value="manual" className="pt-0">
+                <TabsContent value="manual" className="pt-0 flex-1 flex flex-col min-h-0">
                     {renderReviewForm({ isReviewMode: false })}
                 </TabsContent>
             </Tabs>
