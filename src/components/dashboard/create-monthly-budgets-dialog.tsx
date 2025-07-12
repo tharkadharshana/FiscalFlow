@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -309,7 +309,7 @@ const handleCapture = () => {
 };
 
   const renderLoadingView = () => (
-    <div className="flex flex-col items-center justify-center space-y-4 h-64">
+    <div className="flex flex-col items-center justify-center space-y-4 h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-muted-foreground">AI is crafting your budgets...</p>
     </div>
@@ -344,91 +344,91 @@ const handleCapture = () => {
 
   const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
     <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="flex flex-col h-full">
-            <DialogDescription>
-                {isReviewMode
-                    ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
-                    : "Manually add a budget for a category, and optionally add checklist items to it."
-                }
-            </DialogDescription>
-            <div className="flex-1 min-h-0 my-4">
-                <ScrollArea className="h-full -mr-6 pr-6">
-                    <div className="space-y-3">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
-                                <div className="flex items-start gap-2">
-                                    <div className="flex-1 space-y-2">
-                                        <div className="grid grid-cols-5 gap-x-3">
-                                            <FormField
-                                                control={form.control}
-                                                name={`budgets.${index}.category`}
-                                                render={({ field }) => (
-                                                    <FormItem className="col-span-3">
-                                                        <FormLabel className="text-xs text-muted-foreground">Category</FormLabel>
-                                                        <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
-                                                            <FormControl>
-                                                                <SelectTrigger className="h-8">
-                                                                    <SelectValue placeholder="Select category" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                {expenseCategories.map(cat => (
-                                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name={`budgets.${index}.limit`}
-                                                render={({ field }) => (
-                                                    <FormItem className="col-span-2">
-                                                        <FormLabel className="text-xs text-muted-foreground">Monthly Limit ({userProfile?.currencyPreference || '$'})</FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} type="number" className="h-8" />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <BudgetItemsFieldArray budgetIndex={index} />
-                                    </div>
-                                    {!budgetToEdit && (
-                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(index)}>
-                                            <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                        {(fields.length === 0 && isReviewMode) && (
-                            <Alert>
-                                <Lightbulb className="h-4 w-4" />
-                                <AlertTitle>No New Budgets Found</AlertTitle>
-                                <AlertDescription>
-                                    The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        {!budgetToEdit && (
-                            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
-                                <Plus className="mr-2 h-4 w-4" /> Add Another Budget
-                            </Button>
-                        )}
+      <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="flex flex-col h-full">
+        <DialogDescription>
+          {isReviewMode
+            ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
+            : "Manually add a budget for a category, and optionally add checklist items to it."
+          }
+        </DialogDescription>
+        <div className="flex-1 min-h-0 py-4">
+          <ScrollArea className="h-full pr-4 -mr-4">
+            <div className="space-y-3 pb-2">
+              {fields.map((field, index) => (
+                <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 space-y-2">
+                      <div className="grid grid-cols-5 gap-x-3">
+                        <FormField
+                          control={form.control}
+                          name={`budgets.${index}.category`}
+                          render={({ field }) => (
+                            <FormItem className="col-span-3">
+                              <FormLabel className="text-xs text-muted-foreground">Category</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
+                                <FormControl>
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Select category" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {expenseCategories.map(cat => (
+                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`budgets.${index}.limit`}
+                          render={({ field }) => (
+                            <FormItem className="col-span-2">
+                              <FormLabel className="text-xs text-muted-foreground">Monthly Limit ({userProfile?.currencyPreference || '$'})</FormLabel>
+                              <FormControl>
+                                <Input {...field} type="number" className="h-8" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <BudgetItemsFieldArray budgetIndex={index} />
                     </div>
-                </ScrollArea>
+                    {!budgetToEdit && (
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(index)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {(fields.length === 0 && isReviewMode) && (
+                <Alert>
+                  <Lightbulb className="h-4 w-4" />
+                  <AlertTitle>No New Budgets Found</AlertTitle>
+                  <AlertDescription>
+                    The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {!budgetToEdit && (
+                <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Another Budget
+                </Button>
+              )}
             </div>
-            <DialogFooter>
-                {isReviewMode && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-                <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
-            </DialogFooter>
-        </form>
+          </ScrollArea>
+        </div>
+        <DialogFooter>
+          {isReviewMode && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
+          <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
+        </DialogFooter>
+      </form>
     </Form>
-)
+  )
 
     const renderContent = () => {
         if (view === 'loading') return renderLoadingView();
