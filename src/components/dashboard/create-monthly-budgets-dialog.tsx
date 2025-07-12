@@ -18,7 +18,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan, Keyboard, Camera, Upload, Plus, RotateCcw, SwitchCamera } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Mic, MicOff, Loader2, Wand2, Trash2, FileScan, Keyboard, Camera, Upload, Plus, RotateCcw, SwitchCamera, Lightbulb } from 'lucide-react';
 import { createMonthlyBudgetsAction, parseDocumentAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
 import {
@@ -28,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Budget } from '@/types';
+import type { Budget, BudgetItem } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
 import { nanoid } from 'nanoid';
@@ -151,7 +152,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
       } else {
           resetToInputView();
           setActiveTab('text');
-          form.reset({ budgets: [] });
+          form.reset({ budgets: [{ id: nanoid(), category: '', limit: 0, items: [] }] });
       }
     } else {
       // Cleanup when dialog closes
@@ -314,15 +315,40 @@ const handleCapture = () => {
     </div>
   )
 
+  const BudgetItemsFieldArray = ({ budgetIndex }: { budgetIndex: number }) => {
+    const { fields, append, remove } = useFieldArray({
+      control: form.control,
+      name: `budgets.${budgetIndex}.items`,
+    });
+    return (
+        <div className="space-y-2 mt-2">
+            <Label className="text-xs text-muted-foreground">Checklist Items (Optional)</Label>
+            <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
+            {fields.map((item, itemIndex) => (
+                <div key={item.id} className="flex items-center gap-2">
+                    <Input {...form.register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                </div>
+            ))}
+            </div>
+            <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => append({id: nanoid(), description: ''})}>
+                <Plus className="mr-2 h-4 w-4" /> Add Item
+            </Button>
+        </div>
+    );
+  }
+
   const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
     <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="space-y-4 pt-4">
         <DialogDescription>
             {isReviewMode
                 ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
-                : "Manually add a budget for a category."
+                : "Manually add a budget for a category, and optionally add checklist items to it."
             }
         </DialogDescription>
-        <ScrollArea className="h-64 w-full pr-3">
+        <ScrollArea className="max-h-80 w-full pr-3">
             <div className="space-y-3">
                 {fields.map((field, index) => (
                     <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
@@ -358,16 +384,23 @@ const handleCapture = () => {
                                 </Button>
                             )}
                         </div>
+                        <BudgetItemsFieldArray budgetIndex={index} />
                     </div>
                 ))}
-                {fields.length === 0 && (
-                    <p className="text-center text-muted-foreground py-4">The AI didn't find any new budgets to create based on your request, or they already exist.</p>
+                {(fields.length === 0 && isReviewMode) && (
+                    <Alert>
+                        <Lightbulb className="h-4 w-4" />
+                        <AlertTitle>No New Budgets Found</AlertTitle>
+                        <AlertDescription>
+                            The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
+                        </AlertDescription>
+                    </Alert>
                 )}
             </div>
         </ScrollArea>
         {!budgetToEdit && (
             <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
-                <Plus className="mr-2 h-4 w-4" /> Add Budget
+                <Plus className="mr-2 h-4 w-4" /> Add Another Budget
             </Button>
         )}
         <DialogFooter>
