@@ -64,16 +64,16 @@ const BudgetItemsFieldArray = ({ budgetIndex, control, register }: { budgetIndex
         <div className="space-y-2 mt-2">
             <FormLabel className="text-xs text-muted-foreground">Checklist Items (Optional)</FormLabel>
             <ScrollArea className="max-h-32 w-full pr-3">
-                <div className="space-y-2">
-                    {fields.map((item, itemIndex) => (
-                        <div key={item.id} className="flex items-center gap-2">
-                            <Input {...register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
-                                <Trash2 className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                        </div>
-                    ))}
-                </div>
+              <div className="space-y-2">
+                  {fields.map((item, itemIndex) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                          <Input {...register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                      </div>
+                  ))}
+              </div>
             </ScrollArea>
             <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => append({id: nanoid(), description: '', predictedCost: 0})}>
                 <Plus className="mr-2 h-4 w-4" /> Add Item
