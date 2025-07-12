@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -43,7 +42,6 @@ const menuItems = [
   { href: '/dashboard/investments', label: 'Investments', icon: Briefcase, premium: true },
   { href: '/dashboard/reports', label: 'Reports', icon: FileText, premium: true },
   { href: '/dashboard/budgets', label: 'Budgets & Plans', icon: Target },
-  { href: '/dashboard/checklists', label: 'Checklists', icon: CheckSquare },
   { href: '/dashboard/savings', label: 'Savings Goals', icon: PiggyBank, premium: true },
   { href: '/dashboard/tax', label: 'Tax Center', icon: Landmark, premium: true },
   { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },

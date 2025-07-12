@@ -21,7 +21,6 @@ import {
 } from '@/ai/flows/assistant-flow';
 import { analyzeTaxes } from '@/ai/flows/analyze-taxes-flow';
 import { createSavingsGoal } from '@/ai/flows/create-savings-goal-flow';
-import { createChecklist } from '@/ai/flows/create-checklist-flow';
 import { parseBankStatementFlow } from '@/ai/flows/parse-bank-statement-flow';
 import { z } from 'genkit';
 import { defaultCategories, defaultExpenseCategories } from '@/data/mock-data';
@@ -40,7 +39,6 @@ type TaxAnalysisResult = z.infer<typeof AnalyzeTaxesOutputSchema> | { error: str
 type ParseDocumentResult = { text: string } | { error: string };
 type SavingsGoalResult = z.infer<typeof CreateSavingsGoalOutputSchema> | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
-type ChecklistResult = z.infer<typeof CreateChecklistOutputSchema> | { error: string };
 type BankStatementParseResult = z.infer<typeof ParseBankStatementOutputSchema> | { error: string };
 
 // --- Bank Statement Schemas ---
@@ -144,20 +142,6 @@ export const CreateSavingsGoalOutputSchema = z.object({
   });
 export const CreateSavingsGoalInputSchema = z.object({
   userQuery: z.string().describe("The user's natural language description of their savings goal."),
-});
-
-// --- Checklist Schemas ---
-const ChecklistItemSchema = z.object({
-    id: z.string().describe("A unique ID for the item, e.g., a short hash or timestamp-based."),
-    description: z.string().describe('A clear description of the checklist item (e.g., a product to buy or a task to do).'),
-    predictedCost: z.number().optional().describe('The estimated cost for this item, if mentioned by the user.'),
-  });
-export const CreateChecklistOutputSchema = z.object({
-  title: z.string().describe('A concise title for the checklist (e.g., "Weekly Groceries", "Vacation Packing List").'),
-  items: z.array(ChecklistItemSchema).describe('A list of all checklist items generated from the user query.'),
-});
-export const CreateChecklistInputSchema = z.object({
-  userQuery: z.string().describe("The user's natural language description of their checklist."),
 });
 
 
@@ -298,18 +282,6 @@ export async function createSavingsGoalAction(
     } catch (error) {
         console.error('Error in createSavingsGoalAction:', error);
         return { error: 'Failed to generate savings goal. Please try again later.' };
-    }
-}
-
-export async function createChecklistAction(
-    payload: z.infer<typeof CreateChecklistInputSchema>
-): Promise<ChecklistResult> {
-    try {
-        const result = await createChecklist({ schema: CreateChecklistInputSchema, outputSchema: CreateChecklistOutputSchema, payload });
-        return result;
-    } catch (error) {
-        console.error('Error in createChecklistAction:', error);
-        return { error: 'Failed to generate checklist from your text. Please try again.' };
     }
 }
 

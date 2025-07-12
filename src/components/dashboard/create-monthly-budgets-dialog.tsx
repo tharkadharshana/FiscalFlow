@@ -455,12 +455,12 @@ const handleCapture = () => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <ScrollArea className="max-h-[80vh] pr-6">
-            <DialogHeader>
-                <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Create Monthly Budgets'}</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
+      <DialogContent className="sm:max-w-lg p-0 flex flex-col max-h-[90vh]">
+        <DialogHeader className="p-6 pb-4">
+            <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Create Monthly Budgets'}</DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="flex-1">
+            <div className="px-6 pb-6">
                 {renderContent()}
             </div>
         </ScrollArea>
