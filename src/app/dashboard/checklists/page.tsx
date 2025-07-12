@@ -9,24 +9,27 @@ import { useAppContext } from '@/contexts/app-context';
 import { PlusCircle, ListTodo, ClipboardPaste } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { Checklist, ChecklistTemplate } from '@/types';
+import type { Checklist, ChecklistItem, ChecklistTemplate } from '@/types';
 import { ChecklistCard } from '@/components/dashboard/checklist-card';
 import { ChecklistTemplateCard } from '@/components/dashboard/checklist-template-card';
 import { ChecklistDialog } from '@/components/dashboard/checklist-dialog';
+import { AddTransactionDialog } from '@/components/add-transaction-dialog';
 
 export default function ChecklistsPage() {
   const { checklists, deleteChecklist, createTemplateFromChecklist, checklistTemplates, deleteChecklistTemplate } = useAppContext();
   
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isChecklistDialogOpen, setIsChecklistDialogOpen] = useState(false);
+  const [isAddTxDialogOpen, setIsAddTxDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [checklistToEdit, setChecklistToEdit] = useState<Checklist | null>(null);
+  const [itemToConvert, setItemToConvert] = useState<{ checklistId: string; item: ChecklistItem } | null>(null);
   const [checklistToDelete, setChecklistToDelete] = useState<Checklist | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<ChecklistTemplate | null>(null);
 
   const handleEditChecklist = (checklist: Checklist) => {
     setChecklistToEdit(checklist);
-    setIsDialogOpen(true);
+    setIsChecklistDialogOpen(true);
   };
 
   const handleDeleteChecklist = (checklist: Checklist) => {
@@ -41,12 +44,24 @@ export default function ChecklistsPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleDialogClose = (open: boolean) => {
+  const handleConvertToTransaction = (checklist: Checklist, item: ChecklistItem) => {
+    setItemToConvert({ checklistId: checklist.id, item });
+    setIsAddTxDialogOpen(true);
+  };
+
+  const handleChecklistDialogClose = (open: boolean) => {
     if (!open) {
       setChecklistToEdit(null);
     }
-    setIsDialogOpen(open);
+    setIsChecklistDialogOpen(open);
   };
+
+  const handleAddTxDialogClose = (open: boolean) => {
+    if (!open) {
+      setItemToConvert(null);
+    }
+    setIsAddTxDialogOpen(open);
+  }
 
   const confirmDelete = async () => {
     if (checklistToDelete) {
@@ -71,7 +86,7 @@ export default function ChecklistsPage() {
                     <TabsTrigger value="checklists">My Checklists</TabsTrigger>
                     <TabsTrigger value="templates">Templates</TabsTrigger>
                 </TabsList>
-                <Button onClick={() => setIsDialogOpen(true)}>
+                <Button onClick={() => setIsChecklistDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     New Checklist
                 </Button>
@@ -93,6 +108,7 @@ export default function ChecklistsPage() {
                                     onEdit={() => handleEditChecklist(checklist)}
                                     onDelete={() => handleDeleteChecklist(checklist)}
                                     onSaveAsTemplate={() => createTemplateFromChecklist(checklist)}
+                                    onConvertToTransaction={handleConvertToTransaction}
                                 />
                             ))}
                         </div>
@@ -139,9 +155,15 @@ export default function ChecklistsPage() {
       </div>
       
       <ChecklistDialog 
-        open={isDialogOpen} 
-        onOpenChange={handleDialogClose}
+        open={isChecklistDialogOpen} 
+        onOpenChange={handleChecklistDialogClose}
         checklistToEdit={checklistToEdit}
+      />
+
+      <AddTransactionDialog
+        open={isAddTxDialogOpen}
+        onOpenChange={handleAddTxDialogClose}
+        itemToConvert={itemToConvert}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
