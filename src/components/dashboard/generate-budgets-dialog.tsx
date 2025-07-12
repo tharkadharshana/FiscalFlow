@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
+import { useForm, useFieldArray, FormProvider, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -32,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { nanoid } from 'nanoid';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Label } from '../ui/label';
 
 // --------- Zod Schemas ---------
 const budgetItemSchema = z.object({
@@ -64,7 +64,7 @@ const BudgetItemsFieldArray = ({ budgetIndex }: { budgetIndex: number }) => {
 
     return (
         <div className="space-y-2 mt-2">
-            <FormLabel className="text-xs text-muted-foreground">Checklist Items (Optional)</FormLabel>
+            <Label className="text-xs text-muted-foreground">Checklist Items (Optional)</Label>
             <ScrollArea className="h-40 w-full rounded-md border p-2">
                 <div className="space-y-2">
                     {fields.map((item, itemIndex) => (
@@ -86,13 +86,13 @@ const BudgetItemsFieldArray = ({ budgetIndex }: { budgetIndex: number }) => {
 
 
 // --------- Main Dialog Component ---------
-type CreateMonthlyBudgetsDialogProps = {
+type AddBudgetDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   budgetToEdit?: Budget | null;
 };
 
-export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }: CreateMonthlyBudgetsDialogProps) {
+export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetDialogProps) {
   const { userProfile, budgets: existingBudgets, showNotification, addBudget, updateBudget, expenseCategories } = useAppContext();
 
   type View = 'input' | 'loading' | 'review';
@@ -303,7 +303,7 @@ export function CreateMonthlyBudgetsDialog({ open, onOpenChange, budgetToEdit }:
                     </ScrollArea>
                 </div>
                 <DialogFooter>
-                {view === 'review' && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back to Generator</Button>}
+                {isReviewMode && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back to Generator</Button>}
                 <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
                 </DialogFooter>
             </form>

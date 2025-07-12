@@ -1,6 +1,7 @@
 
 
 
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
@@ -116,8 +117,6 @@ interface AppContextType {
   checklistTemplates: ChecklistTemplate[];
   createTemplateFromChecklist: (checklist: Checklist) => Promise<void>;
   deleteChecklistTemplate: (templateId: string) => Promise<void>;
-  generatedBudgets: Omit<Budget, 'id'>[];
-  setGeneratedBudgets: React.Dispatch<React.SetStateAction<Omit<Budget, 'id'>[]>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -135,7 +134,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
-  const [generatedBudgets, setGeneratedBudgets] = useState<Omit<Budget, 'id'>[]>([]);
   const { toast } = useToast();
   
   const isPremium = useMemo(() => {
@@ -1137,7 +1135,6 @@ const deleteTransaction = async (transactionId: string) => {
         canScanReceipt, scanReceiptWithLimit,
         checklists, addChecklist, updateChecklist, deleteChecklist,
         checklistTemplates, createTemplateFromChecklist, deleteChecklistTemplate,
-        generatedBudgets, setGeneratedBudgets,
       }}
     >
       {children}
