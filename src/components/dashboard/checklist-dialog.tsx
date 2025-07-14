@@ -1,247 +1,189 @@
+
 'use client';
 
-import { useState } from 'react';
-import { Header } from '@/components/dashboard/header';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
+import { useEffect, useMemo } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm, useFieldArray } from 'react-hook-form';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
-import { PlusCircle, DraftingCompass, Sparkles } from 'lucide-react';
-import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CreatePlanDialog } from '@/components/dashboard/create-plan-dialog';
-import type { FinancialPlan, Budget } from '@/types';
-import { FinancialPlanCard } from '@/components/dashboard/financial-plan-card';
-import { CreateMonthlyBudgetsDialog } from '@/components/dashboard/create-monthly-budgets-dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { BudgetDetailsDialog } from '@/components/dashboard/budget-details-dialog';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from '@/components/ui/select';
+import { useAppContext } from '@/contexts/app-context';
+import type { Checklist } from '@/types';
+import { Plus, Trash2 } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
+import { nanoid } from 'nanoid';
+import { allIcons } from '@/data/icons';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
-export default function BudgetsPage() {
-  const { financialPlans, deleteFinancialPlan, isPremium, budgets, deleteBudget } = useAppContext();
+const checklistItemSchema = z.object({
+  id: z.string(),
+  description: z.string().min(1, 'Description is required.'),
+  isCompleted: z.boolean(),
+  predictedCost: z.coerce.number().min(0, 'Cost must be positive.'),
+  category: z.string().min(1, 'Category is required.'),
+});
+
+const formSchema = z.object({
+  title: z.string().min(2, 'Title is required.'),
+  icon: z.string().min(1, 'Icon is required.'),
+  items: z.array(checklistItemSchema).min(1, 'Add at least one item.'),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+type ChecklistDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  checklistToEdit?: Checklist | null;
+};
+
+export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: ChecklistDialogProps) {
+  const { addChecklist, updateChecklist, expenseCategories } = useAppContext();
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      icon: 'ShoppingCart',
+      items: [],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'items',
+  });
   
-  // Dialog states
-  const [isCreateBudgetsDialogOpen, setIsCreateBudgetsDialogOpen] = useState(false);
-  const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
-  const [isBudgetDetailsOpen, setIsBudgetDetailsOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  
-  // Data for dialogs
-  const [planToEdit, setPlanToEdit] = useState<FinancialPlan | null>(null);
-  const [planToDelete, setPlanToDelete] = useState<FinancialPlan | null>(null);
-  const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
-  const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
-  const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
-
-
-  const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
-  const canAddPlan = isPremium || financialPlans.length < FREE_TIER_LIMITS.financialPlans;
-
-  // Plan handlers
-  const handleEditPlan = (plan: FinancialPlan) => {
-    setPlanToEdit(plan);
-    setIsCreatePlanDialogOpen(true);
-  };
-  
-  const handleDeletePlan = (plan: FinancialPlan) => {
-    setPlanToDelete(plan);
-    setBudgetToDelete(null);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handlePlanDialogClose = (open: boolean) => {
-    if (!open) {
-      setPlanToEdit(null);
-    }
-    setIsCreatePlanDialogOpen(open);
-  }
-
-  // Budget handlers
-  const handleCreateBudget = () => {
-    setBudgetToEdit(null);
-    setIsCreateBudgetsDialogOpen(true);
-  }
-
-  const handleEditBudget = (budget: Budget) => {
-    setBudgetToEdit(budget);
-    setIsCreateBudgetsDialogOpen(true);
-  }
-
-  const handleDeleteBudget = (budget: Budget) => {
-    setBudgetToDelete(budget);
-    setPlanToDelete(null);
-    setIsDeleteDialogOpen(true);
-  }
-
-  const handleShowBudgetDetails = (budget: Budget) => {
-    setSelectedBudget(budget);
-    setIsBudgetDetailsOpen(true);
-  }
-  
-  const handleBudgetDialogClose = (open: boolean) => {
-      if (!open) {
-          setBudgetToEdit(null);
+  useEffect(() => {
+    if (open) {
+      if (checklistToEdit) {
+        form.reset(checklistToEdit);
+      } else {
+        form.reset({
+          title: '',
+          icon: 'ShoppingCart',
+          items: [{ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: '' }],
+        });
       }
-      setIsCreateBudgetsDialogOpen(open);
+    }
+  }, [open, checklistToEdit, form]);
+
+  async function onSubmit(values: FormData) {
+    if (checklistToEdit) {
+      await updateChecklist(checklistToEdit.id, values);
+    } else {
+      await addChecklist(values);
+    }
+    onOpenChange(false);
   }
-
-  const confirmDelete = async () => {
-    if (planToDelete) {
-      await deleteFinancialPlan(planToDelete.id);
-    }
-    if (budgetToDelete) {
-      await deleteBudget(budgetToDelete.id);
-    }
-    setIsDeleteDialogOpen(false);
-    setPlanToDelete(null);
-    setBudgetToDelete(null);
-  };
-
-  const AddBudgetButton = (
-     <Button onClick={handleCreateBudget} disabled={!canAddBudget}>
-        <PlusCircle className="mr-2 h-4 w-4" />
-        Add Budget
-      </Button>
-  );
-
-  const CreatePlanButton = (
-     <Button onClick={() => setIsCreatePlanDialogOpen(true)} disabled={!canAddPlan}>
-        <PlusCircle className="mr-2 h-4 w-4" />
-        Create Plan
-      </Button>
-  );
+  
+  const IconPicker = ({ field }: { field: any }) => {
+    const SelectedIcon = allIcons[field.value] || allIcons['ShoppingCart'];
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start gap-2">
+                    <SelectedIcon /> {field.value}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 h-96">
+                <ScrollArea className="h-full">
+                    <div className="grid grid-cols-5 gap-1">
+                        {Object.entries(allIcons).map(([name, Icon]) => (
+                            <Button key={name} variant="ghost" size="icon" onClick={() => field.onChange(name)}>
+                                <Icon />
+                            </Button>
+                        ))}
+                    </div>
+                </ScrollArea>
+            </PopoverContent>
+        </Popover>
+    )
+  }
 
   return (
-    <>
-      <div className="flex flex-1 flex-col">
-        <Header title="Budgets & Plans" />
-        <main className="flex-1 space-y-6 p-4 md:p-6">
-          <Tabs defaultValue="monthly">
-            <div className='flex justify-between items-center mb-4'>
-                <TabsList>
-                    <TabsTrigger value="monthly">Monthly Budgets</TabsTrigger>
-                    <TabsTrigger value="plans">
-                      Financial Plans
-                      {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
-                    </TabsTrigger>
-                </TabsList>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{checklistToEdit ? 'Edit' : 'Create'} Checklist</DialogTitle>
+          <DialogDescription>
+            Organize your planned expenses into a reusable checklist.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <FormField control={form.control} name="title" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g. Monthly Bills" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+               <FormField control={form.control} name="icon" render={({ field }) => (
+                <FormItem><FormLabel>Icon</FormLabel><IconPicker field={field} /><FormMessage /></FormItem>
+              )} />
+            </div>
+
+            <div className="space-y-2">
+                <Label>Items</Label>
+                <ScrollArea className="h-64 pr-4">
+                    <div className="space-y-3">
+                        {fields.map((field, index) => (
+                            <div key={field.id} className="grid grid-cols-12 gap-2 items-end">
+                                <FormField control={form.control} name={`items.${index}.description`} render={({ field }) => (
+                                    <FormItem className="col-span-4"><FormLabel className="text-xs">Item</FormLabel><FormControl><Input placeholder="e.g., Rent" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={form.control} name={`items.${index}.predictedCost`} render={({ field }) => (
+                                    <FormItem className="col-span-3"><FormLabel className="text-xs">Cost</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={form.control} name={`items.${index}.category`} render={({ field }) => (
+                                    <FormItem className="col-span-4"><FormLabel className="text-xs">Category</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                            <SelectContent><SelectContent>
+                                                {expenseCategories.map(cat => (
+                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                ))}
+                                            </SelectContent></SelectContent>
+                                        </Select>
+                                    <FormMessage /></FormItem>
+                                )} />
+                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: '' })}>
+                    <Plus className="mr-2 h-4 w-4" />Add Item
+                </Button>
             </div>
             
-            <TabsContent value="monthly">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Category Budgets</CardTitle>
-                    <CardDescription>
-                      Set and track your monthly spending limits for each category.
-                    </CardDescription>
-                  </div>
-                  {canAddBudget ? (
-                    AddBudgetButton
-                  ) : (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>{AddBudgetButton}</TooltipTrigger>
-                        <TooltipContent>
-                          <p>Upgrade to Premium for unlimited budgets.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </CardHeader>
-                <CardContent>
-                    <MonthlyBudgets 
-                      onEditBudget={handleEditBudget}
-                      onDeleteBudget={handleDeleteBudget}
-                      onShowDetails={handleShowBudgetDetails}
-                    />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="plans">
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                      <div>
-                          <CardTitle>Financial Plans</CardTitle>
-                          <CardDescription>
-                              Plan for trips, savings goals, and large purchases with AI assistance.
-                          </CardDescription>
-                      </div>
-                      {canAddPlan ? (
-                        CreatePlanButton
-                      ) : (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>{CreatePlanButton}</TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Upgrade to Premium for unlimited plans.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                      )}
-                  </CardHeader>
-                  <CardContent>
-                      {financialPlans.length > 0 ? (
-                          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                              {financialPlans.map((plan) => (
-                                  <FinancialPlanCard 
-                                      key={plan.id} 
-                                      plan={plan} 
-                                      onEdit={() => handleEditPlan(plan)}
-                                      onDelete={() => handleDeletePlan(plan)}
-                                  />
-                              ))}
-                          </div>
-                      ) : (
-                          <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
-                              <DraftingCompass className="h-12 w-12 mb-4" />
-                              <p className="text-lg font-semibold">No financial plans created yet.</p>
-                              <p>Click "Create Plan" to plan your next big goal with AI.</p>
-                          </div>
-                      )}
-                  </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </main>
-      </div>
-      
-      {/* Dialogs */}
-      <CreateMonthlyBudgetsDialog open={isCreateBudgetsDialogOpen} onOpenChange={handleBudgetDialogClose} budgetToEdit={budgetToEdit} />
-      <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
-      <BudgetDetailsDialog open={isBudgetDetailsOpen} onOpenChange={setIsBudgetDetailsOpen} budget={selectedBudget} />
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your financial plan for "{planToDelete?.title || budgetToDelete?.category}".
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
-                Delete
-            </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+            <DialogFooter>
+              <Button type="submit">{checklistToEdit ? 'Save Changes' : 'Create Checklist'}</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
