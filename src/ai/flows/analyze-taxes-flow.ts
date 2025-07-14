@@ -7,8 +7,44 @@
  */
 
 import { ai } from '@/ai/genkit';
-import type { z } from 'genkit';
-import type { AnalyzeTaxesInputSchema, AnalyzeTaxesOutputSchema } from '@/lib/actions';
+import { z } from 'genkit';
+
+// --- Tax Analysis Schemas (Moved from actions.ts) ---
+const TransactionSchema = z.object({
+    id: z.string(),
+    type: z.enum(['income', 'expense']),
+    amount: z.number(),
+    category: z.string(),
+    source: z.string(),
+    date: z.string(),
+});
+const SimplifiedInvestmentSchema = z.object({
+    name: z.string(),
+    assetType: z.string(),
+    marketValue: z.number(),
+});
+const SimplifiedSavingsGoalSchema = z.object({
+    title: z.string(),
+    currentAmount: z.number(),
+});
+const TaxLiabilitySchema = z.object({
+    taxType: z.string().describe('The official name of the tax, e.g., "Value Added Tax (VAT)", "Goods and Services Tax (GST)", "PAYE (Income Tax)", "Capital Gains Tax".'),
+    description: z.string().describe('A brief, helpful description of how the tax was calculated (e.g., "Calculated on total income based on 2025 brackets.").'),
+    amount: z.number().describe('The calculated tax amount. The AI must perform the calculation and return the final number.'),
+    sourceTransactionIds: z.array(z.string()).optional().describe('IDs of source transactions, if applicable.'),
+});
+export const AnalyzeTaxesInputSchema = z.object({
+  transactions: z.array(TransactionSchema),
+  investments: z.array(SimplifiedInvestmentSchema).optional().describe("A list of the user's current investment holdings."),
+  savingsGoals: z.array(SimplifiedSavingsGoalSchema).optional().describe("A list of the user's savings goals, which may generate interest income."),
+  countryCode: z.string().describe("The user's country code (e.g., US, LK, GB). This is the primary context for determining tax rules."),
+  taxDocument: z.string().optional().describe('User-provided text describing tax rules. This should be treated as the highest priority source of truth.'),
+});
+export const AnalyzeTaxesOutputSchema = z.object({
+    liabilities: z.array(TaxLiabilitySchema),
+});
+export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
+export type AnalyzeTaxesOutput = z.infer<typeof AnalyzeTaxesOutputSchema>;
 
 
 // Main Flow Definition
@@ -18,8 +54,8 @@ export async function analyzeTaxes(
   
   const taxAnalysisPrompt = ai.definePrompt({
       name: 'taxAnalysisPrompt',
-      input: { schema: input.schema },
-      output: { schema: input.outputSchema },
+      input: { schema: AnalyzeTaxesInputSchema },
+      output: { schema: AnalyzeTaxesOutputSchema },
       system: `You are an expert global financial analyst specializing in tax law. Your task is to analyze a user's complete financial picture for the specified country ({{countryCode}}) and identify all potential tax liabilities.
 
       **Core Instructions:**
@@ -47,8 +83,8 @@ export async function analyzeTaxes(
   const analyzeTaxesFlow = ai.defineFlow(
     {
       name: 'analyzeTaxesFlow',
-      inputSchema: input.schema,
-      outputSchema: input.outputSchema,
+      inputSchema: AnalyzeTaxesInputSchema,
+      outputSchema: AnalyzeTaxesOutputSchema,
     },
     async (flowInput) => {
       
@@ -61,5 +97,5 @@ export async function analyzeTaxes(
     }
   );
 
-  return analyzeTaxesFlow(input.payload);
+  return analyzeTaxesFlow(input);
 }

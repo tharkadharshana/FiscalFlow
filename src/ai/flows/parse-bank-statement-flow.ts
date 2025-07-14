@@ -3,20 +3,39 @@
 /**
  * @fileOverview An AI flow to parse financial transactions from a bank statement document.
  *
- * - parseBankStatementFlow - A function that handles parsing a bank statement.
+ * - parseBankStatement - A function that handles parsing a bank statement.
  */
 
 import { ai } from '@/ai/genkit';
-import type { z } from 'genkit';
-import type { ParseBankStatementInputSchema, ParseBankStatementOutputSchema } from '@/lib/actions';
+import { z } from 'genkit';
 import { defaultCategories } from '@/data/mock-data';
 
+// --- Bank Statement Schemas (Moved from actions.ts) ---
+const ParsedTransactionSchema = z.object({
+  date: z.string().describe('The transaction date in YYYY-MM-DD format. If no year is present, assume the current year.'),
+  description: z.string().describe('The full transaction description from the statement.'),
+  amount: z.number().describe('The transaction amount. Use negative numbers for debits/expenses and positive for credits/income.'),
+  category: z.string().describe(`A suggested category for this transaction. Must be one of the following: ${defaultCategories.join(', ')}`),
+});
+export const ParseBankStatementOutputSchema = z.object({
+  transactions: z.array(ParsedTransactionSchema),
+});
+export const ParseBankStatementInputSchema = z.object({
+  fileDataUri: z
+    .string()
+    .describe(
+      "A bank statement file (like a PDF), as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
+});
+export type ParseBankStatementOutput = z.infer<typeof ParseBankStatementOutputSchema>;
+export type ParseBankStatementInput = z.infer<typeof ParseBankStatementInputSchema>;
 
-export async function parseBankStatementFlow(input: z.infer<typeof ParseBankStatementInputSchema>): Promise<z.infer<typeof ParseBankStatementOutputSchema>> {
+
+export async function parseBankStatement(input: ParseBankStatementInput): Promise<ParseBankStatementOutput> {
   const prompt = ai.definePrompt({
     name: 'parseBankStatementPrompt',
-    input: { schema: input.schema },
-    output: { schema: input.outputSchema },
+    input: { schema: ParseBankStatementInputSchema },
+    output: { schema: ParseBankStatementOutputSchema },
     prompt: `You are an expert financial data extraction AI. Analyze the bank statement provided and extract all transactions.
 
     **Instructions:**
@@ -30,6 +49,6 @@ export async function parseBankStatementFlow(input: z.infer<typeof ParseBankStat
     Bank Statement File: {{media url=fileDataUri}}`,
   });
 
-  const { output } = await prompt({ fileDataUri: input.fileDataUri });
+  const { output } = await prompt(input);
   return output!;
 }

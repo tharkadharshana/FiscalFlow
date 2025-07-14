@@ -9,15 +9,36 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { nanoid } from 'nanoid';
-import type { CreateMonthlyBudgetsInputSchema, CreateMonthlyBudgetsOutputSchema } from '@/lib/actions';
+import { defaultExpenseCategories } from '@/data/mock-data';
+
+// --- Monthly Budgets Schemas (Moved from actions.ts) ---
+const BudgetItemSchema = z.object({
+  id: z.string().describe("A unique ID for the item, e.g., a short hash or timestamp-based."),
+  description: z.string().describe("The name of the item to purchase."),
+  predictedCost: z.number().optional().describe("The estimated cost of this single item, if the user mentions it."),
+});
+const BudgetSchema = z.object({
+  category: z.string().describe(`A suitable category for the budget. Must be one of: ${defaultExpenseCategories.join(', ')}`),
+  limit: z.number().describe('The total budget limit for this category.'),
+  items: z.array(BudgetItemSchema).optional().describe("A list of specific items the user mentioned for this budget category."),
+});
+export const CreateMonthlyBudgetsOutputSchema = z.object({
+  budgets: z.array(BudgetSchema).describe('A list of budget items generated from the user query.'),
+});
+export const CreateMonthlyBudgetsInputSchema = z.object({
+  userQuery: z.string().describe("The user's natural language description of their monthly budget goals."),
+  existingCategories: z.array(z.string()).describe("A list of budget categories that already exist to avoid duplication.")
+});
+export type CreateMonthlyBudgetsOutput = z.infer<typeof CreateMonthlyBudgetsOutputSchema>;
+export type CreateMonthlyBudgetsInput = z.infer<typeof CreateMonthlyBudgetsInputSchema>;
 
 
-export async function createMonthlyBudgets(input: z.infer<typeof CreateMonthlyBudgetsInputSchema>): Promise<z.infer<typeof CreateMonthlyBudgetsOutputSchema>> {
+export async function createMonthlyBudgets(input: CreateMonthlyBudgetsInput): Promise<CreateMonthlyBudgetsOutput> {
   
   const prompt = ai.definePrompt({
     name: 'createMonthlyBudgetsPrompt',
-    input: {schema: input.schema},
-    output: {schema: input.outputSchema},
+    input: {schema: CreateMonthlyBudgetsInputSchema},
+    output: {schema: CreateMonthlyBudgetsOutputSchema},
     prompt: `You are an expert financial planner specializing in monthly budgets. A user will provide a natural language description of their desired budgets for the month.
 
   Your task is to parse their request and generate a structured list of budget objects.
@@ -50,8 +71,8 @@ export async function createMonthlyBudgets(input: z.infer<typeof CreateMonthlyBu
   const createMonthlyBudgetsFlow = ai.defineFlow(
     {
       name: 'createMonthlyBudgetsFlow',
-      inputSchema: input.schema,
-      outputSchema: input.outputSchema,
+      inputSchema: CreateMonthlyBudgetsInputSchema,
+      outputSchema: CreateMonthlyBudgetsOutputSchema,
     },
     async (flowInput) => {
       const {output} = await prompt(flowInput);
@@ -73,5 +94,5 @@ export async function createMonthlyBudgets(input: z.infer<typeof CreateMonthlyBu
     }
   );
 
-  return createMonthlyBudgetsFlow(input.payload);
+  return createMonthlyBudgetsFlow(input);
 }

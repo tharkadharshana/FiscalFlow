@@ -12,19 +12,37 @@ import {
     type GenerateInsightsInput,
     type GenerateInsightsOutput,
 } from '@/ai/flows/generate-insights-flow';
-import { createFinancialPlan } from '@/ai/flows/create-financial-plan-flow';
-import { createMonthlyBudgets } from '@/ai/flows/create-monthly-budgets-flow';
+import { 
+  createFinancialPlan,
+  type CreateFinancialPlanInput,
+  type CreateFinancialPlanOutput,
+} from '@/ai/flows/create-financial-plan-flow';
+import {
+  createMonthlyBudgets,
+  type CreateMonthlyBudgetsInput,
+  type CreateMonthlyBudgetsOutput
+} from '@/ai/flows/create-monthly-budgets-flow';
 import {
     assistantAction as assistantActionFlow,
     type AssistantActionInput,
     type VoiceAction
 } from '@/ai/flows/assistant-flow';
-import { analyzeTaxes } from '@/ai/flows/analyze-taxes-flow';
-import { createSavingsGoal } from '@/ai/flows/create-savings-goal-flow';
-import { parseBankStatementFlow } from '@/ai/flows/parse-bank-statement-flow';
+import { 
+  analyzeTaxes,
+  type AnalyzeTaxesInput,
+  type AnalyzeTaxesOutput,
+} from '@/ai/flows/analyze-taxes-flow';
+import { 
+  createSavingsGoal,
+  type CreateSavingsGoalInput,
+  type CreateSavingsGoalOutput,
+} from '@/ai/flows/create-savings-goal-flow';
+import { 
+  parseBankStatement,
+  type ParseBankStatementInput,
+  type ParseBankStatementOutput,
+} from '@/ai/flows/parse-bank-statement-flow';
 import { z } from 'genkit';
-import { defaultCategories, defaultExpenseCategories } from '@/data/mock-data';
-
 
 import { logger } from './logger';
 import type { CoinGeckoMarketData } from '@/types';
@@ -35,114 +53,11 @@ type InsightsResult = GenerateInsightsOutput | { error: string };
 type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };
 type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
 type AssistantResult = VoiceAction | { error: string };
-type TaxAnalysisResult = z.infer<typeof AnalyzeTaxesOutputSchema> | { error: string };
+type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
 type ParseDocumentResult = { text: string } | { error: string };
-type SavingsGoalResult = z.infer<typeof CreateSavingsGoalOutputSchema> | { error: string };
+type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
-type BankStatementParseResult = z.infer<typeof ParseBankStatementOutputSchema> | { error: string };
-
-// --- Bank Statement Schemas ---
-const ParsedTransactionSchema = z.object({
-    date: z.string().describe('The transaction date in YYYY-MM-DD format. If no year is present, assume the current year.'),
-    description: z.string().describe('The full transaction description from the statement.'),
-    amount: z.number().describe('The transaction amount. Use negative numbers for debits/expenses and positive for credits/income.'),
-    category: z.string().describe(`A suggested category for this transaction. Must be one of the following: ${defaultCategories.join(', ')}`),
-});
-export const ParseBankStatementOutputSchema = z.object({
-  transactions: z.array(ParsedTransactionSchema),
-});
-export const ParseBankStatementInputSchema = z.object({
-  fileDataUri: z
-    .string()
-    .describe(
-      "A bank statement file (like a PDF), as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-});
-
-// --- Tax Analysis Schemas ---
-const TransactionSchema = z.object({
-    id: z.string(),
-    type: z.enum(['income', 'expense']),
-    amount: z.number(),
-    category: z.string(),
-    source: z.string(),
-    date: z.string(),
-});
-const SimplifiedInvestmentSchema = z.object({
-    name: z.string(),
-    assetType: z.string(),
-    marketValue: z.number(),
-});
-const SimplifiedSavingsGoalSchema = z.object({
-    title: z.string(),
-    currentAmount: z.number(),
-});
-const TaxLiabilitySchema = z.object({
-    taxType: z.string().describe('The official name of the tax, e.g., "Value Added Tax (VAT)", "Goods and Services Tax (GST)", "PAYE (Income Tax)", "Capital Gains Tax".'),
-    description: z.string().describe('A brief, helpful description of how the tax was calculated (e.g., "Calculated on total income based on 2025 brackets.").'),
-    amount: z.number().describe('The calculated tax amount. The AI must perform the calculation and return the final number.'),
-    sourceTransactionIds: z.array(z.string()).optional().describe('IDs of source transactions, if applicable.'),
-});
-export const AnalyzeTaxesInputSchema = z.object({
-  transactions: z.array(TransactionSchema),
-  investments: z.array(SimplifiedInvestmentSchema).optional().describe("A list of the user's current investment holdings."),
-  savingsGoals: z.array(SimplifiedSavingsGoalSchema).optional().describe("A list of the user's savings goals, which may generate interest income."),
-  countryCode: z.string().describe("The user's country code (e.g., US, LK, GB). This is the primary context for determining tax rules."),
-  taxDocument: z.string().optional().describe('User-provided text describing tax rules. This should be treated as the highest priority source of truth.'),
-});
-export const AnalyzeTaxesOutputSchema = z.object({
-    liabilities: z.array(TaxLiabilitySchema),
-});
-export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
-
-
-// --- Financial Plan Schemas ---
-const PlanItemSchema = z.object({
-    id: z.string().describe("A unique ID for the item, e.g., a short hash or timestamp-based."),
-    description: z.string().describe('A clear description of the expense item.'),
-    category: z.string().describe('A suitable category for the item (e.g., Flights, Food, Fees).'),
-    predictedCost: z.number().describe('The estimated cost for this item.'),
-    isAiSuggested: z.boolean().optional().describe('Set to true if this item was suggested by the AI, not the user.'),
-  });
-export const CreateFinancialPlanOutputSchema = z.object({
-  title: z.string().describe('A concise title for the financial plan (e.g., "Paris Trip 2024").'),
-  items: z.array(PlanItemSchema).describe('A list of all plan items, both from the user and suggested by the AI.'),
-});
-export type CreateFinancialPlanOutput = z.infer<typeof CreateFinancialPlanOutputSchema>;
-export const CreateFinancialPlanInputSchema = z.object({
-  userQuery: z.string().describe("The user's natural language description of their goal or what to add to the plan."),
-  existingPlan: CreateFinancialPlanOutputSchema.optional().describe("The existing plan if the user is adding to it.")
-});
-
-// --- Monthly Budgets Schemas ---
-const BudgetItemSchema = z.object({
-    id: z.string().describe("A unique ID for the item, e.g., a short hash or timestamp-based."),
-    description: z.string().describe("The name of the item to purchase."),
-    predictedCost: z.number().optional().describe("The estimated cost of this single item, if the user mentions it."),
-  });
-const BudgetSchema = z.object({
-    category: z.string().describe(`A suitable category for the budget. Must be one of: ${defaultExpenseCategories.join(', ')}`),
-    limit: z.number().describe('The total budget limit for this category.'),
-    items: z.array(BudgetItemSchema).optional().describe("A list of specific items the user mentioned for this budget category."),
-  });
-export const CreateMonthlyBudgetsOutputSchema = z.object({
-  budgets: z.array(BudgetSchema).describe('A list of budget items generated from the user query.'),
-});
-export type CreateMonthlyBudgetsOutput = z.infer<typeof CreateMonthlyBudgetsOutputSchema>;
-export const CreateMonthlyBudgetsInputSchema = z.object({
-  userQuery: z.string().describe("The user's natural language description of their monthly budget goals."),
-  existingCategories: z.array(z.string()).describe("A list of budget categories that already exist to avoid duplication.")
-});
-
-// --- Savings Goal Schemas ---
-export const CreateSavingsGoalOutputSchema = z.object({
-    title: z.string().describe('A concise title for the savings goal (e.g., "New Gaming Laptop").'),
-    targetAmount: z.number().describe('The total amount the user wants to save.'),
-    deadline: z.string().optional().describe('The target deadline in YYYY-MM-DD format if mentioned. If no year is mentioned, assume the next upcoming instance of that month/day.'),
-  });
-export const CreateSavingsGoalInputSchema = z.object({
-  userQuery: z.string().describe("The user's natural language description of their savings goal."),
-});
+type BankStatementParseResult = ParseBankStatementOutput | { error: string };
 
 
 // ------------------------------
@@ -226,10 +141,10 @@ export async function generateInsightsAction(
 }
 
 export async function createFinancialPlanAction(
-    payload: z.infer<typeof CreateFinancialPlanInputSchema>
+    payload: CreateFinancialPlanInput
 ): Promise<FinancialPlanResult> {
     try {
-        const result = await createFinancialPlan({ schema: CreateFinancialPlanInputSchema, outputSchema: CreateFinancialPlanOutputSchema, payload });
+        const result = await createFinancialPlan(payload);
         return result;
     } catch (error) {
         console.error('Error in createFinancialPlanAction:', error);
@@ -238,10 +153,10 @@ export async function createFinancialPlanAction(
 }
 
 export async function createMonthlyBudgetsAction(
-    payload: z.infer<typeof CreateMonthlyBudgetsInputSchema>
+    payload: CreateMonthlyBudgetsInput
 ): Promise<MonthlyBudgetsResult> {
     try {
-        const result = await createMonthlyBudgets({ schema: CreateMonthlyBudgetsInputSchema, outputSchema: CreateMonthlyBudgetsOutputSchema, payload });
+        const result = await createMonthlyBudgets(payload);
         return result;
     } catch (error) {
         console.error('Error in createMonthlyBudgetsAction:', error);
@@ -265,7 +180,7 @@ export async function analyzeTaxesAction(
     payload: AnalyzeTaxesInput
 ): Promise<TaxAnalysisResult> {
     try {
-        const result = await analyzeTaxes({ schema: AnalyzeTaxesInputSchema, outputSchema: AnalyzeTaxesOutputSchema, payload });
+        const result = await analyzeTaxes(payload);
         return result;
     } catch (error) {
         console.error('Error in analyzeTaxesAction:', error);
@@ -274,10 +189,10 @@ export async function analyzeTaxesAction(
 }
 
 export async function createSavingsGoalAction(
-    payload: z.infer<typeof CreateSavingsGoalInputSchema>
+    payload: CreateSavingsGoalInput
 ): Promise<SavingsGoalResult> {
     try {
-        const result = await createSavingsGoal({ schema: CreateSavingsGoalInputSchema, outputSchema: CreateSavingsGoalOutputSchema, payload });
+        const result = await createSavingsGoal(payload);
         return result;
     } catch (error) {
         console.error('Error in createSavingsGoalAction:', error);
@@ -286,19 +201,14 @@ export async function createSavingsGoalAction(
 }
 
 export async function parseBankStatementAction(
-    payload: z.infer<typeof ParseBankStatementInputSchema>
+    payload: ParseBankStatementInput
 ): Promise<BankStatementParseResult> {
     if (!payload.fileDataUri) {
         return { error: 'Please provide a bank statement file.' };
     }
     
     try {
-        // Pass schemas to the flow, so it doesn't need to define/export them.
-        const result = await parseBankStatementFlow({
-            schema: ParseBankStatementInputSchema,
-            outputSchema: ParseBankStatementOutputSchema,
-            payload
-        });
+        const result = await parseBankStatement(payload);
         return result;
     } catch (error) {
         logger.error('Error in parseBankStatementAction:', error as Error);

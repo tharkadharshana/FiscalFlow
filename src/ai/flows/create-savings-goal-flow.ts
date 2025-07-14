@@ -8,15 +8,26 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { CreateSavingsGoalInputSchema, CreateSavingsGoalOutputSchema } from '@/lib/actions';
+
+// --- Savings Goal Schemas (Moved from actions.ts) ---
+export const CreateSavingsGoalOutputSchema = z.object({
+  title: z.string().describe('A concise title for the savings goal (e.g., "New Gaming Laptop").'),
+  targetAmount: z.number().describe('The total amount the user wants to save.'),
+  deadline: z.string().optional().describe('The target deadline in YYYY-MM-DD format if mentioned. If no year is mentioned, assume the next upcoming instance of that month/day.'),
+});
+export const CreateSavingsGoalInputSchema = z.object({
+  userQuery: z.string().describe("The user's natural language description of their savings goal."),
+});
+export type CreateSavingsGoalOutput = z.infer<typeof CreateSavingsGoalOutputSchema>;
+export type CreateSavingsGoalInput = z.infer<typeof CreateSavingsGoalInputSchema>;
 
 
-export async function createSavingsGoal(input: z.infer<typeof CreateSavingsGoalInputSchema>): Promise<z.infer<typeof CreateSavingsGoalOutputSchema>> {
+export async function createSavingsGoal(input: CreateSavingsGoalInput): Promise<CreateSavingsGoalOutput> {
   
   const prompt = ai.definePrompt({
     name: 'createSavingsGoalPrompt',
-    input: {schema: input.schema},
-    output: {schema: input.outputSchema},
+    input: {schema: CreateSavingsGoalInputSchema},
+    output: {schema: CreateSavingsGoalOutputSchema},
     prompt: `You are an expert financial assistant. A user will provide a description of a savings goal.
   Your task is to parse their request and extract the key details into a structured JSON object.
 
@@ -36,8 +47,8 @@ export async function createSavingsGoal(input: z.infer<typeof CreateSavingsGoalI
   const createSavingsGoalFlow = ai.defineFlow(
     {
       name: 'createSavingsGoalFlow',
-      inputSchema: input.schema,
-      outputSchema: input.outputSchema,
+      inputSchema: CreateSavingsGoalInputSchema,
+      outputSchema: CreateSavingsGoalOutputSchema,
     },
     async (flowInput) => {
       const {output} = await prompt(flowInput);
@@ -45,5 +56,5 @@ export async function createSavingsGoal(input: z.infer<typeof CreateSavingsGoalI
     }
   );
   
-  return createSavingsGoalFlow(input.payload);
+  return createSavingsGoalFlow(input);
 }
