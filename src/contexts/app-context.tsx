@@ -403,7 +403,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const userDocRef = doc(db, 'users', user.uid);
-        const { date, tripId, tripItemId, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
+  
+        // Destructure and assign activeTripId if it exists
+        const { date, tripItemId, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
+        let finalTripId = transaction.tripId;
+        if (userProfile.activeTripId) {
+          finalTripId = userProfile.activeTripId;
+        }
   
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
@@ -412,8 +418,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // --- READS FIRST ---
         let planRef: any, planDoc: any, roundupGoalSnap: any, checklistRef: any, checklistDoc: any;
   
-        if (tripId) {
-          planRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
+        if (finalTripId) {
+          planRef = doc(db, 'users', user.uid, 'tripPlans', finalTripId);
           planDoc = await firestoreTransaction.get(planRef);
         }
 
@@ -441,7 +447,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           date: Timestamp.fromDate(new Date(date)),
           createdAt: serverTimestamp(),
           userId: user.uid,
-          tripId: userProfile.activeTripId || tripId || null,
+          tripId: finalTripId || null,
           tripItemId: tripItemId || null,
           isTaxDeductible: isTaxDeductible || false,
           carbonFootprint,
@@ -1168,3 +1174,5 @@ export function useAppContext() {
   }
   return context;
 }
+
+    
