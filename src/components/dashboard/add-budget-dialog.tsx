@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Mic, MicOff, Loader2, Wand2, Keyboard, Plus, Trash2, Lightbulb, Camera, Upload, RotateCcw, SwitchCamera } from 'lucide-react';
-import { createMonthlyBudgetsAction } from '@/lib/actions';
+import { createMonthlyBudgetsAction, parseDocumentAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Budget, BudgetItem } from '@/types';
@@ -35,7 +35,6 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '../ui/label';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { parseDocumentAction } from '@/lib/actions';
 
 // --------- Zod Schemas ---------
 const budgetItemSchema = z.object({
@@ -424,8 +423,8 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                     </ScrollArea>
                 </div>
                 <DialogFooter>
-                {view === 'review' && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-                <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
+                    {view === 'review' && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
+                    <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
                 </DialogFooter>
             </form>
         </FormProvider>
@@ -498,8 +497,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                     <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture Photo</Button>
                 )}
             </TabsContent>
-
-            <TabsContent value="upload" className="h-full">
+            <TabsContent value="upload" className="pt-4 h-full">
                 <div className="flex flex-col items-center justify-center h-full space-y-4">
                     <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm">
@@ -530,5 +528,3 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
     </Dialog>
   );
 }
-
-    
