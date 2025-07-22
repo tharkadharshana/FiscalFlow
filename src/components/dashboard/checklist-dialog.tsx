@@ -38,6 +38,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { nanoid } from 'nanoid';
 import { allIcons } from '@/data/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Label } from '../ui/label';
 
 const checklistItemSchema = z.object({
   id: z.string(),
