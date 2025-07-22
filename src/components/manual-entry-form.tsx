@@ -40,8 +40,8 @@ const formSchema = z.object({
   category: z.string({ required_error: 'Please select a category.' }),
   date: z.date({ required_error: 'Please select a date.' }),
   notes: z.string().optional(),
-  financialPlanId: z.string().optional(),
-  planItemId: z.string().optional(),
+  tripId: z.string().optional(),
+  tripItemId: z.string().optional(),
   isTaxDeductible: z.boolean().optional(),
   checklistId: z.string().optional(),
   checklistItemId: z.string().optional(),
@@ -59,15 +59,15 @@ const defaultValues = {
   notes: '',
   date: new Date(),
   category: '',
-  financialPlanId: undefined,
-  planItemId: undefined,
+  tripId: undefined,
+  tripItemId: undefined,
   isTaxDeductible: false,
   checklistId: undefined,
   checklistItemId: undefined,
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { addTransaction, updateTransaction, financialPlans, expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
+  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
@@ -85,6 +85,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
             ...defaultValues,
             amount: itemToConvert.item.predictedCost,
             source: itemToConvert.item.description,
+            category: itemToConvert.item.category,
             checklistId: itemToConvert.checklistId,
             checklistItemId: itemToConvert.item.id,
         });
@@ -93,13 +94,13 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     }
   }, [transactionToEdit, itemToConvert, form]);
 
-  const selectedPlanId = form.watch('financialPlanId');
+  const selectedTripId = form.watch('tripId');
 
-  const selectedPlanItems = useMemo(() => {
-    if (!selectedPlanId) return [];
-    const plan = financialPlans.find(p => p.id === selectedPlanId);
-    return plan?.items || [];
-  }, [selectedPlanId, financialPlans]);
+  const selectedTripItems = useMemo(() => {
+    if (!selectedTripId) return [];
+    const trip = tripPlans.find(p => p.id === selectedTripId);
+    return trip?.items || [];
+  }, [selectedTripId, tripPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const data = {
@@ -239,30 +240,30 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         />
         
         <div className="space-y-4 rounded-md border p-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Link to Plan (Optional)</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Link to Trip (Optional)</h3>
             <FormField
                 control={form.control}
-                name="financialPlanId"
+                name="tripId"
                 render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Financial Plan</FormLabel>
+                        <FormLabel>Trip Plan</FormLabel>
                         <Select 
                             onValueChange={(value) => {
                                 field.onChange(value === 'none' ? undefined : value);
-                                form.setValue('planItemId', undefined); // Reset item when plan changes
+                                form.setValue('tripItemId', undefined); // Reset item when plan changes
                             }} 
                             value={field.value}
                         >
                             <FormControl>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select a plan to link this expense to" />
+                                    <SelectValue placeholder="Select a trip to link this expense to" />
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                                 <SelectItem value="none">None</SelectItem>
-                                {financialPlans.filter(p => p.status === 'planning' || p.status === 'active').map((plan) => (
-                                    <SelectItem key={plan.id} value={plan.id}>
-                                    {plan.title}
+                                {tripPlans.filter(p => p.status === 'active').map((trip) => (
+                                    <SelectItem key={trip.id} value={trip.id}>
+                                    {trip.title}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -272,21 +273,21 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                 )}
             />
             
-            {selectedPlanId && (
+            {selectedTripId && (
                 <FormField
                     control={form.control}
-                    name="planItemId"
+                    name="tripItemId"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Plan Item</FormLabel>
+                            <FormLabel>Trip Item</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                 <FormControl>
-                                    <SelectTrigger disabled={!selectedPlanId}>
-                                        <SelectValue placeholder="Select a plan item" />
+                                    <SelectTrigger disabled={!selectedTripId}>
+                                        <SelectValue placeholder="Select a trip item" />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    {selectedPlanItems.map((item) => (
+                                    {selectedTripItems.map((item) => (
                                         <SelectItem key={item.id} value={item.id}>
                                             {item.description} (Predicted: ${item.predictedCost})
                                         </SelectItem>
@@ -327,7 +328,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
           )}
         />
 
-        <Button type="submit" className="w-full font-bold">{transactionToEdit ? 'Save Changes' : 'Add Expense'}</Button>
+        <Button type="submit" className="w-full font-bold">{transactionToEdit || itemToConvert ? 'Save Changes' : 'Add Expense'}</Button>
       </form>
     </Form>
   );
