@@ -34,7 +34,7 @@ import { AddBudgetDialog } from '@/components/dashboard/add-budget-dialog';
 import { TripReportDialog } from '@/components/dashboard/trip-report-dialog';
 
 export default function BudgetsPage() {
-  const { tripPlans, deleteTripPlan, isPremium, budgets, deleteBudget, userProfile } = useAppContext();
+  const { tripPlans = [], deleteTripPlan, isPremium, budgets, deleteBudget, userProfile } = useAppContext();
   
   // Dialog states
   const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
@@ -259,4 +259,3 @@ export default function BudgetsPage() {
     </>
   );
 }
-
