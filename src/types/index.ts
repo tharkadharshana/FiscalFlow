@@ -1,7 +1,4 @@
 
-
-
-
 export interface TransactionItem {
   id: string;
   description: string;
@@ -42,8 +39,8 @@ export interface Transaction {
   isRecurring?: boolean;
   paymentMethod?: string;
   invoiceNumber?: string;
-  financialPlanId?: string; // ID of the FinancialPlan
-  planItemId?: string; // ID of the item within the plan
+  tripId?: string; // ID of the TripPlan
+  tripItemId?: string; // ID of the item within the trip
   isTaxDeductible?: boolean;
   carbonFootprint?: number; // in kg CO2e
   checklistId?: string;
@@ -79,10 +76,11 @@ export interface UserProfile {
   };
   hasCompletedOnboarding?: boolean;
   showOnboardingOnLogin?: boolean;
+  activeTripId?: string | null;
   gmailConnected?: boolean;
 }
 
-export interface PlanItem {
+export interface TripItem {
   id: string;
   description: string;
   category: string;
@@ -92,14 +90,14 @@ export interface PlanItem {
   isAiSuggested?: boolean;
 }
 
-export interface FinancialPlan {
+export interface TripPlan {
   id: string;
   userId: string;
   title: string;
   description?: string; // User's initial voice input
   status: 'planning' | 'active' | 'completed';
   createdAt: any;
-  items: PlanItem[];
+  items: TripItem[];
   totalPredictedCost: number;
   totalActualCost: number;
 }
@@ -191,7 +189,8 @@ export interface Checklist {
     id: string;
     userId: string;
     title: string;
-    icon: string;
+    iconName: string; // Store icon name as a string
+    icon: React.ComponentType<{ className?: string }>;
     items: ChecklistItem[];
     createdAt: any;
 }
@@ -200,7 +199,8 @@ export interface ChecklistTemplate {
     id: string;
     userId: string;
     title: string;
-    icon: string;
+    iconName: string;
+    icon: React.ComponentType<{ className?: string }>;
     items: Omit<ChecklistItem, 'isCompleted'>[];
     createdAt: any;
 }

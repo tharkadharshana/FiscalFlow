@@ -3,7 +3,7 @@
 
 import { parseReceipt } from '@/ai/flows/parse-receipt';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
-import { createFinancialPlan } from '@/ai/flows/create-financial-plan-flow';
+import { createTripPlan } from '@/ai/flows/create-trip-plan-flow';
 import { createMonthlyBudgets } from '@/ai/flows/create-monthly-budgets-flow';
 import { assistantAction as assistantActionFlow } from '@/ai/flows/assistant-flow';
 import { analyzeTaxes } from '@/ai/flows/analyze-taxes-flow';
@@ -14,8 +14,8 @@ import type {
     AnalyzeTaxesInput,
     AnalyzeTaxesOutput,
     AssistantActionInput,
-    CreateFinancialPlanInput,
-    CreateFinancialPlanOutput,
+    CreateTripPlanInput,
+    CreateTripPlanOutput,
     CreateMonthlyBudgetsInput,
     CreateMonthlyBudgetsOutput,
     CreateSavingsGoalInput,
@@ -35,7 +35,7 @@ import type { CoinGeckoMarketData } from '@/types';
 // Result types for actions, wrapping the output schema type or an error object.
 type SuggestionResult = ParseReceiptOutput | { error: string };
 type InsightsResult = GenerateInsightsOutput | { error: string };
-type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };
+type TripPlanResult = CreateTripPlanOutput | { error: string };
 type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
 type AssistantResult = VoiceAction | { error: string };
 type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
@@ -125,15 +125,15 @@ export async function generateInsightsAction(
     }
 }
 
-export async function createFinancialPlanAction(
-    payload: CreateFinancialPlanInput
-): Promise<FinancialPlanResult> {
+export async function createTripPlanAction(
+    payload: CreateTripPlanInput
+): Promise<TripPlanResult> {
     try {
-        const result = await createFinancialPlan(payload);
+        const result = await createTripPlan(payload);
         return result;
     } catch (error) {
-        console.error('Error in createFinancialPlanAction:', error);
-        return { error: 'Failed to generate financial plan. Please try again later.' };
+        console.error('Error in createTripPlanAction:', error);
+        return { error: 'Failed to generate trip plan. Please try again later.' };
     }
 }
 
