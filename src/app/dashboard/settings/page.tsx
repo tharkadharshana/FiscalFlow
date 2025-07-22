@@ -30,6 +30,7 @@ const settingsSchema = z.object({
   countryCode: z.string(),
   currencyPreference: z.string(),
   darkModeBanner: z.boolean(),
+  showOnboardingOnLogin: z.boolean(),
   notificationPreferences: z.object({
     budgetThreshold: z.boolean(),
     recurringPayment: z.boolean(),
@@ -47,6 +48,7 @@ export default function SettingsPage() {
       countryCode: 'US',
       currencyPreference: 'USD',
       darkModeBanner: false,
+      showOnboardingOnLogin: true,
       notificationPreferences: {
         budgetThreshold: true,
         recurringPayment: true,
@@ -61,6 +63,7 @@ export default function SettingsPage() {
         countryCode: userProfile.countryCode || 'US',
         currencyPreference: userProfile.currencyPreference || 'USD',
         darkModeBanner: userProfile.darkModeBanner || false,
+        showOnboardingOnLogin: userProfile.showOnboardingOnLogin ?? true,
         notificationPreferences: {
           budgetThreshold: userProfile.notificationPreferences?.budgetThreshold ?? true,
           recurringPayment: userProfile.notificationPreferences?.recurringPayment ?? true,
@@ -333,6 +336,21 @@ export default function SettingsPage() {
                         <div className="space-y-0.5">
                             <FormLabel className="text-base">Dark Mode</FormLabel>
                             <FormDescription>Enable or disable the dark theme for the entire app.</FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="showOnboardingOnLogin"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                            <FormLabel className="text-base">Show "Getting Started" on Login</FormLabel>
+                            <FormDescription>Display the guide dialog every time you log in.</FormDescription>
                         </div>
                         <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />

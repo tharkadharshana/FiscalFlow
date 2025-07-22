@@ -20,33 +20,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/app-context';
 import Image from 'next/image';
+import { onboardingSteps } from '@/data/onboarding-steps';
+import { Checkbox } from '../ui/checkbox';
+import { useState } from 'react';
+import { Label } from '../ui/label';
 
-const onboardingSteps = [
-    {
-      title: "Welcome to FiscalFlow!",
-      description: "Let's take a quick tour to get you started on your financial journey.",
-      image: "https://placehold.co/600x400.png",
-      aiHint: "welcome handshake",
-    },
-    {
-      title: "Log Your First Transaction",
-      description: "Click the 'Add Transaction' button in the header to log your income and expenses. Keeping a record is the first step to financial clarity.",
-      image: "https://placehold.co/600x400.png",
-      aiHint: "writing list",
-    },
-    {
-      title: "Set Your Budgets",
-      description: "Head to the 'Budgets' page to set monthly spending limits for different categories. We'll warn you when you're getting close!",
-      image: "https://placehold.co/600x400.png",
-      aiHint: "target goal",
-    },
-    {
-      title: "Unlock AI Superpowers",
-      description: "Upgrade to Premium to scan receipts, get smart insights, and use our AI Financial Planner to build detailed plans for your biggest goals.",
-      image: "https://placehold.co/600x400.png",
-      aiHint: "robot brain",
-    },
-];
 
 type OnboardingDialogProps = {
   open: boolean;
@@ -54,11 +32,14 @@ type OnboardingDialogProps = {
 };
 
 export function OnboardingDialog({ open, onOpenChange }: OnboardingDialogProps) {
-  const { markOnboardingComplete } = useAppContext();
+  const { updateUserPreferences } = useAppContext();
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
-  const handleClose = (isOpen: boolean) => {
-    if (!isOpen) {
-      markOnboardingComplete();
+  const handleClose = async (isOpen: boolean) => {
+    if (!isOpen) { // When dialog is closing
+        if (dontShowAgain) {
+            await updateUserPreferences({ showOnboardingOnLogin: false });
+        }
     }
     onOpenChange(isOpen);
   };
@@ -93,7 +74,11 @@ export function OnboardingDialog({ open, onOpenChange }: OnboardingDialogProps) 
             <CarouselPrevious />
             <CarouselNext />
         </Carousel>
-        <DialogFooter>
+        <DialogFooter className="sm:justify-between gap-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox id="dont-show-again" checked={dontShowAgain} onCheckedChange={(checked) => setDontShowAgain(!!checked)} />
+            <Label htmlFor="dont-show-again" className="text-sm text-muted-foreground">Don't show this again</Label>
+          </div>
           <DialogClose asChild>
             <Button type="button">
               Get Started

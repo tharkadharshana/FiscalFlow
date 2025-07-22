@@ -1,6 +1,7 @@
 
 
 
+
 export interface TransactionItem {
   id: string;
   description: string;
@@ -77,6 +78,7 @@ export interface UserProfile {
     monthlyInsights?: { count: number; month: string };
   };
   hasCompletedOnboarding?: boolean;
+  showOnboardingOnLogin?: boolean;
   gmailConnected?: boolean;
 }
 

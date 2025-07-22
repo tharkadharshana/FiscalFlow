@@ -98,7 +98,6 @@ interface AppContextType {
   markAllNotificationsAsRead: () => Promise<void>;
   upgradeToPremium: (plan: 'monthly' | 'yearly') => Promise<void>;
   downgradeFromPremium: () => Promise<void>;
-  markOnboardingComplete: () => Promise<void>;
   canRunTaxAnalysis: boolean;
   analyzeTaxesWithLimit: (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'transactions' | 'investments' | 'savingsGoals'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
   canGenerateReport: boolean;
@@ -255,7 +254,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          setUserProfile({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
+          const profileData = docSnap.data();
+          // Set default for showOnboardingOnLogin if it's missing
+          if (profileData.showOnboardingOnLogin === undefined) {
+            profileData.showOnboardingOnLogin = true;
+          }
+          setUserProfile({ uid: docSnap.id, ...profileData } as UserProfile);
           setLoading(false);
         } else {
             logger.warn("User profile document not found for authenticated user. Login form should handle creation.", { userId: user.uid });
@@ -853,20 +857,10 @@ const deleteTransaction = async (transactionId: string) => {
       const { subscription, ...restData } = data; // Prevent direct subscription changes here
       await setDoc(doc(db, 'users', user.uid), restData, { merge: true });
       showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
-      logger.info('User preferences updated');
+      logger.info('User preferences updated', data);
     } catch (error) {
       logger.error('Error updating user preferences', error as Error);
       showNotification({ type: 'error', title: 'Error saving settings', description: '' });
-    }
-  };
-
-  const markOnboardingComplete = async () => {
-    if (!user) return;
-    try {
-      await setDoc(doc(db, 'users', user.uid), { hasCompletedOnboarding: true }, { merge: true });
-      logger.info('User marked onboarding as complete');
-    } catch (error) {
-      logger.error('Error marking onboarding complete', error as Error);
     }
   };
 
@@ -1133,7 +1127,7 @@ const deleteTransaction = async (transactionId: string) => {
         investments, addInvestment, updateInvestment, deleteInvestment,
         formatCurrency,
         notifications, showNotification, markAllNotificationsAsRead,
-        upgradeToPremium, downgradeFromPremium, markOnboardingComplete,
+        upgradeToPremium, downgradeFromPremium,
         canRunTaxAnalysis, analyzeTaxesWithLimit,
         canGenerateReport, generateReportWithLimit,
         canGenerateInsights, generateInsightsWithLimit,

@@ -19,7 +19,8 @@ export default function DashboardPage() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   useEffect(() => {
-    if (userProfile && userProfile.hasCompletedOnboarding === false) {
+    // Show onboarding if the user has opted in (or hasn't opted out yet)
+    if (userProfile && userProfile.showOnboardingOnLogin) {
       setIsOnboardingOpen(true);
     }
   }, [userProfile]);
