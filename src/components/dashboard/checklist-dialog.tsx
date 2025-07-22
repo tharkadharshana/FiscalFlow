@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useMemo } from 'react';
@@ -48,7 +49,7 @@ const checklistItemSchema = z.object({
 
 const formSchema = z.object({
   title: z.string().min(2, 'Title is required.'),
-  icon: z.string().min(1, 'Icon is required.'),
+  iconName: z.string().min(1, 'Icon is required.'),
   items: z.array(checklistItemSchema).min(1, 'Add at least one item.'),
 });
 
@@ -67,7 +68,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: '',
-      icon: 'ShoppingCart',
+      iconName: 'ShoppingCart',
       items: [],
     },
   });
@@ -84,7 +85,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
       } else {
         form.reset({
           title: '',
-          icon: 'ShoppingCart',
+          iconName: 'ShoppingCart',
           items: [{ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: '' }],
         });
       }
@@ -139,7 +140,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
               <FormField control={form.control} name="title" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g. Monthly Bills" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-               <FormField control={form.control} name="icon" render={({ field }) => (
+               <FormField control={form.control} name="iconName" render={({ field }) => (
                 <FormItem><FormLabel>Icon</FormLabel><IconPicker field={field} /><FormMessage /></FormItem>
               )} />
             </div>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -261,7 +262,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                             </FormControl>
                             <SelectContent>
                                 <SelectItem value="none">None</SelectItem>
-                                {tripPlans.filter(p => p.status === 'planning' || p.status === 'active').map((trip) => (
+                                {tripPlans.filter(p => p.status === 'active').map((trip) => (
                                     <SelectItem key={trip.id} value={trip.id}>
                                     {trip.title}
                                     </SelectItem>
@@ -328,7 +329,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
           )}
         />
 
-        <Button type="submit" className="w-full font-bold">{transactionToEdit ? 'Save Changes' : 'Add Expense'}</Button>
+        <Button type="submit" className="w-full font-bold">{transactionToEdit || itemToConvert ? 'Save Changes' : 'Add Expense'}</Button>
       </form>
     </Form>
   );

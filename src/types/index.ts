@@ -1,4 +1,5 @@
 
+
 export interface TransactionItem {
   id: string;
   description: string;
@@ -39,8 +40,8 @@ export interface Transaction {
   isRecurring?: boolean;
   paymentMethod?: string;
   invoiceNumber?: string;
-  tripId?: string; // ID of the TripPlan
-  tripItemId?: string; // ID of the item within the trip
+  tripId?: string;
+  tripItemId?: string;
   isTaxDeductible?: boolean;
   carbonFootprint?: number; // in kg CO2e
   checklistId?: string;

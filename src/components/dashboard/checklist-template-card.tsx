@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { ChecklistTemplate } from '@/types';
@@ -20,7 +21,7 @@ export function ChecklistTemplateCard({ template, onDelete }: ChecklistTemplateC
     const handleCreateFromTemplate = () => {
         addChecklist({
             title: template.title,
-            icon: template.icon,
+            iconName: template.iconName,
             items: template.items.map(item => ({ ...item, id: nanoid(), isCompleted: false })),
         });
     }
