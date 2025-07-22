@@ -1,6 +1,7 @@
 import { SidebarNav } from '@/components/sidebar-nav';
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar';
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { ActiveTripBanner } from '@/components/dashboard/active-trip-banner';
 
 export default function DashboardLayout({
   children,
@@ -13,7 +14,10 @@ export default function DashboardLayout({
         <Sidebar>
           <SidebarNav />
         </Sidebar>
-        <SidebarInset>{children}</SidebarInset>
+        <SidebarInset>
+          <ActiveTripBanner />
+          {children}
+        </SidebarInset>
       </SidebarProvider>
     </AuthGuard>
   );

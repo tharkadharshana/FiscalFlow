@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Sparkles } from 'lucide-react';
+import { CalendarIcon, Sparkles, Rocket } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
@@ -33,6 +33,7 @@ import { useMemo, useEffect } from 'react';
 import type { Transaction, ChecklistItem } from '@/types';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -67,12 +68,17 @@ const defaultValues = {
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
+  const { userProfile, addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
   });
   
+  const activeTrip = useMemo(() => {
+    if (!userProfile?.activeTripId) return null;
+    return tripPlans.find(trip => trip.id === userProfile.activeTripId);
+  }, [userProfile, tripPlans]);
+
   useEffect(() => {
     if (transactionToEdit) {
       form.reset({
@@ -143,6 +149,15 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {activeTrip && !transactionToEdit && (
+            <Alert>
+                <Rocket className="h-4 w-4" />
+                <AlertTitle>Trip Mode Active</AlertTitle>
+                <AlertDescription>
+                    This expense will be automatically linked to your trip: <span className="font-semibold">{activeTrip.title}</span>.
+                </AlertDescription>
+            </Alert>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -252,7 +267,8 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                                 field.onChange(value === 'none' ? undefined : value);
                                 form.setValue('tripItemId', undefined); // Reset item when plan changes
                             }} 
-                            value={field.value}
+                            value={field.value || 'none'}
+                            disabled={!!activeTrip && !transactionToEdit}
                         >
                             <FormControl>
                                 <SelectTrigger>
@@ -261,7 +277,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                             </FormControl>
                             <SelectContent>
                                 <SelectItem value="none">None</SelectItem>
-                                {tripPlans.filter(p => p.status === 'active').map((trip) => (
+                                {tripPlans.filter(p => p.status === 'active' || p.status === 'planning').map((trip) => (
                                     <SelectItem key={trip.id} value={trip.id}>
                                     {trip.title}
                                     </SelectItem>
