@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Mic, MicOff, Loader2, Wand2, Keyboard, Plus, Trash2, Lightbulb, Camera, Upload, RotateCcw, SwitchCamera } from 'lucide-react';
-import { createMonthlyBudgetsAction, parseDocumentAction } from '@/lib/actions';
+import { createMonthlyBudgetsAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Budget, BudgetItem } from '@/types';
@@ -35,6 +35,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '../ui/label';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { parseDocumentAction } from '@/lib/actions';
 
 // --------- Zod Schemas ---------
 const budgetItemSchema = z.object({
@@ -498,13 +499,15 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                 )}
             </TabsContent>
 
-            <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center space-y-4">
-                <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
-                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Choose File
-                </Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+            <TabsContent value="upload" className="h-full">
+                <div className="flex flex-col items-center justify-center h-full space-y-4">
+                    <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Choose File
+                    </Button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                </div>
             </TabsContent>
           <TabsContent value="manual" className="h-full">
               {renderReviewForm({ isReviewMode: false })}
@@ -527,3 +530,5 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
     </Dialog>
   );
 }
+
+    
