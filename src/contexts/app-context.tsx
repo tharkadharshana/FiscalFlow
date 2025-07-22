@@ -1,13 +1,9 @@
 
-
-
-
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge, Investment, Notification, PlanItem, Checklist, ChecklistItem, ChecklistTemplate } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, PlanItem, Checklist, ChecklistItem, ChecklistTemplate } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -32,10 +28,10 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, CreateMonthlyBudgetsOutput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/lib/actions';
 import { analyzeTaxesAction, createMonthlyBudgetsAction, generateInsightsAction, parseDocumentAction, parseReceiptAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
+import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/types/schemas';
 
 
 export const FREE_TIER_LIMITS = {
@@ -339,6 +335,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const unsubscribeChecklists = onSnapshot(qChecklists, (snapshot) => {
         const userChecklists: Checklist[] = snapshot.docs.map(doc => ({
             id: doc.id, ...doc.data(),
+            icon: categoryIcons[doc.data().icon] || categoryIcons['ShoppingCart'],
             createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString(),
         } as Checklist));
         setChecklists(userChecklists);
@@ -348,6 +345,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const unsubscribeTemplates = onSnapshot(qTemplates, (snapshot) => {
         const userTemplates: ChecklistTemplate[] = snapshot.docs.map(doc => ({
             id: doc.id, ...doc.data(),
+            icon: categoryIcons[doc.data().icon] || categoryIcons['ShoppingCart'],
             createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString(),
         } as ChecklistTemplate));
         setChecklistTemplates(userTemplates);
@@ -815,12 +813,12 @@ const deleteTransaction = async (transactionId: string) => {
   };
 
 
-  const calculateNewBadges = (goal: SavingsGoal, newCurrentAmount: number): Badge[] => {
-    const newBadges: Badge[] = [];
+  const calculateNewBadges = (goal: SavingsGoal, newCurrentAmount: number): BadgeType[] => {
+    const newBadges: BadgeType[] = [];
     const now = new Date().toISOString();
     const existingBadgeNames = goal.badges.map(b => b.name);
 
-    let milestones: { name: Badge['name'], percent: number }[] = [
+    let milestones: { name: BadgeType['name'], percent: number }[] = [
         { name: 'First Saving', percent: 0 },
         { name: '25% Mark', percent: 25 },
         { name: '50% Mark', percent: 50 },
@@ -1048,10 +1046,15 @@ const deleteTransaction = async (transactionId: string) => {
   };
   
   // Checklist-related functions
-  const addChecklist = async (checklist: Omit<Checklist, 'id'|'userId'|'createdAt'>) => {
+  const addChecklist = async (checklist: Omit<Checklist, 'id'|'userId'|'createdAt'|'icon'>) => {
     if (!user) return;
     try {
-        await addDoc(collection(db, 'users', user.uid, 'checklists'), { ...checklist, userId: user.uid, createdAt: serverTimestamp() });
+        await addDoc(collection(db, 'users', user.uid, 'checklists'), { 
+            ...checklist, 
+            userId: user.uid, 
+            createdAt: serverTimestamp(),
+            icon: checklist.iconName // Store the name, not the component
+        });
         showNotification({ type: 'success', title: 'Checklist created!' });
     } catch(e) {
         logger.error('Error adding checklist', e as Error);
@@ -1059,10 +1062,11 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
 
-  const updateChecklist = async (checklistId: string, data: Partial<Omit<Checklist, 'id'>>) => {
+  const updateChecklist = async (checklistId: string, data: Partial<Omit<Checklist, 'id'|'icon'>>) => {
     if (!user) return;
     try {
-        await updateDoc(doc(db, 'users', user.uid, 'checklists', checklistId), data);
+        const { iconName, ...restData } = data;
+        await updateDoc(doc(db, 'users', user.uid, 'checklists', checklistId), { ...restData, icon: iconName });
         showNotification({ type: 'success', title: 'Checklist updated!' });
     } catch(e) {
         logger.error('Error updating checklist', e as Error, { checklistId });
@@ -1087,7 +1091,7 @@ const deleteTransaction = async (transactionId: string) => {
         const template: Omit<ChecklistTemplate, 'id'|'userId'|'createdAt'> = {
             title: `${checklist.title} Template`,
             items: checklist.items.map(item => ({ id: nanoid(), description: item.description, predictedCost: item.predictedCost, category: item.category })),
-            icon: checklist.icon,
+            iconName: checklist.iconName,
         }
         await addDoc(collection(db, 'users', user.uid, 'checklistTemplates'), { ...template, userId: user.uid, createdAt: serverTimestamp() });
         showNotification({ type: 'success', title: 'Template created!' });

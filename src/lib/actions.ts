@@ -1,53 +1,38 @@
-
 // src/lib/actions.ts
 'use server';
 
-import {
-  parseReceipt,
-  type ParseReceiptInput,
-  type ParseReceiptOutput,
-} from '@/ai/flows/parse-receipt';
-import {
-    generateInsights,
-    type GenerateInsightsInput,
-    type GenerateInsightsOutput,
-} from '@/ai/flows/generate-insights-flow';
-import { 
-  createFinancialPlan,
-  type CreateFinancialPlanInput,
-  type CreateFinancialPlanOutput,
-} from '@/ai/flows/create-financial-plan-flow';
-import {
-  createMonthlyBudgets,
-  type CreateMonthlyBudgetsInput,
-  type CreateMonthlyBudgetsOutput
-} from '@/ai/flows/create-monthly-budgets-flow';
-import {
-    assistantAction as assistantActionFlow,
-    type AssistantActionInput,
-    type VoiceAction
-} from '@/ai/flows/assistant-flow';
-import { 
-  analyzeTaxes,
-  type AnalyzeTaxesInput,
-  type AnalyzeTaxesOutput,
-} from '@/ai/flows/analyze-taxes-flow';
-import { 
-  createSavingsGoal,
-  type CreateSavingsGoalInput,
-  type CreateSavingsGoalOutput,
-} from '@/ai/flows/create-savings-goal-flow';
-import { 
-  parseBankStatement,
-  type ParseBankStatementInput,
-  type ParseBankStatementOutput,
-} from '@/ai/flows/parse-bank-statement-flow';
-import { z } from 'genkit';
+import { parseReceipt } from '@/ai/flows/parse-receipt';
+import { generateInsights } from '@/ai/flows/generate-insights-flow';
+import { createFinancialPlan } from '@/ai/flows/create-financial-plan-flow';
+import { createMonthlyBudgets } from '@/ai/flows/create-monthly-budgets-flow';
+import { assistantAction as assistantActionFlow } from '@/ai/flows/assistant-flow';
+import { analyzeTaxes } from '@/ai/flows/analyze-taxes-flow';
+import { createSavingsGoal } from '@/ai/flows/create-savings-goal-flow';
+import { parseBankStatement } from '@/ai/flows/parse-bank-statement-flow';
+
+import type {
+    AnalyzeTaxesInput,
+    AnalyzeTaxesOutput,
+    AssistantActionInput,
+    CreateFinancialPlanInput,
+    CreateFinancialPlanOutput,
+    CreateMonthlyBudgetsInput,
+    CreateMonthlyBudgetsOutput,
+    CreateSavingsGoalInput,
+    CreateSavingsGoalOutput,
+    GenerateInsightsInput,
+    GenerateInsightsOutput,
+    ParseBankStatementInput,
+    ParseBankStatementOutput,
+    ParseReceiptInput,
+    ParseReceiptOutput,
+    VoiceAction
+} from '@/types/schemas';
 
 import { logger } from './logger';
 import type { CoinGeckoMarketData } from '@/types';
 
-
+// Result types for actions, wrapping the output schema type or an error object.
 type SuggestionResult = ParseReceiptOutput | { error: string };
 type InsightsResult = GenerateInsightsOutput | { error: string };
 type FinancialPlanResult = CreateFinancialPlanOutput | { error: string };

@@ -1,35 +1,14 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to generate financial insights from transactions.
  *
  * - generateInsights - A function that handles generating financial advice.
- * - GenerateInsightsInput - The input type for the generateInsights function.
- * - GenerateInsightsOutput - The return type for the generateInsights function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-const TransactionSchema = z.object({
-    amount: z.number(),
-    category: z.string(),
-    source: z.string(),
-    date: z.string(),
-    type: z.enum(['income', 'expense']),
-});
-
-const GenerateInsightsInputSchema = z.object({
-  transactions: z.array(TransactionSchema).describe('A list of the user\'s recent transactions.'),
-});
-export type GenerateInsightsInput = z.infer<typeof GenerateInsightsInputSchema>;
-
-const GenerateInsightsOutputSchema = z.object({
-    insights: z.array(z.string().describe("A concise and actionable financial insight or saving tip based on the user's spending."))
-    .min(2)
-    .max(3)
-    .describe("An array of 2-3 personalized financial insights."),
-  });
-export type GenerateInsightsOutput = z.infer<typeof GenerateInsightsOutputSchema>;
+import { GenerateInsightsInputSchema, GenerateInsightsOutputSchema } from '@/types/schemas';
+import type { GenerateInsightsInput, GenerateInsightsOutput } from '@/types/schemas';
 
 export async function generateInsights(input: GenerateInsightsInput): Promise<GenerateInsightsOutput> {
   return generateInsightsFlow(input);

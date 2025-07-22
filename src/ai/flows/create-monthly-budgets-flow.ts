@@ -7,31 +7,9 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
 import { nanoid } from 'nanoid';
-import { defaultExpenseCategories } from '@/data/mock-data';
-
-// --- Monthly Budgets Schemas (Moved from actions.ts) ---
-const BudgetItemSchema = z.object({
-  id: z.string().describe("A unique ID for the item, e.g., a short hash or timestamp-based."),
-  description: z.string().describe("The name of the item to purchase."),
-  predictedCost: z.number().optional().describe("The estimated cost of this single item, if the user mentions it."),
-});
-const BudgetSchema = z.object({
-  category: z.string().describe(`A suitable category for the budget. Must be one of: ${defaultExpenseCategories.join(', ')}`),
-  limit: z.number().describe('The total budget limit for this category.'),
-  items: z.array(BudgetItemSchema).optional().describe("A list of specific items the user mentioned for this budget category."),
-});
-export const CreateMonthlyBudgetsOutputSchema = z.object({
-  budgets: z.array(BudgetSchema).describe('A list of budget items generated from the user query.'),
-});
-export const CreateMonthlyBudgetsInputSchema = z.object({
-  userQuery: z.string().describe("The user's natural language description of their monthly budget goals."),
-  existingCategories: z.array(z.string()).describe("A list of budget categories that already exist to avoid duplication.")
-});
-export type CreateMonthlyBudgetsOutput = z.infer<typeof CreateMonthlyBudgetsOutputSchema>;
-export type CreateMonthlyBudgetsInput = z.infer<typeof CreateMonthlyBudgetsInputSchema>;
-
+import { CreateMonthlyBudgetsInputSchema, CreateMonthlyBudgetsOutputSchema } from '@/types/schemas';
+import type { CreateMonthlyBudgetsInput, CreateMonthlyBudgetsOutput } from '@/types/schemas';
 
 export async function createMonthlyBudgets(input: CreateMonthlyBudgetsInput): Promise<CreateMonthlyBudgetsOutput> {
   

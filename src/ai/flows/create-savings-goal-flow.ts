@@ -7,19 +7,8 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-// --- Savings Goal Schemas (Moved from actions.ts) ---
-export const CreateSavingsGoalOutputSchema = z.object({
-  title: z.string().describe('A concise title for the savings goal (e.g., "New Gaming Laptop").'),
-  targetAmount: z.number().describe('The total amount the user wants to save.'),
-  deadline: z.string().optional().describe('The target deadline in YYYY-MM-DD format if mentioned. If no year is mentioned, assume the next upcoming instance of that month/day.'),
-});
-export const CreateSavingsGoalInputSchema = z.object({
-  userQuery: z.string().describe("The user's natural language description of their savings goal."),
-});
-export type CreateSavingsGoalOutput = z.infer<typeof CreateSavingsGoalOutputSchema>;
-export type CreateSavingsGoalInput = z.infer<typeof CreateSavingsGoalInputSchema>;
+import { CreateSavingsGoalInputSchema, CreateSavingsGoalOutputSchema } from '@/types/schemas';
+import type { CreateSavingsGoalInput, CreateSavingsGoalOutput } from '@/types/schemas';
 
 
 export async function createSavingsGoal(input: CreateSavingsGoalInput): Promise<CreateSavingsGoalOutput> {
