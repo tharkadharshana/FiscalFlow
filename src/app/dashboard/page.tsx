@@ -15,15 +15,17 @@ import { OnboardingDialog } from '@/components/dashboard/onboarding-dialog';
 import { CarbonFootprintCard } from '@/components/dashboard/carbon-footprint-card';
 
 export default function DashboardPage() {
-  const { userProfile } = useAppContext();
+  const { userProfile, updateUserPreferences } = useAppContext();
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   useEffect(() => {
     // Show onboarding if the user has opted in (or hasn't opted out yet)
     if (userProfile && userProfile.showOnboardingOnLogin) {
       setIsOnboardingOpen(true);
+      // Immediately update the profile so it doesn't show again on navigation
+      updateUserPreferences({ showOnboardingOnLogin: false });
     }
-  }, [userProfile]);
+  }, [userProfile, updateUserPreferences]);
 
   return (
     <>
