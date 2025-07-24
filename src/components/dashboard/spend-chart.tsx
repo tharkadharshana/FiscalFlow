@@ -6,7 +6,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { useAppContext } from '@/contexts/app-context';
 import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
-import { format, subDays, eachDayOfInterval } from 'date-fns';
+import { format, subDays, eachDayOfInterval, parse } from 'date-fns';
 
 export function SpendChart() {
   const { transactions, formatCurrency } = useAppContext();
@@ -28,10 +28,11 @@ export function SpendChart() {
       }, {} as Record<string, number>);
 
     return dateInterval.map((day) => {
-      const formattedDate = format(day, 'yyyy-MM-dd');
+      const formattedDateKey = format(day, 'yyyy-MM-dd');
+      const formattedDisplayDate = format(day, 'MMM d');
       return {
-        date: format(day, 'MMM d'),
-        total: dailyExpenses[formattedDate] || 0,
+        date: formattedDisplayDate,
+        total: dailyExpenses[formattedDateKey] || 0,
       };
     });
   }, [transactions]);
@@ -41,6 +42,17 @@ export function SpendChart() {
       label: 'Spent',
       color: 'hsl(var(--chart-1))',
     },
+  };
+
+  let lastMonth: string | null = null;
+  const tickFormatter = (value: string) => {
+    const date = parse(value, 'MMM d', new Date());
+    const month = format(date, 'MMM');
+    if (month !== lastMonth) {
+        lastMonth = month;
+        return month;
+    }
+    return format(date, 'd');
   };
 
   return (
@@ -66,7 +78,7 @@ export function SpendChart() {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                tickFormatter={(value) => value.slice(0, 3)}
+                tickFormatter={tickFormatter}
               />
               <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} indicator="dot" />} />
               <Area
