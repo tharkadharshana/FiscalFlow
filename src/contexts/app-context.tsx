@@ -32,7 +32,7 @@ import { analyzeTaxesAction, createMonthlyBudgetsAction, generateInsightsAction,
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/types/schemas';
-import { startOfMonth, endOfMonth, subMonths, addMonths, setDate as setDateFns, getDate } from 'date-fns';
+import { startOfDay, addMonths, subMonths, setDate as setDateFns, getDate } from 'date-fns';
 
 
 export const FREE_TIER_LIMITS = {
@@ -131,12 +131,12 @@ const getFinancialCycle = (startDay: number): { startDate: Date, endDate: Date, 
 
     if (currentDay >= startDay) {
         // We are in the current month's cycle
-        startDate = setDateFns(today, startDay);
-        endDate = setDateFns(addMonths(today, 1), startDay - 1);
+        startDate = startOfDay(setDateFns(today, startDay));
+        endDate = startOfDay(setDateFns(addMonths(today, 1), startDay));
     } else {
         // We are in the previous month's cycle
-        startDate = setDateFns(subMonths(today, 1), startDay);
-        endDate = setDateFns(today, startDay - 1);
+        startDate = startOfDay(setDateFns(subMonths(today, 1), startDay));
+        endDate = startOfDay(setDateFns(today, startDay));
     }
     
     // YYYY-MM representation for budget querying
@@ -417,7 +417,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const cycleTransactions = allTransactions.filter(t => {
             const txDate = new Date(t.date);
-            return txDate >= startDate && txDate <= endDate;
+            return txDate >= startDate && txDate < endDate;
         });
         setTransactionsForCurrentCycle(cycleTransactions);
 
