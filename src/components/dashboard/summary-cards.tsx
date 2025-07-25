@@ -7,7 +7,7 @@ import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useMemo } from 'react';
 
 export function SummaryCards() {
-  const { transactions, investments, formatCurrency } = useAppContext();
+  const { transactionsForCurrentCycle: transactions, investments, formatCurrency } = useAppContext();
 
   const { totalIncome, totalExpenses, balance } = useMemo(() => {
     const income = transactions
@@ -38,7 +38,7 @@ export function SummaryCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
-          <p className="text-xs text-muted-foreground">This month</p>
+          <p className="text-xs text-muted-foreground">This cycle</p>
         </CardContent>
       </Card>
       <Card>
@@ -48,7 +48,7 @@ export function SummaryCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
-          <p className="text-xs text-muted-foreground">This month</p>
+          <p className="text-xs text-muted-foreground">This cycle</p>
         </CardContent>
       </Card>
       <Card>

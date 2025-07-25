@@ -23,13 +23,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { countries } from '@/data/countries';
-import { GmailConnect } from './gmail-connect';
+import { GmailConnect } from '@/components/dashboard/settings/gmail-connect';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
   countryCode: z.string(),
   currencyPreference: z.string(),
+  financialCycleStartDay: z.coerce.number().min(1).max(31),
   darkModeBanner: z.boolean(),
+  showOnboardingOnLogin: z.boolean(),
   notificationPreferences: z.object({
     budgetThreshold: z.boolean(),
     recurringPayment: z.boolean(),
@@ -46,7 +48,9 @@ export default function SettingsPage() {
       displayName: '',
       countryCode: 'US',
       currencyPreference: 'USD',
+      financialCycleStartDay: 1,
       darkModeBanner: false,
+      showOnboardingOnLogin: true,
       notificationPreferences: {
         budgetThreshold: true,
         recurringPayment: true,
@@ -60,7 +64,9 @@ export default function SettingsPage() {
         displayName: userProfile.displayName || '',
         countryCode: userProfile.countryCode || 'US',
         currencyPreference: userProfile.currencyPreference || 'USD',
+        financialCycleStartDay: userProfile.financialCycleStartDay || 1,
         darkModeBanner: userProfile.darkModeBanner || false,
+        showOnboardingOnLogin: userProfile.showOnboardingOnLogin ?? true,
         notificationPreferences: {
           budgetThreshold: userProfile.notificationPreferences?.budgetThreshold ?? true,
           recurringPayment: userProfile.notificationPreferences?.recurringPayment ?? true,
@@ -276,52 +282,68 @@ export default function SettingsPage() {
                 <CardDescription>Customize the application to your liking.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="countryCode"
-                  render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Country / Region</FormLabel>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                    control={form.control}
+                    name="countryCode"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Country / Region</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select your country"/>
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {countries.map(c => (
+                                        <SelectItem key={c.value} value={c.value}>
+                                            {c.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>Determines tax rules used by the AI.</FormDescription>
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={form.control}
+                    name="currencyPreference"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Currency</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select your country"/>
-                                </SelectTrigger>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a currency" />
+                            </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                {countries.map(c => (
-                                    <SelectItem key={c.value} value={c.value}>
-                                        {c.label}
-                                    </SelectItem>
-                                ))}
+                            <SelectItem value="USD">USD - United States Dollar</SelectItem>
+                            <SelectItem value="EUR">EUR - Euro</SelectItem>
+                            <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                            <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                            <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
+                            <SelectItem value="INR">INR - Indian Rupee</SelectItem>
                             </SelectContent>
                         </Select>
-                        <FormDescription>Your country selection determines the tax rules used by the AI engine.</FormDescription>
-                    </FormItem>
-                  )}
-                />
+                        <FormDescription>The display currency for your app.</FormDescription>
+                        </FormItem>
+                    )}
+                    />
+                 </div>
                 <FormField
                   control={form.control}
-                  name="currencyPreference"
+                  name="financialCycleStartDay"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Currency</FormLabel>
-                       <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a currency" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="USD">USD - United States Dollar</SelectItem>
-                          <SelectItem value="EUR">EUR - Euro</SelectItem>
-                          <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                          <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                          <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
-                          <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>This is the currency your transactions will be displayed in.</FormDescription>
+                      <FormLabel>Financial Cycle Start Day</FormLabel>
+                      <Input type="number" min="1" max="31" {...field} />
+                      <FormDescription>
+                        Set your payday or the day your financial month starts. This will adjust all dashboard and budget calculations.
+                      </FormDescription>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -333,6 +355,21 @@ export default function SettingsPage() {
                         <div className="space-y-0.5">
                             <FormLabel className="text-base">Dark Mode</FormLabel>
                             <FormDescription>Enable or disable the dark theme for the entire app.</FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="showOnboardingOnLogin"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                            <FormLabel className="text-base">Show "Getting Started" on Login</FormLabel>
+                            <FormDescription>Display the guide dialog every time you log in.</FormDescription>
                         </div>
                         <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />

@@ -10,7 +10,7 @@ import { Button } from '../ui/button';
 import { UpgradeCard } from '../ui/upgrade-card';
 
 export function SmartInsights() {
-  const { transactions, canGenerateInsights, generateInsightsWithLimit } = useAppContext();
+  const { transactionsForCurrentCycle: transactions, canGenerateInsights, generateInsightsWithLimit } = useAppContext();
   const [insights, setInsights] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

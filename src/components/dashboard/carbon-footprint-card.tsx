@@ -5,15 +5,13 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/app-context';
 import { Leaf, Info } from 'lucide-react';
-import { isSameMonth } from 'date-fns';
 
 export function CarbonFootprintCard() {
-  const { transactions, isPremium } = useAppContext();
+  const { transactionsForCurrentCycle: transactions, isPremium } = useAppContext();
 
   const totalCarbonFootprint = useMemo(() => {
-    const now = new Date();
     let relevantTransactions = transactions
-      .filter(t => t.type === 'expense' && isSameMonth(new Date(t.date), now) && t.carbonFootprint);
+      .filter(t => t.type === 'expense' && t.carbonFootprint);
 
     if (!isPremium) {
       // Free users only see footprint for top 3 categories
@@ -46,7 +44,7 @@ export function CarbonFootprintCard() {
             </div>
             <div>
                 <p className="text-2xl font-bold">{totalCarbonFootprint.toFixed(1)} kg CO₂e</p>
-                <p className="text-sm text-muted-foreground">This month's estimate</p>
+                <p className="text-sm text-muted-foreground">This financial cycle</p>
             </div>
         </div>
         {!isPremium && <p className="text-xs text-muted-foreground">Free plan shows estimates for your top 3 spending categories only.</p>}

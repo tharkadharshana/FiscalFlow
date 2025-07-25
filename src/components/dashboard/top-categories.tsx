@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import { Progress } from '../ui/progress';
 
 export function TopCategories() {
-  const { transactions, categories, formatCurrency } = useAppContext();
+  const { transactionsForCurrentCycle: transactions, categories, formatCurrency } = useAppContext();
 
   const { topCategories, totalExpenses } = useMemo(() => {
     const expenseData = transactions
@@ -40,10 +40,10 @@ export function TopCategories() {
         <Card>
             <CardHeader>
                 <CardTitle>Top Spending Categories</CardTitle>
-                <CardDescription>Your biggest expense areas this month.</CardDescription>
+                <CardDescription>Your biggest expense areas this financial cycle.</CardDescription>
             </CardHeader>
             <CardContent>
-                <p className="text-center text-muted-foreground py-8">No expenses logged this month.</p>
+                <p className="text-center text-muted-foreground py-8">No expenses logged this cycle.</p>
             </CardContent>
         </Card>
       );
@@ -53,7 +53,7 @@ export function TopCategories() {
     <Card>
       <CardHeader>
         <CardTitle>Top Spending Categories</CardTitle>
-        <CardDescription>Your biggest expense areas this month.</CardDescription>
+        <CardDescription>Your biggest expense areas this financial cycle.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {topCategories.map((category) => {

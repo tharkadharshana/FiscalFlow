@@ -32,6 +32,7 @@ import { analyzeTaxesAction, createMonthlyBudgetsAction, generateInsightsAction,
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/types/schemas';
+import { startOfMonth, endOfMonth, subMonths, addMonths, setDate as setDateFns, getDate } from 'date-fns';
 
 
 export const FREE_TIER_LIMITS = {
@@ -115,15 +116,42 @@ interface AppContextType {
   checklistTemplates: ChecklistTemplate[];
   createTemplateFromChecklist: (checklist: Checklist) => Promise<void>;
   deleteChecklistTemplate: (templateId: string) => Promise<void>;
+  transactionsForCurrentCycle: Transaction[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// Helper function to calculate the financial cycle date range
+const getFinancialCycle = (startDay: number): { startDate: Date, endDate: Date, cycleMonthStr: string } => {
+    const today = new Date();
+    const currentDay = getDate(today);
+
+    let startDate: Date;
+    let endDate: Date;
+
+    if (currentDay >= startDay) {
+        // We are in the current month's cycle
+        startDate = setDateFns(today, startDay);
+        endDate = setDateFns(addMonths(today, 1), startDay - 1);
+    } else {
+        // We are in the previous month's cycle
+        startDate = setDateFns(subMonths(today, 1), startDay);
+        endDate = setDateFns(today, startDay - 1);
+    }
+    
+    // YYYY-MM representation for budget querying
+    const cycleMonthStr = startDate.toISOString().slice(0, 7);
+
+    return { startDate, endDate, cycleMonthStr };
+}
+
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]); // All-time transactions
+  const [transactionsForCurrentCycle, setTransactionsForCurrentCycle] = useState<Transaction[]>([]); // Cycle-specific transactions
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [tripPlans, setTripPlans] = useState<TripPlan[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
@@ -247,7 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const expenseCategories = useMemo(() => [...defaultExpenseCategories, ...customCategories].sort(), [customCategories]);
   const incomeCategories = useMemo(() => [...defaultIncomeCategories, ...customCategories].sort(), [customCategories]);
   const allCategories = useMemo(() => [...new Set([...expenseCategories, ...incomeCategories])].sort(), [expenseCategories, incomeCategories]);
-  const deductibleTransactionsCount = useMemo(() => transactions.filter(t => t.isTaxDeductible).length, [transactions]);
+  const deductibleTransactionsCount = useMemo(() => allTransactions.filter(t => t.isTaxDeductible).length, [allTransactions]);
 
   useEffect(() => {
     if (user) {
@@ -260,6 +288,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // Set default for showOnboardingOnLogin if it's missing
           if (profileData.showOnboardingOnLogin === undefined) {
             profileData.showOnboardingOnLogin = true;
+          }
+          if (profileData.financialCycleStartDay === undefined) {
+            profileData.financialCycleStartDay = 1;
           }
           setUserProfile({ uid: docSnap.id, ...profileData } as UserProfile);
           setLoading(false);
@@ -278,25 +309,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             id: doc.id, ...doc.data(), date: (doc.data().date as Timestamp).toDate().toISOString(),
             icon: categoryIcons[doc.data().category] || categoryIcons['Food'],
         } as Transaction));
-        setTransactions(userTransactions);
+        setAllTransactions(userTransactions);
       }, (error) => logger.error("Error subscribing to transactions", error));
-
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const qBudgets = query(collection(db, 'users', user.uid, 'budgets'), where('month', '==', currentMonth));
-      const unsubscribeBudgets = onSnapshot(qBudgets, (snapshot) => {
-        const userBudgets: Budget[] = snapshot.docs.map(doc => ({
-            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
-        } as Budget));
-        setBudgets(userBudgets);
-      }, (error) => logger.error("Error subscribing to budgets", error));
-      
-      const qPlans = query(collection(db, 'users', user.uid, 'tripPlans'), orderBy('createdAt', 'desc'));
-      const unsubscribePlans = onSnapshot(qPlans, (snapshot) => {
-        const userPlans: TripPlan[] = snapshot.docs.map(doc => ({
-            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
-        } as TripPlan));
-        setTripPlans(userPlans);
-      }, (error) => logger.error("Error subscribing to trip plans", error));
 
       const qRecurring = query(collection(db, 'users', user.uid, 'recurringTransactions'), orderBy('createdAt', 'desc'));
       const unsubscribeRecurring = onSnapshot(qRecurring, (snapshot) => {
@@ -359,10 +373,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setChecklistTemplates(userTemplates);
       }, (error) => logger.error("Error subscribing to checklist templates", error));
       
+      // Stop listening to budgets here; it will be handled in the cycle effect
+      const qPlans = query(collection(db, 'users', user.uid, 'tripPlans'), orderBy('createdAt', 'desc'));
+      const unsubscribePlans = onSnapshot(qPlans, (snapshot) => {
+        const userPlans: TripPlan[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as TripPlan));
+        setTripPlans(userPlans);
+      }, (error) => logger.error("Error subscribing to trip plans", error));
+
+
       return () => {
         unsubscribeProfile();
         unsubscribeTransactions();
-        unsubscribeBudgets();
         unsubscribePlans();
         unsubscribeRecurring();
         unsubscribeGoals();
@@ -373,7 +396,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
     } else {
       setUserProfile(null);
-      setTransactions([]);
+      setAllTransactions([]);
+      setTransactionsForCurrentCycle([]);
       setBudgets([]);
       setTripPlans([]);
       setRecurringTransactions([]);
@@ -384,6 +408,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setChecklistTemplates([]);
     }
   }, [user]);
+
+  // New effect to manage data scoped to the financial cycle
+  useEffect(() => {
+    if (user && userProfile) {
+        const startDay = userProfile.financialCycleStartDay || 1;
+        const { startDate, endDate, cycleMonthStr } = getFinancialCycle(startDay);
+
+        const cycleTransactions = allTransactions.filter(t => {
+            const txDate = new Date(t.date);
+            return txDate >= startDate && txDate <= endDate;
+        });
+        setTransactionsForCurrentCycle(cycleTransactions);
+
+        const qBudgets = query(collection(db, 'users', user.uid, 'budgets'), where('month', '==', cycleMonthStr));
+        const unsubscribeBudgets = onSnapshot(qBudgets, (snapshot) => {
+            const userBudgets: Budget[] = snapshot.docs.map(doc => ({
+                id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
+            } as Budget));
+            setBudgets(userBudgets);
+        }, (error) => logger.error("Error subscribing to budgets", error));
+
+        return () => {
+            unsubscribeBudgets();
+        };
+    }
+  }, [user, userProfile, allTransactions]);
+
 
   const formatCurrency = useMemo(() => {
     return (amount: number) => {
@@ -407,8 +458,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Destructure and assign activeTripId if it exists
         const { date, tripItemId, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
         let finalTripId = transaction.tripId;
-        if (userProfile.activeTripId) {
-          finalTripId = userProfile.activeTripId;
+        if (userProfile.activeTripId && !finalTripId) {
+            finalTripId = userProfile.activeTripId;
         }
   
         const finalAmount = items && items.length > 0
@@ -593,11 +644,11 @@ const deleteTransaction = async (transactionId: string) => {
 };
 
   const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
-    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (!user || !userProfile) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-      const month = new Date().toISOString().slice(0, 7);
+      const { cycleMonthStr } = getFinancialCycle(userProfile.financialCycleStartDay || 1);
       await addDoc(collection(db, 'users', user.uid, 'budgets'), {
-        ...budget, month: month, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
+        ...budget, month: cycleMonthStr, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
       });
       showNotification({ type: 'success', title: 'Budget Added', description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.` });
       logger.info('Budget added', { category: budget.category, limit: budget.limit });
@@ -985,7 +1036,7 @@ const deleteTransaction = async (transactionId: string) => {
     const fullInput: AnalyzeTaxesInput = {
       ...input,
       countryCode: userProfile.countryCode,
-      transactions: transactions.map(t => ({ id: t.id, type: t.type, amount: t.amount, category: t.category, source: t.source, date: t.date })),
+      transactions: allTransactions.map(t => ({ id: t.id, type: t.type, amount: t.amount, category: t.category, source: t.source, date: t.date })),
       investments: investments.map(i => ({ name: i.name, assetType: i.assetType, marketValue: i.quantity * i.currentPrice })),
       savingsGoals: savingsGoals.map(s => ({ title: s.title, currentAmount: s.currentAmount })),
     };
@@ -1143,7 +1194,7 @@ const deleteTransaction = async (transactionId: string) => {
   return (
     <AppContext.Provider
       value={{
-        user, userProfile, isPremium, loading, transactions, deductibleTransactionsCount, addTransaction, updateTransaction,
+        user, userProfile, isPremium, loading, transactions: transactionsForCurrentCycle, deductibleTransactionsCount, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
         tripPlans, addTripPlan, updateTripPlan, deleteTripPlan, startTrip, endTrip,
@@ -1160,6 +1211,7 @@ const deleteTransaction = async (transactionId: string) => {
         canScanReceipt, scanReceiptWithLimit,
         checklists, addChecklist, updateChecklist, deleteChecklist,
         checklistTemplates, createTemplateFromChecklist, deleteChecklistTemplate,
+        transactionsForCurrentCycle,
       }}
     >
       {children}
@@ -1174,5 +1226,3 @@ export function useAppContext() {
   }
   return context;
 }
-
-    

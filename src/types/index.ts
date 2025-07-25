@@ -55,6 +55,7 @@ export interface UserProfile {
   countryCode: string; // e.g., 'US', 'LK', 'GB'
   currencyPreference: string;
   darkModeBanner: boolean;
+  financialCycleStartDay: number; // Day of the month (1-31)
   notificationPreferences: {
     budgetThreshold: boolean;
     recurringPayment: boolean;
