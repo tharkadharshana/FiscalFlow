@@ -34,6 +34,7 @@ import { useMemo, useEffect } from 'react';
 import type { Transaction, ChecklistItem } from '@/types';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
@@ -253,7 +254,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                                 field.onChange(value === 'none' ? undefined : value);
                                 form.setValue('tripItemId', undefined); // Reset item when plan changes
                             }} 
-                            value={field.value}
+                            value={field.value || 'none'}
                         >
                             <FormControl>
                                 <SelectTrigger>
@@ -262,7 +263,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                             </FormControl>
                             <SelectContent>
                                 <SelectItem value="none">None</SelectItem>
-                                {tripPlans.filter(p => p.status === 'active').map((trip) => (
+                                {tripPlans.filter(p => p.status === 'planning' || p.status === 'active').map((trip) => (
                                     <SelectItem key={trip.id} value={trip.id}>
                                     {trip.title}
                                     </SelectItem>
