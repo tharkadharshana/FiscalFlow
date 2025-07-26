@@ -9,11 +9,15 @@ import { assistantAction as assistantActionFlow } from '@/ai/flows/assistant-flo
 import { analyzeTaxes } from '@/ai/flows/analyze-taxes-flow';
 import { createSavingsGoal } from '@/ai/flows/create-savings-goal-flow';
 import { parseBankStatement } from '@/ai/flows/parse-bank-statement-flow';
+import { createChecklist } from '@/ai/flows/create-checklist-flow';
+
 
 import type {
     AnalyzeTaxesInput,
     AnalyzeTaxesOutput,
     AssistantActionInput,
+    CreateChecklistInput,
+    CreateChecklistOutput,
     CreateTripPlanInput,
     CreateTripPlanOutput,
     CreateMonthlyBudgetsInput,
@@ -43,11 +47,24 @@ type ParseDocumentResult = { text: string } | { error: string };
 type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 type BankStatementParseResult = ParseBankStatementOutput | { error: string };
+type ChecklistResult = CreateChecklistOutput | { error: string };
 
 
 // ------------------------------
 // ACTION FUNCTIONS
 // ------------------------------
+
+export async function createChecklistAction(
+    payload: CreateChecklistInput
+): Promise<ChecklistResult> {
+    try {
+        const result = await createChecklist(payload);
+        return result;
+    } catch (error) {
+        console.error('Error in createChecklistAction:', error);
+        return { error: 'Failed to generate checklist. Please try again later.' };
+    }
+}
 
 export async function getCoinGeckoMarketData(
   params: { coinIds?: string[]; page?: number; perPage?: number } = {}

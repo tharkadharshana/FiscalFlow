@@ -216,3 +216,26 @@ export const ParseReceiptOutputSchema = z.object({
       rawText: z.string().optional().describe('The full raw text extracted from the receipt for debugging.'),
 });
 export type ParseReceiptOutput = z.infer<typeof ParseReceiptOutputSchema>;
+
+// --- Checklist Schemas ---
+export const ChecklistItemSchema = z.object({
+    id: z.string().describe("A unique ID for the item."),
+    description: z.string().describe('A clear description of the expense item.'),
+    predictedCost: z.number().describe('The estimated cost for this item.'),
+    category: z.string().describe(`A suitable category. Must be one of: ${defaultExpenseCategories.join(', ')}`),
+});
+export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
+
+export const CreateChecklistOutputSchema = z.object({
+    title: z.string().describe('A concise title for the checklist (e.g., "Weekly Groceries", "Monthly Bills").'),
+    iconName: z.string().describe('The name of the most appropriate icon for the checklist.'),
+    items: z.array(ChecklistItemSchema).describe('A list of all items for the checklist.'),
+});
+export type CreateChecklistOutput = z.infer<typeof CreateChecklistOutputSchema>;
+
+export const CreateChecklistInputSchema = z.object({
+    userQuery: z.string().describe("The user's natural language description of their checklist."),
+    availableIcons: z.array(z.string()).describe("List of available icon names to choose from."),
+    availableCategories: z.array(z.string()).describe("List of available expense categories to choose from."),
+});
+export type CreateChecklistInput = z.infer<typeof CreateChecklistInputSchema>;
