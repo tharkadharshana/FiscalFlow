@@ -15,7 +15,7 @@ import { PieChart as PieChartIcon } from 'lucide-react';
 export function AllocationPieChart() {
   const { budgets, formatCurrency, transactionsForCurrentCycle } = useAppContext();
 
-  const { chartData, chartConfig, totalAllocated, totalIncome } = useMemo(() => {
+  const { chartData, chartConfig, totalIncome } = useMemo(() => {
     const income = transactionsForCurrentCycle
       .filter((t) => t.type === 'income')
       .reduce((acc, t) => acc + t.amount, 0);
@@ -47,7 +47,7 @@ export function AllocationPieChart() {
       return acc;
     }, {} as ChartConfig);
 
-    return { chartData: data, chartConfig: config, totalAllocated: allocated, totalIncome: income };
+    return { chartData: data, chartConfig: config, totalIncome: income };
   }, [budgets, transactionsForCurrentCycle]);
 
   return (
@@ -69,8 +69,9 @@ export function AllocationPieChart() {
                         <ChartTooltip
                          cursor={false}
                          content={<ChartTooltipContent
-                            formatter={(value) => `${formatCurrency(value as number)} (${((value as number / totalIncome) * 100).toFixed(0)}%)`}
+                            formatter={(value, name) => `${name}: ${formatCurrency(value as number)} (${((value as number / totalIncome) * 100).toFixed(0)}%)`}
                             indicator='dot'
+                            hideLabel
                          />}
                         />
                         <Pie

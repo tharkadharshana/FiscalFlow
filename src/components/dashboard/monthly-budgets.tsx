@@ -66,7 +66,7 @@ export function MonthlyBudgets({ onEditBudget, onDeleteBudget, onShowDetails }: 
             <span className="text-2xl font-bold">{formatCurrency(spent)}</span>
             <span className="text-muted-foreground">/ {formatCurrency(budget.limit)}</span>
           </div>
-          <Progress value={progress} />
+          <Progress value={progress} className={progress > 90 ? '[&>div]:bg-destructive' : ''} />
         </CardContent>
         <CardFooter>
           <p className={`text-sm ${remaining >= 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
