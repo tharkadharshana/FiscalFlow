@@ -31,7 +31,7 @@ import { estimateCarbonFootprint } from '@/lib/carbon';
 import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction, createTripPlanAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
-import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput, AnalyzeTaxesOutput, CreateSavingsGoalOutput, CreateChecklistOutput, CreateMonthlyBudgetsOutput, CreateTripPlanOutput } from '@/types/schemas';
+import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput, AnalyzeTaxesOutput, CreateSavingsGoalOutput, CreateChecklistOutput, CreateMonthlyBudgetsOutput, CreateTripPlanOutput, ParsedReceiptTransaction } from '@/types/schemas';
 
 
 export const FREE_TIER_LIMITS = {
@@ -479,7 +479,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
         
-        // Mark checklist item as complete
         if (checklistId && checklistItemId) {
             const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
             const checklistSnap = await firestoreTransaction.get(checklistRef);
@@ -491,8 +490,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 firestoreTransaction.update(checklistRef, { items: updatedItems });
             }
         }
-
-        // Update actual cost in trip plan
+        
         if (tripId) {
             const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
             const tripSnap = await firestoreTransaction.get(tripRef);
@@ -500,14 +498,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 const trip = tripSnap.data() as TripPlan;
                 let newTotalActualCost = trip.totalActualCost || 0;
                 
-                // Add expense or subtract income from total trip cost
                 if (transaction.type === 'expense') {
                     newTotalActualCost += finalAmount;
                 } else if (transaction.type === 'income') {
                     newTotalActualCost -= finalAmount;
                 }
 
-                // If the expense is for a specific planned item, update that item's actualCost
                 if (tripItemId) {
                     const updatedItems = trip.items.map(item => {
                         if (item.id === tripItemId) {
@@ -517,7 +513,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     });
                     firestoreTransaction.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
                 } else if (transaction.type === 'expense') {
-                     // Add unplanned expense as a new item
                     const newUnplannedItem: TripItem = {
                         id: nanoid(),
                         description: transaction.source,
@@ -531,7 +526,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         totalActualCost: newTotalActualCost 
                     });
                 } else {
-                    // It's income, just update the total cost
                     firestoreTransaction.update(tripRef, { totalActualCost: newTotalActualCost });
                 }
             }
@@ -582,7 +576,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       showNotification({ type: 'error', title: 'Not authenticated', description: '' });
       return;
     }
-    const originalBudgets = [...budgets];
+    
     try {
       const month = new Date().toISOString().slice(0, 7);
       
@@ -595,7 +589,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         };
 
       const budgetRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), newBudgetData);
-
       setBudgets(prev => [...prev, { ...newBudgetData, id: budgetRef.id, createdAt: new Date().toISOString() } as Budget]);
 
       showNotification({
@@ -603,48 +596,43 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         title: 'Budget Added',
         description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
       });
+      logger.info('Budget added', { category: budget.category });
     } catch (error) {
-      setBudgets(originalBudgets);
       logger.error('Error adding budget', error as Error);
       showNotification({ type: 'error', title: 'Error adding budget', description: '' });
     }
   };
 
   const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
-    if (!user) { 
-      showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
-      return; 
-    }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    const originalBudgets = [...budgets];
+    setBudgets(prev => prev.map(b => b.id === budgetId ? { ...b, ...data } as Budget : b));
+    
     try {
-      setBudgets(prev => prev.map(b => 
-        b.id === budgetId ? { ...b, ...data } as Budget : b
-      ));
-      
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       const currentMonth = new Date().toISOString().slice(0, 7);
       await updateDoc(budgetRef, {...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
+      logger.info('Budget updated', { budgetId });
     } catch (error) {
-      setBudgets(prev => [...prev]);
+      setBudgets(originalBudgets); // Revert UI on error
       logger.error('Error updating budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error updating budget', description: (error as Error).message });
     }
   };
   
   const deleteBudget = async (budgetId: string) => {
-    if (!user) { 
-      showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
-      return; 
-    }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     const originalBudgets = [...budgets];
+    setBudgets(prev => prev.filter(budget => budget.id !== budgetId)); // Optimistic UI update
+
     try {
-      setBudgets(prev => prev.filter(budget => budget.id !== budgetId));
-      
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
+      logger.info('Budget deleted', { budgetId });
     } catch (error) {
-      setBudgets(originalBudgets);
+      setBudgets(originalBudgets); // Revert UI on error
       logger.error('Error deleting budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
     }

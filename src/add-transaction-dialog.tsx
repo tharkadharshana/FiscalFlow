@@ -105,7 +105,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
               {!isEditing && (
                 <>
                 <TabsContent value="scan" className="pt-4">
-                    <ReceiptScanner onTransactionAdded={() => onOpenChange(false)} />
+                    <ReceiptScanner onTransactionsAdded={() => onOpenChange(false)} />
                 </TabsContent>
                 <TabsContent value="import" className="pt-4">
                     <StatementImporter onTransactionsAdded={() => onOpenChange(false)} />

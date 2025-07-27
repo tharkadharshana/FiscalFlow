@@ -185,16 +185,22 @@ export const ParseReceiptInputSchema = z.object({
       ),
 });
 export type ParseReceiptInput = z.infer<typeof ParseReceiptInputSchema>;
-  
+
+export const ParsedReceiptTransactionSchema = z.object({
+    storeName: z.string().optional().describe('The name of the store or merchant.'),
+    transactionDate: z.string().optional().describe('The date of the transaction in YYYY-MM-DD format. If no year is present, assume the current year.'),
+    suggestedCategory: z.string().describe('A suggested category for this transaction like "Food", "Groceries", etc.'),
+    lineItems: z.array(z.object({ description: z.string(), amount: z.number().optional() })).optional().describe('An array of line items from the receipt for this category.'),
+    totalAmount: z.number().optional().describe('The sum of the line items for this specific transaction.'),
+});
+export type ParsedReceiptTransaction = z.infer<typeof ParsedReceiptTransactionSchema>;
+
 export const ParseReceiptOutputSchema = z.object({
-      storeName: z.string().optional().describe('The name of the store or merchant.'),
-      transactionDate: z.string().optional().describe('The date of the transaction in YYYY-MM-DD format. If no year is present, assume the current year.'),
-      totalAmount: z.number().optional().describe('The final total amount of the transaction.'),
-      suggestedCategory: z.string().describe('A suggested category for this transaction like "Food", "Groceries", "Transport", etc.'),
-      lineItems: z.array(z.object({ description: z.string(), amount: z.number().optional() })).optional().describe('An array of line items from the receipt.'),
-      rawText: z.string().optional().describe('The full raw text extracted from the receipt for debugging.'),
+  transactions: z.array(ParsedReceiptTransactionSchema).describe("An array of transactions extracted from the receipt. There will be one transaction per category identified."),
+  rawText: z.string().optional().describe('The full raw text extracted from the receipt for debugging.'),
 });
 export type ParseReceiptOutput = z.infer<typeof ParseReceiptOutputSchema>;
+
 
 // --- Trip Plan Schemas ---
 export const TripItemSchema = z.object({

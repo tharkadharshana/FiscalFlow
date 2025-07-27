@@ -83,7 +83,8 @@ export const updateBudgetOnTransactionChange = functions.firestore
     const transactionBefore = change.before.exists ? change.before.data() : null;
     const transactionAfter = change.after.exists ? change.after.data() : null;
     
-    // If transaction is linked to a trip, do not update monthly budget
+    // If new transaction is linked to a trip, do not update monthly budget.
+    // If old transaction was linked, it's already been handled, so we can exit.
     if (transactionAfter?.tripId || transactionBefore?.tripId) {
         functions.logger.info(`Transaction ${context.params.transactionId} is linked to a trip. Skipping monthly budget update.`);
         return null;
