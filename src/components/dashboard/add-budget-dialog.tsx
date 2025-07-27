@@ -114,7 +114,6 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   });
 
   const resetToInputView = () => {
-    console.log('add-budget-dialog.tsx: resetToInputView called');
     setView('input');
     setUserQuery('');
     if (isRecording) recognitionRef.current?.stop();
@@ -122,10 +121,8 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   }
 
   useEffect(() => {
-    console.log('add-budget-dialog.tsx: Dialog open state changed or budgetToEdit changed. Open:', open, 'Budget to edit:', budgetToEdit?.id);
     if (open) {
         if (budgetToEdit) {
-            console.log('add-budget-dialog.tsx: Setting form for editing.');
             replace([{
                 id: budgetToEdit.id,
                 category: budgetToEdit.category,
@@ -135,7 +132,6 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
             setView('review');
             setActiveTab('manual');
         } else {
-            console.log('add-budget-dialog.tsx: Setting form for new budget.');
             resetToInputView();
             setActiveTab('text');
         }
@@ -143,15 +139,12 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   }, [open, budgetToEdit, replace]);
   
   const handleSaveBudgets = async (data: FormData) => {
-    console.log('add-budget-dialog.tsx: handleSaveBudgets called with data:', data);
     let count = 0;
     for (const budget of data.budgets) {
         const dataToSave = { ...budget, userInput: userQuery || '' };
         if (budgetToEdit) {
-            console.log(`add-budget-dialog.tsx: Calling updateBudget for id: ${budgetToEdit.id}`);
             await updateBudget(budgetToEdit.id, dataToSave);
         } else {
-            console.log(`add-budget-dialog.tsx: Calling addBudget for new budget: ${budget.category}`);
             await addBudget(dataToSave);
         }
         count++;

@@ -517,16 +517,13 @@ const deleteTransaction = async (transactionId: string) => {
 };
 
   const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
-    console.log('app-context.tsx: addBudget called with:', budget);
     if (!user) { 
-      console.log('app-context.tsx: addBudget failed - no user');
       showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
       return; 
     }
     try {
       const currentMonth = new Date().toISOString().slice(0, 7);
       const budgetRef = collection(db, 'users', user.uid, 'budgets');
-      console.log('app-context.tsx: Attempting to add document to path:', budgetRef.path);
       await addDoc(budgetRef, {
         ...budget, month: currentMonth, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
       });
@@ -539,16 +536,14 @@ const deleteTransaction = async (transactionId: string) => {
   };
 
   const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
-    console.log(`app-context.tsx: updateBudget called for budgetId: ${budgetId} with data:`, data);
     if (!user) { 
-      console.log('app-context.tsx: updateBudget failed - no user');
       showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
       return; 
     }
     try {
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
-      console.log('app-context.tsx: Attempting to update document at path:', budgetRef.path);
-      await updateDoc(budgetRef, data);
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      await updateDoc(budgetRef, {...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
       logger.info('Budget updated', { budgetId });
     } catch (error) {
@@ -558,15 +553,12 @@ const deleteTransaction = async (transactionId: string) => {
   };
 
   const deleteBudget = async (budgetId: string) => {
-    console.log(`app-context.tsx: deleteBudget called for budgetId: ${budgetId}`);
     if (!user) { 
-      console.log('app-context.tsx: deleteBudget failed - no user');
       showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
       return; 
     }
     try {
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
-      console.log('app-context.tsx: Attempting to delete document at path:', budgetRef.path);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
       logger.info('Budget deleted', { budgetId });
