@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { TripPlan } from "@/types";
@@ -12,7 +13,7 @@ import {
 } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { MoreVertical, Pencil, Trash2, Rocket, Flag, CircleCheck } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Rocket, Flag, CircleCheck, PlayCircle } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -29,14 +30,16 @@ type TripPlanCardProps = {
   onEdit: () => void;
   onDelete: () => void;
   onViewReport: () => void;
+  onRestart: () => void;
 };
 
-export function TripPlanCard({ trip, onEdit, onDelete, onViewReport }: TripPlanCardProps) {
+export function TripPlanCard({ trip, onEdit, onDelete, onViewReport, onRestart }: TripPlanCardProps) {
   const { formatCurrency, updateUserPreferences, userProfile, updateTripPlan } = useAppContext();
   
   const progress = trip.totalPredictedCost > 0 ? ((trip.totalActualCost || 0) / trip.totalPredictedCost) * 100 : 0;
   const uniqueCategories = [...new Set(trip.items.map(item => item.category))];
   const isActiveTrip = userProfile?.activeTripId === trip.id;
+  const isAnotherTripActive = !!userProfile?.activeTripId && !isActiveTrip;
 
   const handleStartTrip = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -71,6 +74,7 @@ export function TripPlanCard({ trip, onEdit, onDelete, onViewReport }: TripPlanC
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 {trip.status === 'planning' && <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>}
+                {trip.status === 'completed' && <DropdownMenuItem onClick={onRestart} disabled={isAnotherTripActive}><PlayCircle className="mr-2 h-4 w-4" /> Restart Trip</DropdownMenuItem>}
                 {trip.status === 'completed' && <DropdownMenuItem onClick={onViewReport}><Flag className="mr-2 h-4 w-4" /> View Report</DropdownMenuItem>}
                 <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
             </DropdownMenuContent>

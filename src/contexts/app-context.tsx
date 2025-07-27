@@ -81,6 +81,7 @@ interface AppContextType {
   addTripPlan: (plan: Omit<TripPlan, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
   updateTripPlan: (planId: string, data: Partial<Omit<TripPlan, 'id'>>) => Promise<void>;
   deleteTripPlan: (planId: string) => Promise<void>;
+  restartTrip: (planId: string) => Promise<void>;
   updateUserPreferences: (data: Partial<UserProfile>) => Promise<void>;
   recurringTransactions: RecurringTransaction[];
   addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
@@ -500,19 +501,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 const trip = tripSnap.data() as TripPlan;
                 let newTotalActualCost = trip.totalActualCost || 0;
                 
-                if (tripItemId) { // Expense is for a specific planned item
+                // Add any expense to the total trip cost
+                newTotalActualCost += finalAmount;
+
+                // If the expense is for a specific planned item, update that item's actualCost
+                if (tripItemId) {
                     const updatedItems = trip.items.map(item => {
                         if (item.id === tripItemId) {
-                            const oldCost = item.actualCost || 0;
-                            newTotalActualCost = newTotalActualCost - oldCost + finalAmount;
                             return { ...item, actualCost: finalAmount };
                         }
                         return item;
                     });
                     firestoreTransaction.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
-                } else { // Expense is a general trip expense, not tied to a specific line item
-                    newTotalActualCost += finalAmount;
-                    firestoreTransaction.update(tripRef, { totalActualCost: newTotalActualCost });
+                } else {
+                     firestoreTransaction.update(tripRef, { totalActualCost: newTotalActualCost });
                 }
             }
         }
@@ -562,15 +564,21 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       showNotification({ type: 'error', title: 'Not authenticated', description: '' });
       return;
     }
+    const originalBudgets = [...budgets];
     try {
       const month = new Date().toISOString().slice(0, 7);
-      const docRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), {
-        ...budget,
-        month,
-        currentSpend: 0,
-        userId: user.uid,
-        createdAt: serverTimestamp(),
-      });
+      
+      const newBudgetData = {
+          ...budget,
+          month,
+          currentSpend: 0,
+          userId: user.uid,
+          createdAt: serverTimestamp(),
+        };
+
+      const budgetRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), newBudgetData);
+
+      setBudgets(prev => [...prev, { ...newBudgetData, id: budgetRef.id, createdAt: new Date().toISOString() } as Budget]);
 
       showNotification({
         type: 'success',
@@ -578,6 +586,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
       });
     } catch (error) {
+      setBudgets(originalBudgets);
       logger.error('Error adding budget', error as Error);
       showNotification({ type: 'error', title: 'Error adding budget', description: '' });
     }
@@ -598,7 +607,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       const currentMonth = new Date().toISOString().slice(0, 7);
       await updateDoc(budgetRef, {...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
-      logger.info('Budget updated', { budgetId });
     } catch (error) {
       setBudgets(originalBudgets);
       logger.error('Error updating budget', error as Error, { budgetId });
@@ -618,7 +626,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
-      logger.info('Budget deleted', { budgetId });
     } catch (error) {
       setBudgets(originalBudgets);
       logger.error('Error deleting budget', error as Error, { budgetId });
@@ -810,6 +817,29 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     } catch (error) {
         logger.error('Error updating trip plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error updating trip plan', description: '' });
+    }
+  };
+
+  const restartTrip = async (planId: string) => {
+    if (!user || !userProfile) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (userProfile.activeTripId) {
+        showNotification({ type: 'error', title: 'Another Trip Active', description: 'Please end your current trip before restarting another.' });
+        return;
+    }
+    try {
+        const batch = writeBatch(db);
+        const tripRef = doc(db, 'users', user.uid, 'tripPlans', planId);
+        batch.update(tripRef, { status: 'active' });
+
+        const userRef = doc(db, 'users', user.uid);
+        batch.update(userRef, { activeTripId: planId });
+
+        await batch.commit();
+        showNotification({ type: 'success', title: 'Trip Restarted!', description: '' });
+        logger.info('Trip restarted', { planId });
+    } catch (error) {
+        logger.error('Error restarting trip', error as Error, { planId });
+        showNotification({ type: 'error', title: 'Error restarting trip', description: '' });
     }
   };
   
@@ -1140,7 +1170,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         user, userProfile, isPremium, loading, transactions, transactionsForCurrentCycle, deductibleTransactionsCount, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
-        tripPlans, addTripPlan, updateTripPlan, deleteTripPlan,
+        tripPlans, addTripPlan, updateTripPlan, deleteTripPlan, restartTrip,
         updateUserPreferences, recurringTransactions, addRecurringTransaction,
         updateRecurringTransaction, deleteRecurringTransaction, savingsGoals,
         addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 

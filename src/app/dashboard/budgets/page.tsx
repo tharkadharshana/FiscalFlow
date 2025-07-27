@@ -36,7 +36,7 @@ import { AllocationPieChart } from '@/components/dashboard/allocation-pie-chart'
 import { TripReportDialog } from '@/components/dashboard/trip-report-dialog';
 
 export default function BudgetsPage() {
-  const { tripPlans, deleteTripPlan, isPremium, budgets, deleteBudget } = useAppContext();
+  const { tripPlans, deleteTripPlan, restartTrip, isPremium, budgets, deleteBudget } = useAppContext();
   
   // Dialog states
   const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
@@ -68,6 +68,10 @@ export default function BudgetsPage() {
     setBudgetToDelete(null);
     setIsDeleteDialogOpen(true);
   };
+  
+  const handleRestartTrip = (planId: string) => {
+    restartTrip(planId);
+  }
 
   const handlePlanDialogClose = (open: boolean) => {
     if (!open) {
@@ -222,6 +226,7 @@ export default function BudgetsPage() {
                                       trip={plan} 
                                       onEdit={() => handleEditPlan(plan)}
                                       onDelete={() => handleDeletePlan(plan)}
+                                      onRestart={() => handleRestartTrip(plan.id)}
                                       onViewReport={() => handleViewTripReport(plan)}
                                   />
                               ))}
