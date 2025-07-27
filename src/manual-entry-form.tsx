@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import { useMemo, useEffect } from 'react';
-import type { Transaction, ChecklistItem } from '@/types';
+import type { Transaction } from '@/types';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -44,14 +44,11 @@ const formSchema = z.object({
   financialPlanId: z.string().optional(),
   planItemId: z.string().optional(),
   isTaxDeductible: z.boolean().optional(),
-  checklistId: z.string().optional(),
-  checklistItemId: z.string().optional(),
 });
 
 type ManualEntryFormProps = {
   onFormSubmit: () => void;
   transactionToEdit?: Transaction | null;
-  itemToConvert?: { checklistId: string; item: ChecklistItem } | null;
 }
 
 const defaultValues = {
@@ -63,11 +60,9 @@ const defaultValues = {
   financialPlanId: undefined,
   planItemId: undefined,
   isTaxDeductible: false,
-  checklistId: undefined,
-  checklistItemId: undefined,
 };
 
-export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
+export function ManualEntryForm({ onFormSubmit, transactionToEdit }: ManualEntryFormProps) {
   const { userProfile, addTransaction, updateTransaction, financialPlans = [], expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -86,22 +81,13 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         ...transactionToEdit,
         date: parseISO(transactionToEdit.date),
       });
-    } else if (itemToConvert) {
-        form.reset({
-            ...defaultValues,
-            amount: itemToConvert.item.predictedCost,
-            source: itemToConvert.item.description,
-            category: itemToConvert.item.category,
-            checklistId: itemToConvert.checklistId,
-            checklistItemId: itemToConvert.item.id,
-        });
     } else {
       form.reset({
         ...defaultValues,
         financialPlanId: activeTrip?.id
       });
     }
-  }, [transactionToEdit, itemToConvert, form, activeTrip]);
+  }, [transactionToEdit, form, activeTrip]);
 
   const selectedPlanId = form.watch('financialPlanId');
 
@@ -347,7 +333,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
           )}
         />
 
-        <Button type="submit" className="w-full font-bold">{transactionToEdit || itemToConvert ? 'Save Changes' : 'Add Expense'}</Button>
+        <Button type="submit" className="w-full font-bold">{transactionToEdit ? 'Save Changes' : 'Add Expense'}</Button>
       </form>
     </Form>
   );

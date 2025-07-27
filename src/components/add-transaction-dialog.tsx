@@ -15,7 +15,7 @@ import { ReceiptScanner } from './receipt-scanner';
 import { ScanLine, MinusCircle, PlusCircle, Sparkles, FileText } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { IncomeEntryForm } from './income-entry-form';
-import type { Transaction, ChecklistItem } from '@/types';
+import type { Transaction } from '@/types';
 import { cn } from '@/lib/utils';
 import { useAppContext } from '@/contexts/app-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -25,10 +25,9 @@ type AddTransactionDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transactionToEdit?: Transaction | null;
-  itemToConvert?: { checklistId: string; item: ChecklistItem } | null;
 };
 
-export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, itemToConvert }: AddTransactionDialogProps) {
+export function AddTransactionDialog({ open, onOpenChange, transactionToEdit }: AddTransactionDialogProps) {
   const { canScanReceipt, isPremium } = useAppContext();
   
   const ScanReceiptTab = (
@@ -47,17 +46,17 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
     </TabsTrigger>
   );
   
-  const defaultTab = transactionToEdit?.type || (itemToConvert ? 'expense' : 'expense');
+  const defaultTab = transactionToEdit?.type || 'expense';
   
-  const isEditing = !!transactionToEdit || !!itemToConvert;
+  const isEditing = !!transactionToEdit;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[520px] flex h-full max-h-[90svh] flex-col">
         <DialogHeader>
-          <DialogTitle className="font-headline">{transactionToEdit ? 'Edit' : (itemToConvert ? 'Confirm Transaction' : 'Add Transaction')}</DialogTitle>
+          <DialogTitle className="font-headline">{transactionToEdit ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
           <DialogDescription>
-            {transactionToEdit ? 'Update the details of your transaction.' : (itemToConvert ? 'Confirm the details for this checklist item.' : 'Log a new income or expense.')}
+            {transactionToEdit ? 'Update the details of your transaction.' : 'Log a new income, expense, or scan a receipt.'}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="pr-2">
@@ -97,7 +96,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
                   )}
               </TabsList>
               <TabsContent value="expense" className="pt-4">
-                  <ManualEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} itemToConvert={itemToConvert} />
+                  <ManualEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} />
               </TabsContent>
               <TabsContent value="income" className="pt-4">
                   <IncomeEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} />

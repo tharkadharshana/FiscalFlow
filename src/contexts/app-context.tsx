@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
@@ -79,6 +80,8 @@ interface AppContextType {
   addFinancialPlan: (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
   updateFinancialPlan: (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => Promise<void>;
   deleteFinancialPlan: (planId: string) => Promise<void>;
+  startTrip: (planId: string) => Promise<void>;
+  endTrip: (planId: string) => Promise<void>;
   updateUserPreferences: (data: Partial<UserProfile>) => Promise<void>;
   recurringTransactions: RecurringTransaction[];
   addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
@@ -598,6 +601,23 @@ const deleteTransaction = async (transactionId: string) => {
         showNotification({ type: 'error', title: 'Error updating plan', description: '' });
     }
   };
+  
+  const startTrip = async (planId: string) => {
+    if (!user) { return; }
+    await updateFinancialPlan(planId, { status: 'active' });
+    await updateUserPreferences({ activeTripId: planId });
+    logger.info('Trip started', { planId });
+  };
+  
+  const endTrip = async (planId: string) => {
+    if (!user) { return; }
+    await updateFinancialPlan(planId, { status: 'completed' });
+    if (userProfile?.activeTripId === planId) {
+        await updateUserPreferences({ activeTripId: null });
+    }
+    logger.info('Trip ended', { planId });
+  };
+
 
   const deleteFinancialPlan = async (planId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
@@ -1000,7 +1020,7 @@ const deleteTransaction = async (transactionId: string) => {
         user, userProfile, isPremium, loading, transactions, deductibleTransactionsCount, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
-        financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan,
+        financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan, startTrip, endTrip,
         updateUserPreferences, recurringTransactions, addRecurringTransaction,
         updateRecurringTransaction, deleteRecurringTransaction, savingsGoals,
         addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
