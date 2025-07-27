@@ -563,18 +563,14 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       return;
     }
     try {
+      const month = new Date().toISOString().slice(0, 7);
       const docRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), {
         ...budget,
+        month,
         currentSpend: 0,
         userId: user.uid,
         createdAt: serverTimestamp(),
       });
-      // Optimistic update to UI
-      setBudgets(prev => [...prev, {
-        id: docRef.id,
-        ...budget,
-        currentSpend: 0,
-      } as Budget]);
 
       showNotification({
         type: 'success',
@@ -599,8 +595,10 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       ));
       
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
-      await updateDoc(budgetRef, data);
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      await updateDoc(budgetRef, {...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
+      logger.info('Budget updated', { budgetId });
     } catch (error) {
       setBudgets(originalBudgets);
       logger.error('Error updating budget', error as Error, { budgetId });
@@ -620,6 +618,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
+      logger.info('Budget deleted', { budgetId });
     } catch (error) {
       setBudgets(originalBudgets);
       logger.error('Error deleting budget', error as Error, { budgetId });
@@ -1170,3 +1169,4 @@ export function useAppContext() {
   }
   return context;
 }
+

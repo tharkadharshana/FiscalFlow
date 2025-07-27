@@ -30,7 +30,7 @@ export const logMessage = functions.https.onRequest((req, res) => {
         }
 
         try {
-            const { level, message, details } = req.body.data;
+            const { level, message, details } = req.body.data || req.body;
             const uid = details?.userId;
 
             if (!level || !message) {
@@ -83,6 +83,12 @@ export const updateBudgetOnTransactionChange = functions.firestore
     const transactionBefore = change.before.data();
     const transactionAfter = change.after.data();
 
+    // If transaction is linked to a trip, do not update monthly budget
+    if (transactionAfter?.tripId || transactionBefore?.tripId) {
+        functions.logger.info(`Transaction ${context.params.transactionId} is linked to a trip. Skipping monthly budget update.`);
+        return null;
+    }
+
     const amountBefore = transactionBefore?.type === "expense" ? transactionBefore.amount : 0;
     const categoryBefore = transactionBefore?.category;
     const dateBefore = transactionBefore?.date as Timestamp;
@@ -105,21 +111,22 @@ export const updateBudgetOnTransactionChange = functions.firestore
 
     // Case 3: Transaction updated
     if (change.before.exists && change.after.exists) {
-      const amountDifference = amountAfter - amountBefore;
-      if (categoryBefore === categoryAfter) {
+      const monthAfter = dateAfter.toDate().toISOString().slice(0, 7);
+      const monthBefore = dateBefore.toDate().toISOString().slice(0, 7);
+
+      if (categoryBefore === categoryAfter && monthBefore === monthAfter) {
+        // Amount changed, category and month are the same
+        const amountDifference = amountAfter - amountBefore;
         if (amountDifference !== 0) {
-            const month = dateAfter.toDate().toISOString().slice(0, 7);
-            await updateBudget(userId, categoryAfter, amountDifference, month);
+          await updateBudget(userId, categoryAfter, amountDifference, monthAfter);
         }
       } else {
-        // Category changed, so treat as a delete from old and create in new
+        // Category or month changed, so treat as a delete from old and create in new
         if (amountBefore > 0) {
-            const monthOld = dateBefore.toDate().toISOString().slice(0, 7);
-            await updateBudget(userId, categoryBefore, -amountBefore, monthOld);
+          await updateBudget(userId, categoryBefore, -amountBefore, monthBefore);
         }
         if (amountAfter > 0) {
-            const monthNew = dateAfter.toDate().toISOString().slice(0, 7);
-            await updateBudget(userId, categoryAfter, amountAfter, monthNew);
+          await updateBudget(userId, categoryAfter, amountAfter, monthAfter);
         }
       }
     }
