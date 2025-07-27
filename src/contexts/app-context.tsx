@@ -536,35 +536,47 @@ const deleteTransaction = async (transactionId: string) => {
   };
 
   const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
-    if (!user) { 
-      showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
-      return; 
+    if (!user) {
+      showNotification({ type: 'error', title: 'Not authenticated', description: '' });
+      return;
     }
+    const originalBudgets = budgets;
     try {
+      // Optimistic update
+      setBudgets(prev => prev.map(b => (b.id === budgetId ? { ...b, ...data } as Budget : b)));
+  
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       const currentMonth = new Date().toISOString().slice(0, 7);
-      await updateDoc(budgetRef, {...data, month: currentMonth });
+      await updateDoc(budgetRef, { ...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
       logger.info('Budget updated', { budgetId });
     } catch (error) {
+      // Revert UI on error
+      setBudgets(originalBudgets);
       logger.error('Error updating budget', error as Error, { budgetId });
-      showNotification({ type: 'error', title: 'Error updating budget', description: '' });
+      showNotification({ type: 'error', title: 'Error updating budget', description: 'Could not update budget. Please try again.' });
     }
   };
-
+  
   const deleteBudget = async (budgetId: string) => {
-    if (!user) { 
-      showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
-      return; 
+    if (!user) {
+      showNotification({ type: 'error', title: 'Not authenticated', description: '' });
+      return;
     }
+    const originalBudgets = budgets;
     try {
+      // Optimistic update
+      setBudgets(prev => prev.filter(budget => budget.id !== budgetId));
+      
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
       logger.info('Budget deleted', { budgetId });
     } catch (error) {
+      // Revert UI on error
+      setBudgets(originalBudgets);
       logger.error('Error deleting budget', error as Error, { budgetId });
-      showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
+      showNotification({ type: 'error', title: 'Error deleting budget', description: 'Could not delete budget. Please try again.' });
     }
   };
 

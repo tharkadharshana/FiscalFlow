@@ -2,30 +2,13 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if the user is the owner of the document
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Allow users to create their own profile document upon signup.
-      // The request.auth.uid must match the userId in the path.
-      allow create: if isOwner(userId);
-      
-      // Allow authenticated users to read and update their own profile document.
-      allow read, update: if isOwner(userId);
-
-      // Disallow deleting user profiles for now to prevent accidental data loss.
-      allow delete: if false;
-
-      // Rules for all subcollections under a user document
-      match /{collection}/{docId} {
-        // Allow full CRUD access (create, read, update, delete) on subcollections
-        // only if the requesting user is the owner of the parent user document.
-        allow read, write: if isOwner(userId);
-      }
+    
+    // Allow deleting budgets specifically
+    match /users/{userId}/budgets/{budgetId} {
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
