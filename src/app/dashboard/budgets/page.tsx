@@ -54,7 +54,7 @@ export default function BudgetsPage() {
 
 
   const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
-  const canAddPlan = isPremium || tripPlans.length < FREE_TIER_LIMITS.financialPlans;
+  const canAddPlan = isPremium || (tripPlans && tripPlans.length < FREE_TIER_LIMITS.financialPlans);
 
   // Plan handlers
   const handleEditPlan = (plan: TripPlan) => {
@@ -215,7 +215,7 @@ export default function BudgetsPage() {
                       )}
                   </CardHeader>
                   <CardContent>
-                      {tripPlans.length > 0 ? (
+                      {tripPlans && tripPlans.length > 0 ? (
                           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                               {tripPlans.map((plan) => (
                                   <TripPlanCard 
