@@ -493,21 +493,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         // Update actual cost in trip plan
-        if (tripId && tripItemId) {
+        if (tripId) {
             const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
             const tripSnap = await firestoreTransaction.get(tripRef);
             if (tripSnap.exists()) {
                 const trip = tripSnap.data() as TripPlan;
                 let newTotalActualCost = trip.totalActualCost || 0;
-                const updatedItems = trip.items.map(item => {
-                    if (item.id === tripItemId) {
-                        const oldCost = item.actualCost || 0;
-                        newTotalActualCost = newTotalActualCost - oldCost + finalAmount;
-                        return { ...item, actualCost: finalAmount };
-                    }
-                    return item;
-                });
-                firestoreTransaction.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+                
+                if (tripItemId) { // Expense is for a specific planned item
+                    const updatedItems = trip.items.map(item => {
+                        if (item.id === tripItemId) {
+                            const oldCost = item.actualCost || 0;
+                            newTotalActualCost = newTotalActualCost - oldCost + finalAmount;
+                            return { ...item, actualCost: finalAmount };
+                        }
+                        return item;
+                    });
+                    firestoreTransaction.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+                } else { // Expense is a general trip expense, not tied to a specific line item
+                    newTotalActualCost += finalAmount;
+                    firestoreTransaction.update(tripRef, { totalActualCost: newTotalActualCost });
+                }
             }
         }
       });
@@ -551,31 +557,35 @@ const deleteTransaction = async (transactionId: string) => {
     }
 };
 
-const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
-  if (!user) {
-    showNotification({ type: 'error', title: 'Not authenticated', description: '' });
-    return;
-  }
-  try {
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const budgetData = {
-      ...budget,
-      month: currentMonth,
-      currentSpend: 0,
-      userId: user.uid,
-      createdAt: serverTimestamp(),
-    };
-    await addDoc(collection(db, 'users', user.uid, 'budgets'), budgetData);
-    showNotification({
-      type: 'success',
-      title: 'Budget Added',
-      description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
-    });
-  } catch (error) {
-    logger.error('Error adding budget', error as Error);
-    showNotification({ type: 'error', title: 'Error adding budget', description: '' });
-  }
-};
+const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'currentSpend'>) => {
+    if (!user) {
+      showNotification({ type: 'error', title: 'Not authenticated', description: '' });
+      return;
+    }
+    try {
+      const docRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), {
+        ...budget,
+        currentSpend: 0,
+        userId: user.uid,
+        createdAt: serverTimestamp(),
+      });
+      // Optimistic update to UI
+      setBudgets(prev => [...prev, {
+        id: docRef.id,
+        ...budget,
+        currentSpend: 0,
+      } as Budget]);
+
+      showNotification({
+        type: 'success',
+        title: 'Budget Added',
+        description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
+      });
+    } catch (error) {
+      logger.error('Error adding budget', error as Error);
+      showNotification({ type: 'error', title: 'Error adding budget', description: '' });
+    }
+  };
 
   const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
     if (!user) { 
@@ -584,17 +594,14 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'm
     }
     const originalBudgets = [...budgets];
     try {
-      // Optimistic update
       setBudgets(prev => prev.map(b => 
         b.id === budgetId ? { ...b, ...data } as Budget : b
       ));
       
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      await updateDoc(budgetRef, { ...data, month: currentMonth });
+      await updateDoc(budgetRef, data);
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
     } catch (error) {
-      // Revert on error
       setBudgets(originalBudgets);
       logger.error('Error updating budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error updating budget', description: (error as Error).message });
@@ -608,14 +615,12 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'm
     }
     const originalBudgets = [...budgets];
     try {
-      // Optimistic update
-      setBudgets(prev => prev.filter(b => b.id !== budgetId));
+      setBudgets(prev => prev.filter(budget => budget.id !== budgetId));
       
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
     } catch (error) {
-      // Revert on error
       setBudgets(originalBudgets);
       logger.error('Error deleting budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
@@ -1165,4 +1170,3 @@ export function useAppContext() {
   }
   return context;
 }
-
