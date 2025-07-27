@@ -20,12 +20,8 @@ export function AllocationPieChart() {
       .filter((t) => t.type === 'income')
       .reduce((acc, t) => acc + t.amount, 0);
     
-    if (income === 0) {
-        return { chartData: [], chartConfig: {}, totalAllocated: 0, totalIncome: 0 };
-    }
-
     const allocated = budgets.reduce((sum, b) => sum + b.limit, 0);
-    const unallocated = income - allocated;
+    const unallocated = income > allocated ? income - allocated : 0;
 
     const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -55,19 +51,19 @@ export function AllocationPieChart() {
   }, [budgets, transactionsForCurrentCycle]);
 
   return (
-    <Card className="h-full">
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="font-headline">Income Allocation</CardTitle>
         <CardDescription>How your monthly income is distributed.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col items-center justify-center">
         {totalIncome > 0 ? (
-             <div className="flex flex-col items-center justify-center space-y-2">
+             <div className="flex flex-col items-center justify-center space-y-2 w-full">
                 <p className="text-xs text-muted-foreground">Total Income This Cycle</p>
                 <p className="text-2xl font-bold">{formatCurrency(totalIncome)}</p>
                 <ChartContainer
                     config={chartConfig}
-                    className="mx-auto aspect-square max-h-[250px]"
+                    className="mx-auto aspect-square max-h-[250px] w-full"
                 >
                     <PieChart>
                         <ChartTooltip

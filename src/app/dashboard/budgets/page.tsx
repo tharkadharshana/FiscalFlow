@@ -96,7 +96,7 @@ export default function BudgetsPage() {
         <Header title="Budgets & Plans" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
             <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 space-y-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
