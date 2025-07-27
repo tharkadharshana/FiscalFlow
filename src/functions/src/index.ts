@@ -30,7 +30,7 @@ export const logMessage = functions.https.onRequest((req, res) => {
         }
 
         try {
-            const { level, message, details } = req.body.data;
+            const { level, message, details } = req.body.data || req.body;
             const uid = details?.userId;
 
             if (!level || !message) {
@@ -80,55 +80,39 @@ export const updateBudgetOnTransactionChange = functions.firestore
   .onWrite(async (change, context) => {
     const { userId } = context.params;
 
-    const transactionBefore = change.before.data();
-    const transactionAfter = change.after.data();
-
-    const amountBefore = transactionBefore?.type === "expense" ? transactionBefore.amount : 0;
-    const categoryBefore = transactionBefore?.category;
-    const dateBefore = transactionBefore?.date as Timestamp;
-
-    const amountAfter = transactionAfter?.type === "expense" ? transactionAfter.amount : 0;
-    const categoryAfter = transactionAfter?.category;
-    const dateAfter = transactionAfter?.date as Timestamp;
-
-    // Case 1: Transaction created
-    if (!change.before.exists && change.after.exists && amountAfter > 0) {
-      const month = dateAfter.toDate().toISOString().slice(0, 7);
-      await updateBudget(userId, categoryAfter, amountAfter, month);
+    const transactionBefore = change.before.exists ? change.before.data() : null;
+    const transactionAfter = change.after.exists ? change.after.data() : null;
+    
+    // If transaction is linked to a trip, do not update monthly budget
+    if (transactionAfter?.tripId || transactionBefore?.tripId) {
+        functions.logger.info(`Transaction ${context.params.transactionId} is linked to a trip. Skipping monthly budget update.`);
+        return null;
     }
 
-    // Case 2: Transaction deleted
-    if (change.before.exists && !change.after.exists && amountBefore > 0) {
-      const month = dateBefore.toDate().toISOString().slice(0, 7);
-      await updateBudget(userId, categoryBefore, -amountBefore, month);
+    // Step 1: Revert the old transaction amount if it was an expense
+    if (transactionBefore && transactionBefore.type === 'expense') {
+        const amountBefore = transactionBefore.amount;
+        const categoryBefore = transactionBefore.category;
+        const dateBefore = (transactionBefore.date as Timestamp).toDate();
+        const monthBefore = dateBefore.toISOString().slice(0, 7);
+        await updateBudget(userId, categoryBefore, -amountBefore, monthBefore);
     }
 
-    // Case 3: Transaction updated
-    if (change.before.exists && change.after.exists) {
-      const amountDifference = amountAfter - amountBefore;
-      if (categoryBefore === categoryAfter) {
-        if (amountDifference !== 0) {
-            const month = dateAfter.toDate().toISOString().slice(0, 7);
-            await updateBudget(userId, categoryAfter, amountDifference, month);
-        }
-      } else {
-        // Category changed, so treat as a delete from old and create in new
-        if (amountBefore > 0) {
-            const monthOld = dateBefore.toDate().toISOString().slice(0, 7);
-            await updateBudget(userId, categoryBefore, -amountBefore, monthOld);
-        }
-        if (amountAfter > 0) {
-            const monthNew = dateAfter.toDate().toISOString().slice(0, 7);
-            await updateBudget(userId, categoryAfter, amountAfter, monthNew);
-        }
-      }
+    // Step 2: Apply the new transaction amount if it is an expense
+    if (transactionAfter && transactionAfter.type === 'expense') {
+        const amountAfter = transactionAfter.amount;
+        const categoryAfter = transactionAfter.category;
+        const dateAfter = (transactionAfter.date as Timestamp).toDate();
+        const monthAfter = dateAfter.toISOString().slice(0, 7);
+        await updateBudget(userId, categoryAfter, amountAfter, monthAfter);
     }
+
     return null;
   });
 
 async function updateBudget(userId: string, category: string, amountChange: number, month: string) {
-  if (!category || !month) {
-    functions.logger.warn(`Attempted to update budget with missing category or month for user ${userId}.`);
+  if (!category || !month || amountChange === 0) {
+    functions.logger.info(`Skipping budget update for user ${userId} due to missing data or zero amount change.`);
     return;
   }
   
@@ -146,7 +130,7 @@ async function updateBudget(userId: string, category: string, amountChange: numb
   const budgetDoc = budgetSnapshot.docs[0];
   const currentSpend = (budgetDoc.data().currentSpend || 0) + amountChange;
   
-  functions.logger.log(`Updating budget ${budgetDoc.id} for user ${userId}. Spend change: ${amountChange}. New spend: ${currentSpend}`);
+  functions.logger.log(`Updating budget ${budgetDoc.id} for user ${userId}. Category: ${category}, Spend change: ${amountChange}. New spend: ${currentSpend}`);
   await budgetDoc.ref.update({ currentSpend: Math.max(0, currentSpend) });
 }
 
