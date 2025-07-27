@@ -13,14 +13,19 @@ import { Pie, PieChart, Cell } from 'recharts';
 import { PieChart as PieChartIcon } from 'lucide-react';
 
 export function AllocationPieChart() {
-  const { budgets, formatCurrency } = useAppContext();
+  const { budgets, formatCurrency, transactionsForCurrentCycle } = useAppContext();
 
-  const { chartData, chartConfig, totalAllocated } = useMemo(() => {
-    if (budgets.length === 0) {
-        return { chartData: [], chartConfig: {}, totalAllocated: 0 };
+  const { chartData, chartConfig, totalAllocated, totalIncome } = useMemo(() => {
+    const income = transactionsForCurrentCycle
+      .filter((t) => t.type === 'income')
+      .reduce((acc, t) => acc + t.amount, 0);
+    
+    if (income === 0) {
+        return { chartData: [], chartConfig: {}, totalAllocated: 0, totalIncome: 0 };
     }
 
-    const total = budgets.reduce((sum, b) => sum + b.limit, 0);
+    const allocated = budgets.reduce((sum, b) => sum + b.limit, 0);
+    const unallocated = income - allocated;
 
     const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -33,25 +38,33 @@ export function AllocationPieChart() {
         };
       });
 
+    if (unallocated > 0) {
+        data.push({
+            name: "Unallocated",
+            value: unallocated,
+            fill: "hsl(var(--muted))"
+        })
+    }
+    
     const config: ChartConfig = data.reduce((acc, item) => {
       acc[item.name] = { label: item.name, color: item.fill };
       return acc;
     }, {} as ChartConfig);
 
-    return { chartData: data, chartConfig: config, totalAllocated: total };
-  }, [budgets]);
+    return { chartData: data, chartConfig: config, totalAllocated: allocated, totalIncome: income };
+  }, [budgets, transactionsForCurrentCycle]);
 
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="font-headline">Budget Allocation</CardTitle>
-        <CardDescription>How your monthly budget is distributed.</CardDescription>
+        <CardTitle className="font-headline">Income Allocation</CardTitle>
+        <CardDescription>How your monthly income is distributed.</CardDescription>
       </CardHeader>
       <CardContent>
-        {budgets.length > 0 ? (
+        {totalIncome > 0 ? (
              <div className="flex flex-col items-center justify-center space-y-2">
-                <p className="text-xs text-muted-foreground">Total Budgeted</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalAllocated)}</p>
+                <p className="text-xs text-muted-foreground">Total Income This Cycle</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalIncome)}</p>
                 <ChartContainer
                     config={chartConfig}
                     className="mx-auto aspect-square max-h-[250px]"
@@ -60,7 +73,7 @@ export function AllocationPieChart() {
                         <ChartTooltip
                          cursor={false}
                          content={<ChartTooltipContent
-                            formatter={(value) => formatCurrency(value as number)}
+                            formatter={(value) => `${formatCurrency(value as number)} (${((value as number / totalIncome) * 100).toFixed(0)}%)`}
                             indicator='dot'
                          />}
                         />
@@ -81,8 +94,8 @@ export function AllocationPieChart() {
         ) : (
             <div className="py-10 text-center text-muted-foreground flex flex-col items-center">
                 <PieChartIcon className="h-10 w-10 mb-4" />
-                <p className="text-sm font-semibold">No budgets created yet.</p>
-                <p className="text-xs">Add a budget to see your allocation here.</p>
+                <p className="text-sm font-semibold">No income logged this cycle.</p>
+                <p className="text-xs">Add an income transaction to get started.</p>
             </div>
         )}
       </CardContent>

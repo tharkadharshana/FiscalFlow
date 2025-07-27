@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
-import { PlusCircle, DraftingCompass, Sparkles } from 'lucide-react';
+import { PlusCircle, Sparkles } from 'lucide-react';
 import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
 import {
   AlertDialog,
