@@ -4,7 +4,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, Checklist, ChecklistTemplate, ChecklistItem } from '@/types';
+import type { Transaction, Budget, UserProfile, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, Checklist, ChecklistTemplate, ChecklistItem, TripPlan } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -29,10 +29,10 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction } from '@/lib/actions';
+import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction, createTripPlanAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
-import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput, AnalyzeTaxesOutput, CreateSavingsGoalOutput, CreateChecklistOutput, CreateMonthlyBudgetsOutput } from '@/types/schemas';
+import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput, AnalyzeTaxesOutput, CreateSavingsGoalOutput, CreateChecklistOutput, CreateMonthlyBudgetsOutput, CreateTripPlanOutput } from '@/types/schemas';
 
 
 export const FREE_TIER_LIMITS = {
@@ -77,6 +77,10 @@ interface AppContextType {
   addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => Promise<void>;
   updateBudget: (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => Promise<void>;
   deleteBudget: (budgetId: string) => Promise<void>;
+  tripPlans: TripPlan[];
+  addTripPlan: (plan: Omit<TripPlan, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateTripPlan: (planId: string, data: Partial<Omit<TripPlan, 'id'>>) => Promise<void>;
+  deleteTripPlan: (planId: string) => Promise<void>;
   updateUserPreferences: (data: Partial<UserProfile>) => Promise<void>;
   recurringTransactions: RecurringTransaction[];
   addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
@@ -124,6 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [tripPlans, setTripPlans] = useState<TripPlan[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
@@ -285,6 +290,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setBudgets(userBudgets);
       }, (error) => logger.error("Error subscribing to budgets", error));
 
+      const qTripPlans = query(collection(db, 'users', user.uid, 'tripPlans'), orderBy('createdAt', 'desc'));
+      const unsubscribeTripPlans = onSnapshot(qTripPlans, (snapshot) => {
+        const userTripPlans: TripPlan[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as TripPlan));
+        setTripPlans(userTripPlans);
+      }, (error) => logger.error("Error subscribing to trip plans", error));
+
       const qRecurring = query(collection(db, 'users', user.uid, 'recurringTransactions'), orderBy('createdAt', 'desc'));
       const unsubscribeRecurring = onSnapshot(qRecurring, (snapshot) => {
         const userRecurring: RecurringTransaction[] = snapshot.docs.map(doc => ({
@@ -348,6 +361,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unsubscribeProfile();
         unsubscribeTransactions();
         unsubscribeBudgets();
+        unsubscribeTripPlans();
         unsubscribeRecurring();
         unsubscribeGoals();
         unsubscribeInvestments();
@@ -359,6 +373,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUserProfile(null);
       setTransactions([]);
       setBudgets([]);
+      setTripPlans([]);
       setRecurringTransactions([]);
       setSavingsGoals([]);
       setInvestments([]);
@@ -406,7 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const userDocRef = doc(db, 'users', user.uid);
   
         // Destructure to handle optional properties correctly
-        const { date, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
+        const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, ...restOfTransaction } = transaction;
   
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
@@ -440,6 +455,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // Use null instead of undefined for Firestore compatibility
           checklistId: checklistId || null,
           checklistItemId: checklistItemId || null,
+          tripId: tripId || null,
+          tripItemId: tripItemId || null,
         });
   
         if (roundupGoalSnap && !roundupGoalSnap.empty) {
@@ -472,6 +489,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     item.id === checklistItemId ? { ...item, isCompleted: true } : item
                 );
                 firestoreTransaction.update(checklistRef, { items: updatedItems });
+            }
+        }
+
+        // Update actual cost in trip plan
+        if (tripId && tripItemId) {
+            const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
+            const tripSnap = await firestoreTransaction.get(tripRef);
+            if (tripSnap.exists()) {
+                const trip = tripSnap.data() as TripPlan;
+                let newTotalActualCost = trip.totalActualCost || 0;
+                const updatedItems = trip.items.map(item => {
+                    if (item.id === tripItemId) {
+                        const oldCost = item.actualCost || 0;
+                        newTotalActualCost = newTotalActualCost - oldCost + finalAmount;
+                        return { ...item, actualCost: finalAmount };
+                    }
+                    return item;
+                });
+                firestoreTransaction.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
             }
         }
       });
@@ -529,17 +565,12 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'm
       userId: user.uid,
       createdAt: serverTimestamp(),
     };
-    const docRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), budgetData);
-    
-    // Optimistically add to local state with the real ID
-    setBudgets(prev => [...prev, { ...budgetData, id: docRef.id, createdAt: new Date().toISOString() } as Budget]);
-
+    await addDoc(collection(db, 'users', user.uid, 'budgets'), budgetData);
     showNotification({
       type: 'success',
       title: 'Budget Added',
       description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
     });
-    logger.info('Budget added', { category: budget.category, limit: budget.limit, budgetId: docRef.id });
   } catch (error) {
     logger.error('Error adding budget', error as Error);
     showNotification({ type: 'error', title: 'Error adding budget', description: '' });
@@ -553,6 +584,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'm
     }
     const originalBudgets = [...budgets];
     try {
+      // Optimistic update
       setBudgets(prev => prev.map(b => 
         b.id === budgetId ? { ...b, ...data } as Budget : b
       ));
@@ -562,25 +594,28 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'm
       await updateDoc(budgetRef, { ...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
     } catch (error) {
+      // Revert on error
       setBudgets(originalBudgets);
       logger.error('Error updating budget', error as Error, { budgetId });
-      showNotification({ type: 'error', title: 'Error updating budget', description: '' });
+      showNotification({ type: 'error', title: 'Error updating budget', description: (error as Error).message });
     }
   };
   
   const deleteBudget = async (budgetId: string) => {
-    if (!user) {
-      showNotification({ type: 'error', title: 'Not authenticated', description: '' });
-      return;
+    if (!user) { 
+      showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
+      return; 
     }
     const originalBudgets = [...budgets];
     try {
+      // Optimistic update
       setBudgets(prev => prev.filter(b => b.id !== budgetId));
       
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
     } catch (error) {
+      // Revert on error
       setBudgets(originalBudgets);
       logger.error('Error deleting budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
@@ -743,6 +778,46 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'm
     } catch (error) {
         logger.error('Error deleting investment', error as Error, { investmentId });
         showNotification({ type: 'error', title: 'Error deleting investment', description: '' });
+    }
+  };
+  
+  const addTripPlan = async (plan: Omit<TripPlan, 'id' | 'userId' | 'createdAt'>) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'tripPlans'), {
+            ...plan,
+            userId: user.uid,
+            createdAt: serverTimestamp(),
+        });
+        showNotification({ type: 'success', title: 'Trip Plan Created!', description: `Your plan "${plan.title}" is ready.` });
+        logger.info('Trip plan created', { title: plan.title });
+    } catch (error) {
+        logger.error('Error creating trip plan', error as Error);
+        showNotification({ type: 'error', title: 'Error creating trip plan', description: '' });
+    }
+  };
+
+  const updateTripPlan = async (planId: string, data: Partial<Omit<TripPlan, 'id'>>) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await updateDoc(doc(db, 'users', user.uid, 'tripPlans', planId), data);
+        showNotification({ type: 'success', title: 'Trip Plan Updated', description: '' });
+        logger.info('Trip plan updated', { planId });
+    } catch (error) {
+        logger.error('Error updating trip plan', error as Error, { planId });
+        showNotification({ type: 'error', title: 'Error updating trip plan', description: '' });
+    }
+  };
+  
+  const deleteTripPlan = async (planId: string) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'tripPlans', planId));
+        showNotification({ type: 'success', title: 'Trip Plan Deleted', description: '' });
+        logger.info('Trip plan deleted', { planId });
+    } catch (error) {
+        logger.error('Error deleting trip plan', error as Error, { planId });
+        showNotification({ type: 'error', title: 'Error deleting trip plan', description: '' });
     }
   };
 
@@ -1061,6 +1136,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'm
         user, userProfile, isPremium, loading, transactions, transactionsForCurrentCycle, deductibleTransactionsCount, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
+        tripPlans, addTripPlan, updateTripPlan, deleteTripPlan,
         updateUserPreferences, recurringTransactions, addRecurringTransaction,
         updateRecurringTransaction, deleteRecurringTransaction, savingsGoals,
         addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
@@ -1089,3 +1165,4 @@ export function useAppContext() {
   }
   return context;
 }
+

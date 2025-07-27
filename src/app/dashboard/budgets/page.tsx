@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -92,8 +93,6 @@ export default function BudgetsPage() {
   }
 
   const handleDeleteBudget = (budget: Budget) => {
-    setIsAddBudgetDialogOpen(false); 
-    setBudgetToEdit(null);
     setBudgetToDelete(budget);
     setPlanToDelete(null);
     setIsDeleteDialogOpen(true);
