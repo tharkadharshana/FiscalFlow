@@ -41,7 +41,7 @@ const budgetItemSchema = z.object({
 });
 
 const singleBudgetSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(), // ID is optional now, will be assigned by Firestore
   category: z.string({ required_error: 'Please select a category.' }).min(1, "Category can't be empty."),
   limit: z.coerce.number().min(0.01, 'Limit must be greater than 0.'),
   items: z.array(budgetItemSchema).optional(),
@@ -141,11 +141,13 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   const handleSaveBudgets = async (data: FormData) => {
     let count = 0;
     for (const budget of data.budgets) {
-        const dataToSave = { ...budget, userInput: userQuery || '' };
-        if (budgetToEdit) {
-            await updateBudget(budgetToEdit.id, dataToSave);
+        const { id, ...dataToSave } = budget;
+        const finalData = { ...dataToSave, userInput: userQuery || '' };
+
+        if (id && budgetToEdit && id === budgetToEdit.id) {
+            await updateBudget(id, finalData);
         } else {
-            await addBudget(dataToSave);
+            await addBudget(finalData);
         }
         count++;
     }

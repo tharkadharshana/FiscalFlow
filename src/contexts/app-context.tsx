@@ -210,7 +210,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             batch.update(doc.ref, { isRead: true });
         });
         await batch.commit();
-        logger.info('Marked all notifications as read');
     } catch (error) {
         logger.error("Error marking notifications as read", error as Error);
     }
@@ -278,7 +277,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTransactions(userTransactions);
       }, (error) => logger.error("Error subscribing to transactions", error));
 
-      const qBudgets = query(collection(db, 'users', user.uid, 'budgets'), orderBy('createdAt', 'desc'));
+      const qBudgets = query(collection(db, 'users', user.uid, 'budgets'));
       const unsubscribeBudgets = onSnapshot(qBudgets, (snapshot) => {
         const userBudgets: Budget[] = snapshot.docs.map(doc => ({
             id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
@@ -516,45 +515,56 @@ const deleteTransaction = async (transactionId: string) => {
     }
 };
 
-  const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
+const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
+  if (!user) {
+    showNotification({ type: 'error', title: 'Not authenticated', description: '' });
+    return;
+  }
+  try {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const budgetData = {
+      ...budget,
+      month: currentMonth,
+      currentSpend: 0,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+    };
+    const docRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), budgetData);
+    
+    // Optimistically add to local state with the real ID
+    setBudgets(prev => [...prev, { ...budgetData, id: docRef.id, createdAt: new Date().toISOString() } as Budget]);
+
+    showNotification({
+      type: 'success',
+      title: 'Budget Added',
+      description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
+    });
+    logger.info('Budget added', { category: budget.category, limit: budget.limit, budgetId: docRef.id });
+  } catch (error) {
+    logger.error('Error adding budget', error as Error);
+    showNotification({ type: 'error', title: 'Error adding budget', description: '' });
+  }
+};
+
+  const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
     if (!user) { 
       showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
       return; 
     }
+    const originalBudgets = [...budgets];
     try {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const budgetRef = collection(db, 'users', user.uid, 'budgets');
-      await addDoc(budgetRef, {
-        ...budget, month: currentMonth, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
-      });
-      showNotification({ type: 'success', title: 'Budget Added', description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.` });
-      logger.info('Budget added', { category: budget.category, limit: budget.limit });
-    } catch (error) {
-      logger.error('Error adding budget', error as Error);
-      showNotification({ type: 'error', title: 'Error adding budget', description: '' });
-    }
-  };
-
-  const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
-    if (!user) {
-      showNotification({ type: 'error', title: 'Not authenticated', description: '' });
-      return;
-    }
-    const originalBudgets = budgets;
-    try {
-      // Optimistic update
-      setBudgets(prev => prev.map(b => (b.id === budgetId ? { ...b, ...data } as Budget : b)));
-  
+      setBudgets(prev => prev.map(b => 
+        b.id === budgetId ? { ...b, ...data } as Budget : b
+      ));
+      
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       const currentMonth = new Date().toISOString().slice(0, 7);
       await updateDoc(budgetRef, { ...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
-      logger.info('Budget updated', { budgetId });
     } catch (error) {
-      // Revert UI on error
       setBudgets(originalBudgets);
       logger.error('Error updating budget', error as Error, { budgetId });
-      showNotification({ type: 'error', title: 'Error updating budget', description: 'Could not update budget. Please try again.' });
+      showNotification({ type: 'error', title: 'Error updating budget', description: '' });
     }
   };
   
@@ -563,20 +573,17 @@ const deleteTransaction = async (transactionId: string) => {
       showNotification({ type: 'error', title: 'Not authenticated', description: '' });
       return;
     }
-    const originalBudgets = budgets;
+    const originalBudgets = [...budgets];
     try {
-      // Optimistic update
-      setBudgets(prev => prev.filter(budget => budget.id !== budgetId));
+      setBudgets(prev => prev.filter(b => b.id !== budgetId));
       
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
-      logger.info('Budget deleted', { budgetId });
     } catch (error) {
-      // Revert UI on error
       setBudgets(originalBudgets);
       logger.error('Error deleting budget', error as Error, { budgetId });
-      showNotification({ type: 'error', title: 'Error deleting budget', description: 'Could not delete budget. Please try again.' });
+      showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
     }
   };
 
