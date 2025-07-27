@@ -16,10 +16,10 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Mic, MicOff, Loader2, Wand2, Keyboard, Plus, Trash2, Lightbulb } from 'lucide-react';
-import { createMonthlyBudgetsAction } from '@/lib/actions';
+import { createBudgetsWithLimit } from '@/contexts/app-context';
 import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Budget, BudgetItem } from '@/types';
+import type { Budget } from '@/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -94,7 +94,7 @@ type AddBudgetDialogProps = {
 };
 
 export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetDialogProps) {
-  const { userProfile, budgets: existingBudgets, showNotification, addBudget, updateBudget, expenseCategories } = useAppContext();
+  const { userProfile, budgets: existingBudgets, showNotification, addBudget, updateBudget, expenseCategories, createBudgetsWithLimit } = useAppContext();
 
   type View = 'input' | 'loading' | 'review';
   const [view, setView] = useState<View>('input');
@@ -210,12 +210,12 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
     setView('loading');
     setUserQuery(query);
     const existingBudgetCategories = existingBudgets.map(b => b.category);
-    const result = await createMonthlyBudgetsAction({ userQuery: query, existingCategories: existingBudgetCategories });
+    const result = await createBudgetsWithLimit(query, existingBudgetCategories);
     
-    if ('error' in result) {
+    if (result && 'error' in result) {
         showNotification({ type: 'error', title: 'AI Error', description: result.error });
         resetToInputView();
-    } else {
+    } else if (result) {
         replace(result.budgets.map(b => ({...b, id: nanoid() })));
         setView('review');
         setActiveTab('manual');

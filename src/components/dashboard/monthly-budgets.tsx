@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { UpgradeCard } from '../ui/upgrade-card';
+import { cn } from '@/lib/utils';
 
 type MonthlyBudgetsProps = {
     onEditBudget: (budget: Budget) => void;
@@ -66,7 +67,7 @@ export function MonthlyBudgets({ onEditBudget, onDeleteBudget, onShowDetails }: 
             <span className="text-2xl font-bold">{formatCurrency(spent)}</span>
             <span className="text-muted-foreground">/ {formatCurrency(budget.limit)}</span>
           </div>
-          <Progress value={progress} className={progress > 90 ? '[&>div]:bg-destructive' : ''} />
+          <Progress value={progress} className={cn(progress > 90 && '[&>div]:bg-destructive')} />
         </CardContent>
         <CardFooter>
           <p className={`text-sm ${remaining >= 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
