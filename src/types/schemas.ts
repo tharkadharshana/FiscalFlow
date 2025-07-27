@@ -171,6 +171,7 @@ export const ParseBankStatementInputSchema = z.object({
       .describe(
         "A bank statement file (like a PDF), as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
       ),
+    defaultCategories: z.array(z.string()),
 });
 export type ParseBankStatementInput = z.infer<typeof ParseBankStatementInputSchema>;
 
@@ -194,6 +195,30 @@ export const ParseReceiptOutputSchema = z.object({
       rawText: z.string().optional().describe('The full raw text extracted from the receipt for debugging.'),
 });
 export type ParseReceiptOutput = z.infer<typeof ParseReceiptOutputSchema>;
+
+// --- Trip Plan Schemas ---
+export const TripItemSchema = z.object({
+    id: z.string().describe("A unique ID for the item."),
+    description: z.string().min(1, "Description can't be empty."),
+    category: z.string(),
+    predictedCost: z.coerce.number().min(0, 'Cost must be a positive number.'),
+    actualCost: z.number().nullable(),
+    isAiSuggested: z.boolean().optional(),
+});
+export type TripItem = z.infer<typeof TripItemSchema>;
+
+export const CreateTripPlanOutputSchema = z.object({
+  title: z.string().describe('A concise title for the trip plan (e.g., "Summer Vacation to Italy", "Weekend Camping Trip").'),
+  items: z.array(TripItemSchema).describe('A list of all items for the trip plan.'),
+});
+export type CreateTripPlanOutput = z.infer<typeof CreateTripPlanOutputSchema>;
+
+export const CreateTripPlanInputSchema = z.object({
+    userQuery: z.string().describe("The user's natural language description of their trip."),
+    existingPlan: CreateTripPlanOutputSchema.optional().describe("An existing plan to modify or add to."),
+});
+export type CreateTripPlanInput = z.infer<typeof CreateTripPlanInputSchema>;
+
 
 // --- Checklist Schemas ---
 export const ChecklistItemSchema = z.object({

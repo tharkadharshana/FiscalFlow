@@ -20,13 +20,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Mic, Loader2, Wand2, Trash2, Sparkles, Lightbulb, Plus, Keyboard, Upload, Camera, SwitchCamera, RotateCcw, MicOff } from 'lucide-react';
+import { Mic, Loader2, Wand2, Trash2, Sparkles, Lightbulb, Plus, Keyboard, Upload, Camera, SwitchCamera, RotateCcw, MicOff, FileScan } from 'lucide-react';
 import { createTripPlanAction, parseDocumentAction } from '@/lib/actions';
 import type { TripPlan } from '@/types';
 import { useAppContext } from '@/contexts/app-context';
 import { cn } from '@/lib/utils';
 import { nanoid } from 'nanoid';
 import Image from 'next/image';
+import { logger } from '@/lib/logger';
+import { CreateTripPlanInputSchema, CreateTripPlanOutputSchema, TripItemSchema } from '@/types/schemas';
 
 
 type CreateTripPlanDialogProps = {
@@ -35,24 +37,15 @@ type CreateTripPlanDialogProps = {
   tripToEdit?: TripPlan | null;
 };
 
-const tripItemSchema = z.object({
-  id: z.string(),
-  description: z.string().min(1, "Description can't be empty."),
-  category: z.string(),
-  predictedCost: z.coerce.number().min(0, 'Cost must be a positive number.'),
-  actualCost: z.number().nullable(),
-  isAiSuggested: z.boolean().optional(),
-});
-
 const formSchema = z.object({
   title: z.string().min(3, 'Trip title must be at least 3 characters.'),
-  items: z.array(tripItemSchema),
+  items: z.array(TripItemSchema),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 
-export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateTripPlanDialogProps) {
+export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdit }: CreateTripPlanDialogProps) {
     const { addTripPlan, updateTripPlan, showNotification } = useAppContext();
 
     const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
@@ -199,7 +192,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             setSelectedDeviceId(deviceId); // Set it after successfully getting the stream
             setHasCameraPermission(true);
           } catch (error) {
-            console.error('Error accessing camera:', error);
+            logger.error('Error accessing camera:', error as Error);
             setHasCameraPermission(false);
           }
         };
@@ -273,7 +266,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
         } else {
             form.reset({
                 title: result.title,
-                items: result.items.map(item => ({...item, actualCost: null}))
+                items: result.items
             });
             setView('review');
         }
@@ -281,10 +274,11 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
 
     const handleSavePlan = async (data: FormData) => {
         const totalPredictedCost = data.items.reduce((sum, item) => sum + item.predictedCost, 0);
-        const planData = {
+        const planData: Omit<TripPlan, 'id' | 'userId' | 'createdAt'> = {
           ...data,
+          items: data.items.map(item => ({...item, actualCost: null })),
           description: userQuery,
-          status: 'planning' as const,
+          status: 'planning',
           totalPredictedCost,
           totalActualCost: tripToEdit?.totalActualCost || 0,
         };
@@ -410,7 +404,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             </TabsContent>
 
             <TabsContent value="camera" className="pt-4 space-y-4">
-                <DialogDescription>Position your document in the frame and capture an image to scan it.</DialogDescription>
+                <DialogDescription>Position a document in the frame and capture an image to scan it.</DialogDescription>
                 <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
                     <canvas ref={canvasRef} className="hidden" />
                     {imageUri ? (
@@ -440,7 +434,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center space-y-4 h-full">
                 <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
                 <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm">
-                    <Upload className="mr-2 h-4 w-4" />
+                    <FileScan className="mr-2 h-4 w-4" />
                     Choose File
                 </Button>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />

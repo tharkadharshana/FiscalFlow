@@ -43,6 +43,8 @@ export interface Transaction {
   carbonFootprint?: number; // in kg CO2e
   checklistId?: string | null;
   checklistItemId?: string | null;
+  tripId?: string | null;
+  tripItemId?: string | null;
 }
 
 export interface UserProfile {
@@ -74,6 +76,8 @@ export interface UserProfile {
   };
   hasCompletedOnboarding?: boolean;
   showOnboardingOnLogin?: boolean;
+  activeTripId?: string | null;
+  gmailConnected?: boolean;
 }
 
 export interface ChecklistItem {
@@ -150,6 +154,27 @@ export interface Investment {
     createdAt: any;
     coinGeckoId?: string; // For reliable API lookups
   }
+
+export interface TripItem {
+  id: string;
+  description: string;
+  category: string;
+  predictedCost: number;
+  actualCost: number | null;
+  isAiSuggested?: boolean;
+}
+
+export interface TripPlan {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  items: TripItem[];
+  status: 'planning' | 'active' | 'completed';
+  totalPredictedCost: number;
+  totalActualCost: number;
+  createdAt: any;
+}
 
 export interface TaxLiability {
   taxType: string;

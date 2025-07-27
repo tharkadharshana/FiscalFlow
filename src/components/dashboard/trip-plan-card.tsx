@@ -22,6 +22,7 @@ import {
 import { Progress } from "../ui/progress";
 import { useAppContext } from "@/contexts/app-context";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 type TripPlanCardProps = {
   trip: TripPlan;
@@ -31,20 +32,24 @@ type TripPlanCardProps = {
 };
 
 export function TripPlanCard({ trip, onEdit, onDelete, onViewReport }: TripPlanCardProps) {
-  const { formatCurrency, startTrip, endTrip, userProfile } = useAppContext();
+  const { formatCurrency, updateUserPreferences, userProfile, updateTripPlan } = useAppContext();
   
-  const progress = trip.totalPredictedCost > 0 ? (trip.totalActualCost / trip.totalPredictedCost) * 100 : 0;
+  const progress = trip.totalPredictedCost > 0 ? ((trip.totalActualCost || 0) / trip.totalPredictedCost) * 100 : 0;
   const uniqueCategories = [...new Set(trip.items.map(item => item.category))];
   const isActiveTrip = userProfile?.activeTripId === trip.id;
 
-  const handleStartTrip = (e: React.MouseEvent) => {
+  const handleStartTrip = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    startTrip(trip.id);
+    logger.info('Starting trip', { tripId: trip.id });
+    await updateUserPreferences({ activeTripId: trip.id });
+    await updateTripPlan(trip.id, { status: 'active' });
   }
 
-  const handleEndTrip = (e: React.MouseEvent) => {
+  const handleEndTrip = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    endTrip(trip.id);
+    logger.info('Ending trip', { tripId: trip.id });
+    await updateUserPreferences({ activeTripId: null });
+    await updateTripPlan(trip.id, { status: 'completed' });
   }
 
   return (
@@ -75,7 +80,7 @@ export function TripPlanCard({ trip, onEdit, onDelete, onViewReport }: TripPlanC
         <div className="flex items-baseline justify-between font-mono">
             <div>
                 <p className="text-sm text-muted-foreground">Actual</p>
-                <span className="text-2xl font-bold">{formatCurrency(trip.totalActualCost)}</span>
+                <span className="text-2xl font-bold">{formatCurrency(trip.totalActualCost || 0)}</span>
             </div>
             <div className="text-right">
                 <p className="text-sm text-muted-foreground">Predicted</p>

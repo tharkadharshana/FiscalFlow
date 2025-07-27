@@ -8,7 +8,7 @@ import { useMemo } from "react";
 import { logger } from "@/lib/logger";
 
 export function ActiveTripBanner() {
-    const { userProfile, financialPlans: tripPlans, updateUserPreferences } = useAppContext();
+    const { userProfile, tripPlans, updateUserPreferences, updateTripPlan } = useAppContext();
 
     const activeTrip = useMemo(() => {
         if (!userProfile?.activeTripId) return null;
@@ -18,7 +18,7 @@ export function ActiveTripBanner() {
     const endTrip = async (tripId: string) => {
         logger.info('Ending trip', { tripId });
         await updateUserPreferences({ activeTripId: null });
-        // Also update the trip status itself
+        await updateTripPlan(tripId, { status: 'completed' });
     }
 
     if (!activeTrip) {

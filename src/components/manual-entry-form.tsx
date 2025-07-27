@@ -96,9 +96,12 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
             checklistItemId: itemToConvert.item.id,
         });
     } else {
-      form.reset(defaultValues);
+      form.reset({
+        ...defaultValues,
+        tripId: activeTrip?.id,
+      });
     }
-  }, [transactionToEdit, itemToConvert, form]);
+  }, [transactionToEdit, itemToConvert, form, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
 
