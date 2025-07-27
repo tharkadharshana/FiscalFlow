@@ -46,9 +46,10 @@ export default function BudgetsPage() {
 
   const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
 
-  // Budget handlers
-  const handleAddBudget = () => {
-    setBudgetToEdit(null);
+  // --- Explicit handlers for each action ---
+
+  const handleAddNewBudget = () => {
+    setBudgetToEdit(null); // Ensure we're not in edit mode
     setIsAddBudgetDialogOpen(true);
   }
 
@@ -57,21 +58,27 @@ export default function BudgetsPage() {
     setIsAddBudgetDialogOpen(true);
   }
 
-  const handleDeleteBudget = (budget: Budget) => {
-    setBudgetToDelete(budget);
-    setIsDeleteDialogOpen(true);
-  }
-
   const handleShowBudgetDetails = (budget: Budget) => {
     setSelectedBudget(budget);
     setIsBudgetDetailsOpen(true);
   }
+
+  const handleDeleteBudget = (budget: Budget) => {
+    // THIS IS THE KEY FIX: Ensure the edit dialog is closed and its state is cleared
+    // before opening the delete confirmation dialog.
+    setIsAddBudgetDialogOpen(false); 
+    setBudgetToEdit(null);
+
+    setBudgetToDelete(budget);
+    setIsDeleteDialogOpen(true);
+  }
   
   const handleBudgetDialogClose = (open: boolean) => {
-      if (!open) {
-          setBudgetToEdit(null);
-      }
-      setIsAddBudgetDialogOpen(open);
+    setIsAddBudgetDialogOpen(open);
+    if (!open) {
+      // Always clear the edit state when the dialog closes.
+      setBudgetToEdit(null);
+    }
   }
 
   const confirmDelete = async () => {
@@ -83,7 +90,7 @@ export default function BudgetsPage() {
   };
 
   const AddBudgetButton = (
-     <Button onClick={handleAddBudget} disabled={!canAddBudget}>
+     <Button onClick={handleAddNewBudget} disabled={!canAddBudget}>
         <PlusCircle className="mr-2 h-4 w-4" />
         Add Budget
       </Button>
