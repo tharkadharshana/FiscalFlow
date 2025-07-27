@@ -13,7 +13,7 @@ import {
 } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { MoreVertical, Pencil, Trash2, Rocket, Flag, CircleCheck, PlayCircle } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Rocket, Flag, CircleCheck, PlayCircle, Eye } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -74,6 +74,7 @@ export function TripPlanCard({ trip, onEdit, onDelete, onViewReport, onRestart }
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 {trip.status === 'planning' && <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>}
+                {trip.status === 'active' && <DropdownMenuItem onClick={onViewReport}><Eye className="mr-2 h-4 w-4" /> View Details</DropdownMenuItem>}
                 {trip.status === 'completed' && <DropdownMenuItem onClick={onRestart} disabled={isAnotherTripActive}><PlayCircle className="mr-2 h-4 w-4" /> Restart Trip</DropdownMenuItem>}
                 {trip.status === 'completed' && <DropdownMenuItem onClick={onViewReport}><Flag className="mr-2 h-4 w-4" /> View Report</DropdownMenuItem>}
                 <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>

@@ -4,7 +4,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, Checklist, ChecklistTemplate, ChecklistItem, TripPlan } from '@/types';
+import type { Transaction, Budget, UserProfile, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, Checklist, ChecklistTemplate, ChecklistItem, TripPlan, TripItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -26,7 +26,6 @@ import {
   getDocs,
   writeBatch,
   limit,
-  setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
 import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction, createTripPlanAction } from '@/lib/actions';
@@ -63,7 +62,7 @@ interface AppContextType {
   transactions: Transaction[];
   transactionsForCurrentCycle: Transaction[];
   deductibleTransactionsCount: number;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'icon'>) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'icon'>) => Promise<void>;
   updateTransaction: (transactionId: string, data: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -74,7 +73,7 @@ interface AppContextType {
   addCustomCategory: (category: string) => Promise<void>;
   deleteCustomCategory: (category: string) => Promise<void>;
   budgets: Budget[];
-  addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => Promise<void>;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'currentSpend'>) => Promise<void>;
   updateBudget: (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => Promise<void>;
   deleteBudget: (budgetId: string) => Promise<void>;
   tripPlans: TripPlan[];
@@ -501,8 +500,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 const trip = tripSnap.data() as TripPlan;
                 let newTotalActualCost = trip.totalActualCost || 0;
                 
-                // Add any expense to the total trip cost
-                newTotalActualCost += finalAmount;
+                // Add expense or subtract income from total trip cost
+                if (transaction.type === 'expense') {
+                    newTotalActualCost += finalAmount;
+                } else if (transaction.type === 'income') {
+                    newTotalActualCost -= finalAmount;
+                }
 
                 // If the expense is for a specific planned item, update that item's actualCost
                 if (tripItemId) {
@@ -513,8 +516,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         return item;
                     });
                     firestoreTransaction.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+                } else if (transaction.type === 'expense') {
+                     // Add unplanned expense as a new item
+                    const newUnplannedItem: TripItem = {
+                        id: nanoid(),
+                        description: transaction.source,
+                        category: transaction.category,
+                        predictedCost: 0,
+                        actualCost: finalAmount,
+                        isAiSuggested: false,
+                    };
+                    firestoreTransaction.update(tripRef, { 
+                        items: arrayUnion(newUnplannedItem),
+                        totalActualCost: newTotalActualCost 
+                    });
                 } else {
-                     firestoreTransaction.update(tripRef, { totalActualCost: newTotalActualCost });
+                    // It's income, just update the total cost
+                    firestoreTransaction.update(tripRef, { totalActualCost: newTotalActualCost });
                 }
             }
         }
@@ -597,7 +615,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       showNotification({ type: 'error', title: 'Not authenticated', description: '' }); 
       return; 
     }
-    const originalBudgets = [...budgets];
     try {
       setBudgets(prev => prev.map(b => 
         b.id === budgetId ? { ...b, ...data } as Budget : b
@@ -608,7 +625,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       await updateDoc(budgetRef, {...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
     } catch (error) {
-      setBudgets(originalBudgets);
+      setBudgets(prev => [...prev]);
       logger.error('Error updating budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error updating budget', description: (error as Error).message });
     }
@@ -1199,4 +1216,3 @@ export function useAppContext() {
   }
   return context;
 }
-
