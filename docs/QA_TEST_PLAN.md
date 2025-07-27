@@ -39,7 +39,17 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-DASH-005 | Portfolio Overview | Verify the investment portfolio overview is correct. | 1. Add multiple investments of different types. | The chart displays the allocation by asset type. The total value is calculated correctly. | |
 | FF-DASH-006 | Smart Insights | Verify AI insights are generated based on transaction data. | 1. Add at least 3-5 transactions. 2. Wait for the "Smart Insights" card to load. | The card displays 2-3 relevant, actionable financial tips based on the logged transactions. | |
 
-### 2.3. Transaction Management
+### 2.3. Budgets & Allocations
+
+| Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| FF-BUDGET-001 | AI Budget Creation | Verify AI can create multiple budgets from a text prompt. | 1. Go to Budgets page. 2. Click "Add Budget". 3. Use AI Text tab. 4. Enter: "Set a $500 budget for Groceries, $100 for Transport, and $200 for Entertainment." 5. Click "Generate with AI". 6. Save the reviewed budgets. | Three budget cards are created with the correct categories and limits. | |
+| FF-BUDGET-002 | Manual Transaction Tracking | Verify manual expenses update the correct budget. | 1. Ensure a "Groceries" budget exists. 2. Manually add a $75 expense transaction in the "Groceries" category. 3. Navigate to the Budgets page. | The "Groceries" budget card shows $75 spent, and the progress bar is updated. | |
+| FF-BUDGET-003 | Budget Alert Threshold | Verify the progress bar turns red when spending exceeds 90%. | 1. Create/edit a "Transport" budget with a limit of $50. 2. Manually add a $48 expense in the "Transport" category. 3. View the budget card. | The progress bar on the "Transport" budget card is red. | |
+| FF-BUDGET-004 | Receipt Scan & Auto-Split | Verify that a single receipt with multiple categories correctly splits into separate transactions and updates budgets. | 1. Go to Add Transaction > Scan Receipt. 2. Upload a clear receipt image containing items like "Milk $5" and "Shampoo $10". 3. In the review step, ensure AI has categorized them as "Groceries" and "Health & Fitness" respectively. 4. Save the transaction. | Two new transactions are created: one for $5 (Groceries) and one for $10 (Health & Fitness). The respective budget envelopes are updated with these amounts. | |
+| FF-BUDGET-005 | Financial Plan Lifecycle | Verify creating, starting, and ending a financial plan (trip). | 1. Create a "Vacation" plan. 2. Click "Start Trip". 3. The banner appears. 4. Log a new expense; it should link to the trip. 5. Click "End Trip" on the card or banner. | All steps work. The banner appears/disappears. The expense is correctly linked to the plan. The plan status changes from 'planning' to 'active' to 'completed'. | |
+
+### 2.4. Transaction Management
 
 | Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -50,7 +60,7 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-TRX-005 | Recurring Transactions | Verify the full lifecycle of a recurring transaction. | 1. Navigate to the recurring transactions tab. 2. Add a new recurring expense (e.g., monthly). 3. Edit the recurring item. 4. Delete the item. | All CRUD operations work as expected. A success notification appears for each action. | |
 | FF-TRX-006 | Carbon Footprint Badge | Verify carbon footprint is shown on the transactions page. | 1. Add an expense in the "Transport" category. 2. Navigate to the Transactions page. | The transaction row for the new expense displays a green badge with the estimated CO₂e value. | |
 
-### 2.4. Savings Goals & Gamification
+### 2.5. Savings Goals & Gamification
 
 | Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -58,7 +68,7 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-SAVE-002 | Round-up Savings | Verify the micro-savings feature works correctly. | 1. Create a savings goal and mark it as the "Micro-Savings Goal". 2. Add a new expense with a decimal value (e.g., $15.75). | The transaction is recorded for $15.75. The `currentAmount` of the designated savings goal increases by $0.25. | |
 | FF-SAVE-003 | Badge Achievement | Verify badges are awarded for milestones. | 1. Create a savings goal with a target of $100. 2. Manually edit the goal's `currentAmount` in Firestore (or add transactions) to cross the $25, $50, $75, and $100 marks. | The goal card displays new badges ('25% Mark', '50% Mark', etc.) as each milestone is reached. A notification appears for each achievement. | |
 
-### 2.5. Tax Center
+### 2.6. Tax Center
 
 | Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -68,15 +78,6 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-TAX-004 | AI Tax Analysis | Verify the AI engine correctly identifies PAYE and VAT. | 1. Ensure transactions include multiple income sources (totaling > 1.2M LKR) and multiple expenses in VAT-liable categories (Food, Transport). 2. Go to the Tax Center and click "Run AI Analysis". | The AI returns a table with at least two liabilities: one for "PAYE (Income Tax)" on the total income, and one for "VAT" on the sum of eligible expenses. | |
 | FF-TAX-005 | AI Custom Docs | Verify the AI uses custom documentation. | 1. In the AI Tax Analysis section, expand the "Provide Custom Tax Documentation" area. 2. Paste text: `VAT is 25% on all items`. 3. Run the AI analysis. | The AI's result description should mention it is using the custom rules. The calculated amounts may still use hardcoded tool values, but the reasoning should reflect the custom input. | |
 
-### 2.6. AI & Voice Features
-
-| Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| FF-AI-001 | Receipt Scanning | Verify AI correctly parses a receipt image. | 1. Go to Add Transaction > Scan Receipt. 2. Upload a clear image of a store receipt. 3. Click "Analyze". | The "Review Transaction" form appears, pre-filled with the store name, date, and total amount extracted from the receipt. | |
-| FF-AI-002 | Voice Assistant (Expense) | Verify voice command for logging an expense. | 1. Click the microphone icon in the header. 2. Say: "Add a $45 expense for groceries at Walmart". | The assistant processes the command. A success message appears. A new transaction for $45 in the "Groceries" category from "Walmart" is added. | |
-| FF-AI-003 | Voice Assistant (Budget) | Verify voice command for creating a budget. | 1. Click the microphone icon in the header. 2. Say: "Create a budget of $200 for Entertainment". | The assistant processes the command. A success message appears. A new monthly budget for "Entertainment" with a limit of $200 is created. | |
-| FF-AI-004 | Voice Assistant (Unknown) | Verify handling of an unknown command. | 1. Click the microphone icon. 2. Say: "What is the capital of Sri Lanka?". | The assistant displays a message indicating it could not understand or fulfill the request (e.g., "Sorry, I can't help with that."). | |
-
 ### 2.7. Settings
 
 | Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
@@ -85,12 +86,5 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-SET-002 | Change Currency | Verify changing currency preference updates the UI. | 1. Go to Settings. 2. Change "Currency" from USD to LKR. 3. Click "Save Changes". 4. Navigate to the Dashboard. | All monetary values (e.g., on summary cards) are now displayed in LKR with the correct currency symbol. | |
 | FF-SET-003 | Custom Categories | Verify adding and deleting a custom category. | 1. Go to Settings > Manage Categories. 2. Add a new category named "My Test Category". 3. Verify it appears in the list. 4. Go to add a new transaction and verify "My Test Category" is in the category dropdown. 5. Go back to Settings and delete the category. | The category is successfully added and removed. The dropdown in the transaction form updates accordingly. | |
 
-### 2.8. Notifications
-
-| Test Case ID | Feature | Test Scenario | Steps | Expected Result | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| FF-NOTIF-001 | Notification Trigger | Verify notifications are created and displayed. | 1. Add a new transaction. | A toast notification appears in the corner of the screen. The bell icon in the header shows an unread count (e.g., "1"). | |
-| FF-NOTIF-002 | Notification Center | Verify the notification center displays history. | 1. Trigger a notification. 2. Click the bell icon in the header. | A popover opens, showing a list of recent notifications. The new notification is at the top and marked as unread. | |
-| FF-NOTIF-003 | Mark as Read | Verify "Mark all as read" functionality. | 1. Ensure there is at least one unread notification. 2. Open the notification center. 3. Click "Mark all as read". | The unread indicator on the bell icon disappears. All notifications in the popover are no longer highlighted as unread. | |
-
 ---
+
