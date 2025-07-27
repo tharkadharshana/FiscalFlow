@@ -40,12 +40,10 @@ export interface Transaction {
   isRecurring?: boolean;
   paymentMethod?: string;
   invoiceNumber?: string;
-  tripId?: string;
-  tripItemId?: string;
+  financialPlanId?: string;
+  planItemId?: string;
   isTaxDeductible?: boolean;
   carbonFootprint?: number; // in kg CO2e
-  checklistId?: string;
-  checklistItemId?: string;
 }
 
 export interface UserProfile {
@@ -55,7 +53,6 @@ export interface UserProfile {
   countryCode: string; // e.g., 'US', 'LK', 'GB'
   currencyPreference: string;
   darkModeBanner: boolean;
-  financialCycleStartDay: number; // Day of the month (1-31)
   notificationPreferences: {
     budgetThreshold: boolean;
     recurringPayment: boolean;
@@ -78,11 +75,9 @@ export interface UserProfile {
   };
   hasCompletedOnboarding?: boolean;
   showOnboardingOnLogin?: boolean;
-  activeTripId?: string | null;
-  gmailConnected?: boolean;
 }
 
-export interface TripItem {
+export interface PlanItem {
   id: string;
   description: string;
   category: string;
@@ -92,14 +87,14 @@ export interface TripItem {
   isAiSuggested?: boolean;
 }
 
-export interface TripPlan {
+export interface FinancialPlan {
   id: string;
   userId: string;
   title: string;
   description?: string; // User's initial voice input
   status: 'planning' | 'active' | 'completed';
   createdAt: any;
-  items: TripItem[];
+  items: PlanItem[];
   totalPredictedCost: number;
   totalActualCost: number;
 }
@@ -177,32 +172,4 @@ export interface CoinGeckoMarketData {
   market_cap_rank: number;
   price_change_percentage_24h: number;
   total_volume: number;
-}
-
-export interface ChecklistItem {
-    id: string;
-    description: string;
-    isCompleted: boolean;
-    predictedCost: number;
-    category: string;
-}
-  
-export interface Checklist {
-    id: string;
-    userId: string;
-    title: string;
-    iconName: string; // Store icon name as a string
-    icon: React.ComponentType<{ className?: string }>;
-    items: ChecklistItem[];
-    createdAt: any;
-}
-
-export interface ChecklistTemplate {
-    id: string;
-    userId: string;
-    title: string;
-    iconName: string;
-    icon: React.ComponentType<{ className?: string }>;
-    items: Omit<ChecklistItem, 'isCompleted'>[];
-    createdAt: any;
 }

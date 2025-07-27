@@ -78,7 +78,7 @@ export const logMessage = functions.https.onRequest((req, res) => {
 export const updateBudgetOnTransactionChange = functions.firestore
   .document("/users/{userId}/transactions/{transactionId}")
   .onWrite(async (change, context) => {
-    const { userId, transactionId } = context.params;
+    const { userId } = context.params;
 
     const transactionBefore = change.before.data();
     const transactionAfter = change.after.data();
@@ -127,6 +127,11 @@ export const updateBudgetOnTransactionChange = functions.firestore
   });
 
 async function updateBudget(userId: string, category: string, amountChange: number, month: string) {
+  if (!category || !month) {
+    functions.logger.warn(`Attempted to update budget with missing category or month for user ${userId}.`);
+    return;
+  }
+  
   const budgetQuery = db.collection("users").doc(userId).collection("budgets")
     .where("category", "==", category)
     .where("month", "==", month);

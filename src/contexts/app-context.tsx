@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, TripPlan, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, TripItem, Checklist, ChecklistItem, ChecklistTemplate } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, PlanItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -28,15 +28,14 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import { analyzeTaxesAction, createMonthlyBudgetsAction, generateInsightsAction, parseDocumentAction, parseReceiptAction, createTripPlanAction } from '@/lib/actions';
+import { analyzeTaxesAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, createFinancialPlanAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/types/schemas';
-import { startOfDay, addMonths, subMonths, setDate as setDateFns, getDate } from 'date-fns';
 
 
 export const FREE_TIER_LIMITS = {
-    ocrScans: 30,
+    ocrScans: 3,
     recurringTransactions: 2,
     budgets: 3,
     financialPlans: 1,
@@ -76,12 +75,10 @@ interface AppContextType {
   addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => Promise<void>;
   updateBudget: (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => Promise<void>;
   deleteBudget: (budgetId: string) => Promise<void>;
-  tripPlans: TripPlan[];
-  addTripPlan: (plan: Omit<TripPlan, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
-  updateTripPlan: (planId: string, data: Partial<Omit<TripPlan, 'id'>>) => Promise<void>;
-  deleteTripPlan: (planId: string) => Promise<void>;
-  startTrip: (tripId: string) => Promise<void>;
-  endTrip: (tripId: string) => Promise<void>;
+  financialPlans: FinancialPlan[];
+  addFinancialPlan: (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateFinancialPlan: (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => Promise<void>;
+  deleteFinancialPlan: (planId: string) => Promise<void>;
   updateUserPreferences: (data: Partial<UserProfile>) => Promise<void>;
   recurringTransactions: RecurringTransaction[];
   addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
@@ -109,57 +106,21 @@ interface AppContextType {
   generateInsightsWithLimit: (input: GenerateInsightsInput) => Promise<GenerateInsightsOutput | { error: string } | undefined>;
   canScanReceipt: boolean;
   scanReceiptWithLimit: (input: ParseReceiptInput) => Promise<ParseReceiptOutput | { error: string } | undefined>;
-  checklists: Checklist[];
-  addChecklist: (checklist: Omit<Checklist, 'id' | 'userId' | 'createdAt' | 'icon'>) => Promise<void>;
-  updateChecklist: (checklistId: string, data: Partial<Omit<Checklist, 'id' | 'icon' | 'iconName'>>) => Promise<void>;
-  deleteChecklist: (checklistId: string) => Promise<void>;
-  checklistTemplates: ChecklistTemplate[];
-  createTemplateFromChecklist: (checklist: Checklist) => Promise<void>;
-  deleteChecklistTemplate: (templateId: string) => Promise<void>;
-  transactionsForCurrentCycle: Transaction[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
-// Helper function to calculate the financial cycle date range
-const getFinancialCycle = (startDay: number): { startDate: Date, endDate: Date, cycleMonthStr: string } => {
-    const today = new Date();
-    const currentDay = getDate(today);
-
-    let startDate: Date;
-    let endDate: Date;
-
-    if (currentDay >= startDay) {
-        // We are in the current month's cycle
-        startDate = startOfDay(setDateFns(today, startDay));
-        endDate = startOfDay(setDateFns(addMonths(today, 1), startDay));
-    } else {
-        // We are in the previous month's cycle
-        startDate = startOfDay(setDateFns(subMonths(today, 1), startDay));
-        endDate = startOfDay(setDateFns(today, startDay));
-    }
-    
-    // YYYY-MM representation for budget querying
-    const cycleMonthStr = startDate.toISOString().slice(0, 7);
-
-    return { startDate, endDate, cycleMonthStr };
-}
-
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]); // All-time transactions
-  const [transactionsForCurrentCycle, setTransactionsForCurrentCycle] = useState<Transaction[]>([]); // Cycle-specific transactions
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [tripPlans, setTripPlans] = useState<TripPlan[]>([]);
+  const [financialPlans, setFinancialPlans] = useState<FinancialPlan[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
   const { toast } = useToast();
   
   const isPremium = useMemo(() => {
@@ -275,7 +236,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const expenseCategories = useMemo(() => [...defaultExpenseCategories, ...customCategories].sort(), [customCategories]);
   const incomeCategories = useMemo(() => [...defaultIncomeCategories, ...customCategories].sort(), [customCategories]);
   const allCategories = useMemo(() => [...new Set([...expenseCategories, ...incomeCategories])].sort(), [expenseCategories, incomeCategories]);
-  const deductibleTransactionsCount = useMemo(() => allTransactions.filter(t => t.isTaxDeductible).length, [allTransactions]);
+  const deductibleTransactionsCount = useMemo(() => transactions.filter(t => t.isTaxDeductible).length, [transactions]);
 
   useEffect(() => {
     if (user) {
@@ -289,15 +250,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (profileData.showOnboardingOnLogin === undefined) {
             profileData.showOnboardingOnLogin = true;
           }
-          if (profileData.financialCycleStartDay === undefined) {
-            profileData.financialCycleStartDay = 1;
-          }
           setUserProfile({ uid: docSnap.id, ...profileData } as UserProfile);
-          setLoading(false);
         } else {
             logger.warn("User profile document not found for authenticated user. Login form should handle creation.", { userId: user.uid });
-            setLoading(false);
         }
+        setLoading(false);
       }, (error) => {
         logger.error("Error subscribing to user profile", error);
         setLoading(false);
@@ -309,8 +266,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
             id: doc.id, ...doc.data(), date: (doc.data().date as Timestamp).toDate().toISOString(),
             icon: categoryIcons[doc.data().category] || categoryIcons['Food'],
         } as Transaction));
-        setAllTransactions(userTransactions);
+        setTransactions(userTransactions);
       }, (error) => logger.error("Error subscribing to transactions", error));
+
+      const qBudgets = query(collection(db, 'users', user.uid, 'budgets'), orderBy('createdAt', 'desc'));
+      const unsubscribeBudgets = onSnapshot(qBudgets, (snapshot) => {
+        const userBudgets: Budget[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as Budget));
+        setBudgets(userBudgets);
+      }, (error) => logger.error("Error subscribing to budgets", error));
+
+      const qPlans = query(collection(db, 'users', user.uid, 'financialPlans'), orderBy('createdAt', 'desc'));
+      const unsubscribePlans = onSnapshot(qPlans, (snapshot) => {
+        const userPlans: FinancialPlan[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as FinancialPlan));
+        setFinancialPlans(userPlans);
+      }, (error) => logger.error("Error subscribing to financial plans", error));
 
       const qRecurring = query(collection(db, 'users', user.uid, 'recurringTransactions'), orderBy('createdAt', 'desc'));
       const unsubscribeRecurring = onSnapshot(qRecurring, (snapshot) => {
@@ -350,90 +323,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } as Notification));
         setNotifications(userNotifications);
       }, (error) => logger.error("Error subscribing to notifications", error));
-
-      const qChecklists = query(collection(db, 'users', user.uid, 'checklists'), orderBy('createdAt', 'desc'));
-      const unsubscribeChecklists = onSnapshot(qChecklists, (snapshot) => {
-        const userChecklists: Checklist[] = snapshot.docs.map(doc => ({
-            id: doc.id, ...doc.data(),
-            iconName: doc.data().iconName,
-            icon: categoryIcons[doc.data().iconName] || categoryIcons['ShoppingCart'],
-            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString(),
-        } as Checklist));
-        setChecklists(userChecklists);
-      }, (error) => logger.error("Error subscribing to checklists", error));
-
-      const qTemplates = query(collection(db, 'users', user.uid, 'checklistTemplates'), orderBy('createdAt', 'desc'));
-      const unsubscribeTemplates = onSnapshot(qTemplates, (snapshot) => {
-        const userTemplates: ChecklistTemplate[] = snapshot.docs.map(doc => ({
-            id: doc.id, ...doc.data(),
-            iconName: doc.data().iconName,
-            icon: categoryIcons[doc.data().iconName] || categoryIcons['ShoppingCart'],
-            createdAt: (doc.data().createdAt as Timestamp)?.toDate().toISOString(),
-        } as ChecklistTemplate));
-        setChecklistTemplates(userTemplates);
-      }, (error) => logger.error("Error subscribing to checklist templates", error));
       
-      // Stop listening to budgets here; it will be handled in the cycle effect
-      const qPlans = query(collection(db, 'users', user.uid, 'tripPlans'), orderBy('createdAt', 'desc'));
-      const unsubscribePlans = onSnapshot(qPlans, (snapshot) => {
-        const userPlans: TripPlan[] = snapshot.docs.map(doc => ({
-            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
-        } as TripPlan));
-        setTripPlans(userPlans);
-      }, (error) => logger.error("Error subscribing to trip plans", error));
-
-
       return () => {
         unsubscribeProfile();
         unsubscribeTransactions();
+        unsubscribeBudgets();
         unsubscribePlans();
         unsubscribeRecurring();
         unsubscribeGoals();
         unsubscribeInvestments();
         unsubscribeNotifications();
-        unsubscribeChecklists();
-        unsubscribeTemplates();
       };
     } else {
       setUserProfile(null);
-      setAllTransactions([]);
-      setTransactionsForCurrentCycle([]);
+      setTransactions([]);
       setBudgets([]);
-      setTripPlans([]);
+      setFinancialPlans([]);
       setRecurringTransactions([]);
       setSavingsGoals([]);
       setInvestments([]);
       setNotifications([]);
-      setChecklists([]);
-      setChecklistTemplates([]);
     }
   }, [user]);
-
-  // New effect to manage data scoped to the financial cycle
-  useEffect(() => {
-    if (user && userProfile) {
-        const startDay = userProfile.financialCycleStartDay || 1;
-        const { startDate, endDate, cycleMonthStr } = getFinancialCycle(startDay);
-
-        const cycleTransactions = allTransactions.filter(t => {
-            const txDate = new Date(t.date);
-            return txDate >= startDate && txDate < endDate;
-        });
-        setTransactionsForCurrentCycle(cycleTransactions);
-
-        const qBudgets = query(collection(db, 'users', user.uid, 'budgets'), where('month', '==', cycleMonthStr));
-        const unsubscribeBudgets = onSnapshot(qBudgets, (snapshot) => {
-            const userBudgets: Budget[] = snapshot.docs.map(doc => ({
-                id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
-            } as Budget));
-            setBudgets(userBudgets);
-        }, (error) => logger.error("Error subscribing to budgets", error));
-
-        return () => {
-            unsubscribeBudgets();
-        };
-    }
-  }, [user, userProfile, allTransactions]);
 
 
   const formatCurrency = useMemo(() => {
@@ -446,7 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [userProfile?.currencyPreference]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'icon'>) => {
-    if (!user || !userProfile) {
+    if (!user) {
       showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' });
       return;
     }
@@ -455,32 +366,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await runTransaction(db, async (firestoreTransaction) => {
         const userDocRef = doc(db, 'users', user.uid);
   
-        // Destructure and assign activeTripId if it exists
-        const { date, tripItemId, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
-        let finalTripId = transaction.tripId;
-        if (userProfile.activeTripId && !finalTripId) {
-            finalTripId = userProfile.activeTripId;
-        }
+        // Destructure to handle optional properties correctly
+        const { date, financialPlanId, planItemId, isTaxDeductible, items, ...restOfTransaction } = transaction;
   
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
           : transaction.amount;
   
         // --- READS FIRST ---
-        let planRef: any, planDoc: any, roundupGoalSnap: any, checklistRef: any, checklistDoc: any;
+        let planRef: any, planDoc: any, roundupGoalSnap: any;
   
-        if (finalTripId) {
-          planRef = doc(db, 'users', user.uid, 'tripPlans', finalTripId);
+        if (financialPlanId) {
+          planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
           planDoc = await firestoreTransaction.get(planRef);
-        }
-
-        if (checklistId) {
-            checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
-            checklistDoc = await firestoreTransaction.get(checklistRef);
         }
   
         const currentMonth = new Date().toISOString().slice(0, 7);
-        const monthlyRoundups = userProfile.subscription.monthlyRoundups;
+        const monthlyRoundups = userProfile?.subscription.monthlyRoundups;
         const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
   
         if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
@@ -498,12 +400,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           date: Timestamp.fromDate(new Date(date)),
           createdAt: serverTimestamp(),
           userId: user.uid,
-          tripId: finalTripId || null,
-          tripItemId: tripItemId || null,
+          financialPlanId: financialPlanId || null,
+          planItemId: planItemId || null,
           isTaxDeductible: isTaxDeductible || false,
           carbonFootprint,
-          checklistId: checklistId || null,
-          checklistItemId: checklistItemId || null,
         });
   
         if (roundupGoalSnap && !roundupGoalSnap.empty) {
@@ -519,7 +419,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               badges: arrayUnion(...newBadges)
             });
   
-            if (!isPremium) {
+            if (!isPremium && userProfile) {
               const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
               firestoreTransaction.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
             }
@@ -527,26 +427,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
   
         if (planRef && planDoc?.exists()) {
-          const planData = planDoc.data() as TripPlan;
+          const planData = planDoc.data() as FinancialPlan;
           const newTotalActualCost = (planData.totalActualCost || 0) + finalAmount;
-          const updateData: { totalActualCost: number, items?: TripItem[] } = { totalActualCost: newTotalActualCost };
+          const updateData: { totalActualCost: number, items?: PlanItem[] } = { totalActualCost: newTotalActualCost };
   
-          if (tripItemId) {
+          if (planItemId) {
             updateData.items = planData.items.map(item =>
-              item.id === tripItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
+              item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
             );
           }
           firestoreTransaction.update(planRef, updateData);
         }
-
-        if (checklistRef && checklistDoc?.exists() && checklistItemId) {
-            const checklistData = checklistDoc.data() as Checklist;
-            const updatedItems = checklistData.items.map(item => 
-                item.id === checklistItemId ? { ...item, isCompleted: true } : item
-            );
-            firestoreTransaction.update(checklistRef, { items: updatedItems });
-        }
-
       });
       showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
       logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
@@ -567,27 +458,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const oldTxData = oldTxSnap.data() as Transaction;
             
             // Revert old transaction from plan
-            if (oldTxData.tripId) {
-                const oldPlanRef = doc(db, 'users', user.uid, 'tripPlans', oldTxData.tripId);
+            if (oldTxData.financialPlanId) {
+                const oldPlanRef = doc(db, 'users', user.uid, 'financialPlans', oldTxData.financialPlanId);
                 const oldPlanSnap = await t.get(oldPlanRef);
                 if (oldPlanSnap.exists()) {
-                    const plan = oldPlanSnap.data() as TripPlan;
+                    const plan = oldPlanSnap.data() as FinancialPlan;
                     const newTotal = (plan.totalActualCost || 0) - oldTxData.amount;
                     const updatePayload: any = { totalActualCost: Math.max(0, newTotal) };
-                    if (oldTxData.tripItemId) {
-                        updatePayload.items = plan.items.map(i => i.id === oldTxData.tripItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - oldTxData.amount) } : i);
+                    if (oldTxData.planItemId) {
+                        updatePayload.items = plan.items.map(i => i.id === oldTxData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - oldTxData.amount) } : i);
                     }
                     t.update(oldPlanRef, updatePayload);
                 }
             }
     
             // Apply new transaction to plan
-            const { tripId: newPlanId, tripItemId: newItemId, amount: newAmount } = updatedData;
+            const { financialPlanId: newPlanId, planItemId: newItemId, amount: newAmount } = updatedData;
             if (newPlanId && newAmount) {
-                const newPlanRef = doc(db, 'users', user.uid, 'tripPlans', newPlanId);
+                const newPlanRef = doc(db, 'users', user.uid, 'financialPlans', newPlanId);
                 const newPlanSnap = await t.get(newPlanRef);
                 if (newPlanSnap.exists()) {
-                    const plan = newPlanSnap.data() as TripPlan;
+                    const plan = newPlanSnap.data() as FinancialPlan;
                     const newTotal = (plan.totalActualCost || 0) + newAmount;
                     const updatePayload: any = { totalActualCost: newTotal };
                     if (newItemId) {
@@ -620,15 +511,15 @@ const deleteTransaction = async (transactionId: string) => {
             if (!txSnap.exists()) return;
             const txData = txSnap.data() as Transaction;
             
-            if (txData.tripId) {
-                const planRef = doc(db, 'users', user.uid, 'tripPlans', txData.tripId);
+            if (txData.financialPlanId) {
+                const planRef = doc(db, 'users', user.uid, 'financialPlans', txData.financialPlanId);
                 const planSnap = await t.get(planRef);
                 if (planSnap.exists()) {
-                    const plan = planSnap.data() as TripPlan;
+                    const plan = planSnap.data() as FinancialPlan;
                     const newTotal = (plan.totalActualCost || 0) - txData.amount;
                     const updatePayload: any = { totalActualCost: Math.max(0, newTotal) };
-                     if (txData.tripItemId) {
-                        updatePayload.items = plan.items.map(i => i.id === txData.tripItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - txData.amount) } : i);
+                     if (txData.planItemId) {
+                        updatePayload.items = plan.items.map(i => i.id === txData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - txData.amount) } : i);
                     }
                     t.update(planRef, updatePayload);
                 }
@@ -644,11 +535,11 @@ const deleteTransaction = async (transactionId: string) => {
 };
 
   const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => {
-    if (!user || !userProfile) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-      const { cycleMonthStr } = getFinancialCycle(userProfile.financialCycleStartDay || 1);
+      const currentMonth = new Date().toISOString().slice(0, 7);
       await addDoc(collection(db, 'users', user.uid, 'budgets'), {
-        ...budget, month: cycleMonthStr, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
+        ...budget, month: currentMonth, currentSpend: 0, userId: user.uid, createdAt: serverTimestamp(),
       });
       showNotification({ type: 'success', title: 'Budget Added', description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.` });
       logger.info('Budget added', { category: budget.category, limit: budget.limit });
@@ -682,56 +573,42 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
   
-  const addTripPlan = async (plan: Omit<TripPlan, 'id' | 'userId' | 'createdAt'>) => {
+  const addFinancialPlan = async (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-        await addDoc(collection(db, 'users', user.uid, 'tripPlans'), {
+        await addDoc(collection(db, 'users', user.uid, 'financialPlans'), {
             ...plan, userId: user.uid, createdAt: serverTimestamp(),
         });
-        showNotification({ type: 'success', title: 'Trip Plan Created!', description: `Your new plan "${plan.title}" is ready.` });
-        logger.info('Trip plan created', { title: plan.title });
+        showNotification({ type: 'success', title: 'Financial Plan Created!', description: `Your new plan "${plan.title}" is ready.` });
+        logger.info('Financial plan created', { title: plan.title });
     } catch (error) {
-        logger.error('Error creating trip plan', error as Error);
+        logger.error('Error creating financial plan', error as Error);
         showNotification({ type: 'error', title: 'Error creating plan', description: '' });
     }
   }
 
-  const updateTripPlan = async (planId: string, data: Partial<Omit<TripPlan, 'id'>>) => {
+  const updateFinancialPlan = async (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-        await updateDoc(doc(db, 'users', user.uid, 'tripPlans', planId), data);
-        showNotification({ type: 'success', title: 'Trip Plan Updated', description: '' });
-        logger.info('Trip plan updated', { planId });
+        await updateDoc(doc(db, 'users', user.uid, 'financialPlans', planId), data);
+        showNotification({ type: 'success', title: 'Financial Plan Updated', description: '' });
+        logger.info('Financial plan updated', { planId });
     } catch (error) {
-        logger.error('Error updating trip plan', error as Error, { planId });
+        logger.error('Error updating financial plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error updating plan', description: '' });
     }
   };
 
-  const deleteTripPlan = async (planId: string) => {
+  const deleteFinancialPlan = async (planId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-        await deleteDoc(doc(db, 'users', user.uid, 'tripPlans', planId));
-        showNotification({ type: 'success', title: 'Trip Plan Deleted', description: '' });
-        logger.info('Trip plan deleted', { planId });
+        await deleteDoc(doc(db, 'users', user.uid, 'financialPlans', planId));
+        showNotification({ type: 'success', title: 'Financial Plan Deleted', description: '' });
+        logger.info('Financial plan deleted', { planId });
     } catch (error) {
-        logger.error('Error deleting trip plan', error as Error, { planId });
+        logger.error('Error deleting financial plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error deleting plan', description: '' });
     }
-  };
-
-  const startTrip = async (tripId: string) => {
-    if (!user) { return; }
-    await updateDoc(doc(db, 'users', user.uid), { activeTripId: tripId });
-    await updateDoc(doc(db, 'users', user.uid, 'tripPlans', tripId), { status: 'active' });
-    showNotification({type: 'success', title: 'Trip Started!', description: 'All transactions will now be linked to this trip.'});
-  };
-
-  const endTrip = async (tripId: string) => {
-    if (!user) { return; }
-    await updateDoc(doc(db, 'users', user.uid), { activeTripId: null });
-    await updateDoc(doc(db, 'users', user.uid, 'tripPlans', tripId), { status: 'completed' });
-    showNotification({type: 'info', title: 'Trip Ended', description: 'You can view your trip report now.'});
   };
 
   const addRecurringTransaction = async (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => {
@@ -932,7 +809,7 @@ const deleteTransaction = async (transactionId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
       const { subscription, ...restData } = data; // Prevent direct subscription changes here
-      await setDoc(doc(db, 'users', user.uid), restData, { merge: true });
+      await updateDoc(doc(db, 'users', user.uid), restData);
       showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
       logger.info('User preferences updated', data);
     } catch (error) {
@@ -952,14 +829,12 @@ const deleteTransaction = async (transactionId: string) => {
       }
 
       const userDocRef = doc(db, 'users', user.uid);
-      await setDoc(userDocRef, {
-        subscription: {
-          tier: 'premium',
-          isActive: true,
-          expiryDate: newExpiry.toISOString(),
-          planType: plan,
-        }
-      }, { merge: true });
+      await updateDoc(userDocRef, {
+        'subscription.tier': 'premium',
+        'subscription.isActive': true,
+        'subscription.expiryDate': newExpiry.toISOString(),
+        'subscription.planType': plan,
+      });
 
       showNotification({ type: 'success', title: 'Upgrade Successful!', description: 'Welcome to FiscalFlow Premium.' });
       logger.info('User upgraded to premium', { plan });
@@ -970,19 +845,14 @@ const deleteTransaction = async (transactionId: string) => {
   };
   
   const downgradeFromPremium = async () => {
-    if (!user || !userProfile) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         const userDocRef = doc(db, 'users', user.uid);
-        const currentSub = userProfile.subscription || {};
-
-        await setDoc(userDocRef, {
-            subscription: {
-                ...currentSub,
-                tier: 'free',
-                isActive: false,
-                planType: undefined,
-            }
-        }, { merge: true });
+        await updateDoc(userDocRef, {
+            'subscription.tier': 'free',
+            'subscription.isActive': false,
+            'subscription.planType': undefined,
+        });
 
         showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
         logger.info('User downgraded from premium');
@@ -1036,7 +906,7 @@ const deleteTransaction = async (transactionId: string) => {
     const fullInput: AnalyzeTaxesInput = {
       ...input,
       countryCode: userProfile.countryCode,
-      transactions: allTransactions.map(t => ({ id: t.id, type: t.type, amount: t.amount, category: t.category, source: t.source, date: t.date })),
+      transactions: transactions.map(t => ({ id: t.id, type: t.type, amount: t.amount, category: t.category, source: t.source, date: t.date })),
       investments: investments.map(i => ({ name: i.name, assetType: i.assetType, marketValue: i.quantity * i.currentPrice })),
       savingsGoals: savingsGoals.map(s => ({ title: s.title, currentAmount: s.currentAmount })),
     };
@@ -1115,73 +985,6 @@ const deleteTransaction = async (transactionId: string) => {
     logger.info('Receipt scanned');
     return result;
   };
-  
-  // Checklist-related functions
-  const addChecklist = async (checklist: Omit<Checklist, 'id'|'userId'|'createdAt'|'icon'>) => {
-    if (!user) return;
-    try {
-        await addDoc(collection(db, 'users', user.uid, 'checklists'), { 
-            ...checklist, 
-            userId: user.uid, 
-            createdAt: serverTimestamp(),
-            iconName: checklist.iconName
-        });
-        showNotification({ type: 'success', title: 'Checklist created!' });
-    } catch(e) {
-        logger.error('Error adding checklist', e as Error);
-        showNotification({type: 'error', title: 'Error', description: 'Could not create checklist.'});
-    }
-  };
-
-  const updateChecklist = async (checklistId: string, data: Partial<Omit<Checklist, 'id'|'icon'|'iconName'>>) => {
-    if (!user) return;
-    try {
-        const { ...restData } = data;
-        await updateDoc(doc(db, 'users', user.uid, 'checklists', checklistId), { ...restData });
-        showNotification({ type: 'success', title: 'Checklist updated!' });
-    } catch(e) {
-        logger.error('Error updating checklist', e as Error, { checklistId });
-        showNotification({type: 'error', title: 'Error', description: 'Could not update checklist.'});
-    }
-  };
-
-  const deleteChecklist = async (checklistId: string) => {
-    if (!user) return;
-    try {
-        await deleteDoc(doc(db, 'users', user.uid, 'checklists', checklistId));
-        showNotification({ type: 'success', title: 'Checklist deleted!' });
-    } catch(e) {
-        logger.error('Error deleting checklist', e as Error, { checklistId });
-        showNotification({type: 'error', title: 'Error', description: 'Could not delete checklist.'});
-    }
-  };
-  
-  const createTemplateFromChecklist = async (checklist: Checklist) => {
-    if (!user) return;
-    try {
-        const template: Omit<ChecklistTemplate, 'id'|'userId'|'createdAt' | 'icon'> = {
-            title: `${checklist.title} Template`,
-            items: checklist.items.map(item => ({ id: nanoid(), description: item.description, predictedCost: item.predictedCost, category: item.category })),
-            iconName: checklist.iconName,
-        }
-        await addDoc(collection(db, 'users', user.uid, 'checklistTemplates'), { ...template, userId: user.uid, createdAt: serverTimestamp() });
-        showNotification({ type: 'success', title: 'Template created!' });
-    } catch (e) {
-        logger.error('Error creating template', e as Error);
-        showNotification({type: 'error', title: 'Error', description: 'Could not create template.'});
-    }
-  };
-  
-  const deleteChecklistTemplate = async (templateId: string) => {
-    if (!user) return;
-    try {
-        await deleteDoc(doc(db, 'users', user.uid, 'checklistTemplates', templateId));
-        showNotification({ type: 'success', title: 'Template deleted!' });
-    } catch (e) {
-        logger.error('Error deleting template', e as Error, { templateId });
-        showNotification({type: 'error', title: 'Error', description: 'Could not delete template.'});
-    }
-  }
 
 
   const logout = async () => {
@@ -1194,10 +997,10 @@ const deleteTransaction = async (transactionId: string) => {
   return (
     <AppContext.Provider
       value={{
-        user, userProfile, isPremium, loading, transactions: transactionsForCurrentCycle, deductibleTransactionsCount, addTransaction, updateTransaction,
+        user, userProfile, isPremium, loading, transactions, deductibleTransactionsCount, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
-        tripPlans, addTripPlan, updateTripPlan, deleteTripPlan, startTrip, endTrip,
+        financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan,
         updateUserPreferences, recurringTransactions, addRecurringTransaction,
         updateRecurringTransaction, deleteRecurringTransaction, savingsGoals,
         addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
@@ -1209,9 +1012,6 @@ const deleteTransaction = async (transactionId: string) => {
         canGenerateReport, generateReportWithLimit,
         canGenerateInsights, generateInsightsWithLimit,
         canScanReceipt, scanReceiptWithLimit,
-        checklists, addChecklist, updateChecklist, deleteChecklist,
-        checklistTemplates, createTemplateFromChecklist, deleteChecklistTemplate,
-        transactionsForCurrentCycle,
       }}
     >
       {children}
