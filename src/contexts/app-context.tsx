@@ -4,7 +4,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { categories as categoryIcons, defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
-import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, PlanItem } from '@/types';
+import type { Transaction, Budget, UserProfile, FinancialPlan, RecurringTransaction, SavingsGoal, Badge as BadgeType, Investment, Notification, PlanItem, Checklist, ChecklistTemplate, ChecklistItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
@@ -29,10 +29,10 @@ import {
   setDoc,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
-import { analyzeTaxesAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, createFinancialPlanAction } from '@/lib/actions';
+import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
-import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput } from '@/types/schemas';
+import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput, AnalyzeTaxesOutput, CreateSavingsGoalOutput, CreateChecklistOutput, CreateMonthlyBudgetsOutput } from '@/types/schemas';
 
 
 export const FREE_TIER_LIMITS = {
@@ -61,6 +61,7 @@ interface AppContextType {
   isPremium: boolean;
   loading: boolean;
   transactions: Transaction[];
+  transactionsForCurrentCycle: Transaction[];
   deductibleTransactionsCount: number;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'icon'>) => void;
   updateTransaction: (transactionId: string, data: Partial<Transaction>) => Promise<void>;
@@ -76,12 +77,6 @@ interface AppContextType {
   addBudget: (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'month' | 'currentSpend'>) => Promise<void>;
   updateBudget: (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => Promise<void>;
   deleteBudget: (budgetId: string) => Promise<void>;
-  financialPlans: FinancialPlan[];
-  addFinancialPlan: (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
-  updateFinancialPlan: (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => Promise<void>;
-  deleteFinancialPlan: (planId: string) => Promise<void>;
-  startTrip: (planId: string) => Promise<void>;
-  endTrip: (planId: string) => Promise<void>;
   updateUserPreferences: (data: Partial<UserProfile>) => Promise<void>;
   recurringTransactions: RecurringTransaction[];
   addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
@@ -95,6 +90,13 @@ interface AppContextType {
   addInvestment: (investment: Omit<Investment, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
   updateInvestment: (investmentId: string, data: Partial<Omit<Investment, 'id'>>) => Promise<void>;
   deleteInvestment: (investmentId: string) => Promise<void>;
+  checklists: Checklist[];
+  addChecklist: (checklist: Omit<Checklist, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateChecklist: (checklistId: string, data: Partial<Omit<Checklist, 'id'>>) => Promise<void>;
+  deleteChecklist: (checklistId: string) => Promise<void>;
+  checklistTemplates: ChecklistTemplate[];
+  createTemplateFromChecklist: (checklist: Checklist) => Promise<void>;
+  deleteChecklistTemplate: (templateId: string) => Promise<void>;
   formatCurrency: (amount: number) => string;
   notifications: Notification[];
   showNotification: (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void;
@@ -102,13 +104,16 @@ interface AppContextType {
   upgradeToPremium: (plan: 'monthly' | 'yearly') => Promise<void>;
   downgradeFromPremium: () => Promise<void>;
   canRunTaxAnalysis: boolean;
-  analyzeTaxesWithLimit: (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'transactions' | 'investments' | 'savingsGoals'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
+  analyzeTaxesWithLimit: (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'investments' | 'savingsGoals'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
   canGenerateReport: boolean;
   generateReportWithLimit: () => Promise<boolean>;
   canGenerateInsights: boolean;
   generateInsightsWithLimit: (input: GenerateInsightsInput) => Promise<GenerateInsightsOutput | { error: string } | undefined>;
   canScanReceipt: boolean;
   scanReceiptWithLimit: (input: ParseReceiptInput) => Promise<ParseReceiptOutput | { error: string } | undefined>;
+  createChecklistWithLimit: (userQuery: string) => Promise<CreateChecklistOutput | { error: string } | undefined>;
+  createBudgetsWithLimit: (userQuery: string, existingCategories: string[]) => Promise<CreateMonthlyBudgetsOutput | { error: string } | undefined>;
+  createSavingsGoalWithLimit: (userQuery: string) => Promise<CreateSavingsGoalOutput | { error: string } | undefined>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -119,11 +124,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [financialPlans, setFinancialPlans] = useState<FinancialPlan[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
   const { toast } = useToast();
   
   const isPremium = useMemo(() => {
@@ -280,14 +286,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setBudgets(userBudgets);
       }, (error) => logger.error("Error subscribing to budgets", error));
 
-      const qPlans = query(collection(db, 'users', user.uid, 'financialPlans'), orderBy('createdAt', 'desc'));
-      const unsubscribePlans = onSnapshot(qPlans, (snapshot) => {
-        const userPlans: FinancialPlan[] = snapshot.docs.map(doc => ({
-            id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
-        } as FinancialPlan));
-        setFinancialPlans(userPlans);
-      }, (error) => logger.error("Error subscribing to financial plans", error));
-
       const qRecurring = query(collection(db, 'users', user.uid, 'recurringTransactions'), orderBy('createdAt', 'desc'));
       const unsubscribeRecurring = onSnapshot(qRecurring, (snapshot) => {
         const userRecurring: RecurringTransaction[] = snapshot.docs.map(doc => ({
@@ -316,6 +314,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } as Investment));
         setInvestments(userInvestments);
       }, (error) => logger.error("Error subscribing to investments", error));
+      
+      const qChecklists = query(collection(db, 'users', user.uid, 'checklists'), orderBy('createdAt', 'desc'));
+      const unsubscribeChecklists = onSnapshot(qChecklists, (snapshot) => {
+        const userChecklists: Checklist[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(),
+            icon: categoryIcons[doc.data().iconName] || categoryIcons['ShoppingCart'],
+            createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as Checklist));
+        setChecklists(userChecklists);
+      }, (error) => logger.error("Error subscribing to checklists", error));
+
+      const qChecklistTemplates = query(collection(db, 'users', user.uid, 'checklistTemplates'), orderBy('createdAt', 'desc'));
+      const unsubscribeChecklistTemplates = onSnapshot(qChecklistTemplates, (snapshot) => {
+        const userTemplates: ChecklistTemplate[] = snapshot.docs.map(doc => ({
+            id: doc.id, ...doc.data(),
+            icon: categoryIcons[doc.data().iconName] || categoryIcons['ShoppingCart'],
+            createdAt: doc.data().createdAt?.toDate().toISOString(),
+        } as ChecklistTemplate));
+        setChecklistTemplates(userTemplates);
+      }, (error) => logger.error("Error subscribing to checklist templates", error));
 
       const qNotifications = query(collection(db, 'users', user.uid, 'notifications'), orderBy('createdAt', 'desc'), limit(50));
       const unsubscribeNotifications = onSnapshot(qNotifications, (snapshot) => {
@@ -331,23 +349,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unsubscribeProfile();
         unsubscribeTransactions();
         unsubscribeBudgets();
-        unsubscribePlans();
         unsubscribeRecurring();
         unsubscribeGoals();
         unsubscribeInvestments();
+        unsubscribeChecklists();
+        unsubscribeChecklistTemplates();
         unsubscribeNotifications();
       };
     } else {
       setUserProfile(null);
       setTransactions([]);
       setBudgets([]);
-      setFinancialPlans([]);
       setRecurringTransactions([]);
       setSavingsGoals([]);
       setInvestments([]);
+      setChecklists([]);
+      setChecklistTemplates([]);
       setNotifications([]);
     }
   }, [user]);
+
+  const transactionsForCurrentCycle = useMemo(() => {
+    if (!userProfile) return [];
+    const cycleStartDay = userProfile.financialCycleStartDay || 1;
+    const now = new Date();
+    let startDate;
+
+    if (now.getDate() >= cycleStartDay) {
+        // Current cycle started this month
+        startDate = new Date(now.getFullYear(), now.getMonth(), cycleStartDay);
+    } else {
+        // Current cycle started last month
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, cycleStartDay);
+    }
+    
+    return transactions.filter(t => new Date(t.date) >= startDate);
+  }, [transactions, userProfile]);
 
 
   const formatCurrency = useMemo(() => {
@@ -364,25 +401,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' });
       return;
     }
-  
+
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const userDocRef = doc(db, 'users', user.uid);
   
         // Destructure to handle optional properties correctly
-        const { date, financialPlanId, planItemId, isTaxDeductible, items, ...restOfTransaction } = transaction;
+        const { date, isTaxDeductible, items, checklistId, checklistItemId, ...restOfTransaction } = transaction;
   
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
           : transaction.amount;
   
         // --- READS FIRST ---
-        let planRef: any, planDoc: any, roundupGoalSnap: any;
-  
-        if (financialPlanId) {
-          planRef = doc(db, 'users', user.uid, 'financialPlans', financialPlanId);
-          planDoc = await firestoreTransaction.get(planRef);
-        }
+        let roundupGoalSnap: any;
   
         const currentMonth = new Date().toISOString().slice(0, 7);
         const monthlyRoundups = userProfile?.subscription.monthlyRoundups;
@@ -395,6 +427,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   
         // --- WRITES SECOND ---
         const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
+        
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         firestoreTransaction.set(newTransactionRef, {
           ...restOfTransaction,
@@ -403,10 +436,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           date: Timestamp.fromDate(new Date(date)),
           createdAt: serverTimestamp(),
           userId: user.uid,
-          financialPlanId: financialPlanId || null,
-          planItemId: planItemId || null,
           isTaxDeductible: isTaxDeductible || false,
           carbonFootprint,
+          // Use null instead of undefined for Firestore compatibility
+          checklistId: checklistId || null,
+          checklistItemId: checklistItemId || null,
         });
   
         if (roundupGoalSnap && !roundupGoalSnap.empty) {
@@ -428,18 +462,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }
         }
-  
-        if (planRef && planDoc?.exists()) {
-          const planData = planDoc.data() as FinancialPlan;
-          const newTotalActualCost = (planData.totalActualCost || 0) + finalAmount;
-          const updateData: { totalActualCost: number, items?: PlanItem[] } = { totalActualCost: newTotalActualCost };
-  
-          if (planItemId) {
-            updateData.items = planData.items.map(item =>
-              item.id === planItemId ? { ...item, actualCost: (item.actualCost || 0) + finalAmount } : item
-            );
-          }
-          firestoreTransaction.update(planRef, updateData);
+        
+        // Mark checklist item as complete
+        if (checklistId && checklistItemId) {
+            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
+            const checklistSnap = await firestoreTransaction.get(checklistRef);
+            if (checklistSnap.exists()) {
+                const checklist = checklistSnap.data() as Checklist;
+                const updatedItems = checklist.items.map(item =>
+                    item.id === checklistItemId ? { ...item, isCompleted: true } : item
+                );
+                firestoreTransaction.update(checklistRef, { items: updatedItems });
+            }
         }
       });
       showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
@@ -456,42 +490,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
         await runTransaction(db, async (t) => {
             const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
-            const oldTxSnap = await t.get(txRef);
-            if (!oldTxSnap.exists()) throw new Error("Transaction document not found!");
-            const oldTxData = oldTxSnap.data() as Transaction;
-            
-            // Revert old transaction from plan
-            if (oldTxData.financialPlanId) {
-                const oldPlanRef = doc(db, 'users', user.uid, 'financialPlans', oldTxData.financialPlanId);
-                const oldPlanSnap = await t.get(oldPlanRef);
-                if (oldPlanSnap.exists()) {
-                    const plan = oldPlanSnap.data() as FinancialPlan;
-                    const newTotal = (plan.totalActualCost || 0) - oldTxData.amount;
-                    const updatePayload: any = { totalActualCost: Math.max(0, newTotal) };
-                    if (oldTxData.planItemId) {
-                        updatePayload.items = plan.items.map(i => i.id === oldTxData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - oldTxData.amount) } : i);
-                    }
-                    t.update(oldPlanRef, updatePayload);
-                }
-            }
-    
-            // Apply new transaction to plan
-            const { financialPlanId: newPlanId, planItemId: newItemId, amount: newAmount } = updatedData;
-            if (newPlanId && newAmount) {
-                const newPlanRef = doc(db, 'users', user.uid, 'financialPlans', newPlanId);
-                const newPlanSnap = await t.get(newPlanRef);
-                if (newPlanSnap.exists()) {
-                    const plan = newPlanSnap.data() as FinancialPlan;
-                    const newTotal = (plan.totalActualCost || 0) + newAmount;
-                    const updatePayload: any = { totalActualCost: newTotal };
-                    if (newItemId) {
-                        updatePayload.items = plan.items.map(i => i.id === newItemId ? { ...i, actualCost: (i.actualCost || 0) + newAmount } : i);
-                    }
-                    t.update(newPlanRef, updatePayload);
-                }
-            }
-
-            const carbonFootprint = estimateCarbonFootprint({ ...oldTxData, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
+            const carbonFootprint = estimateCarbonFootprint({ ...transactions.find(t => t.id === transactionId)!, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
     
             const finalUpdateData: any = { ...updatedData, carbonFootprint };
             if (finalUpdateData.date) finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
@@ -508,32 +507,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 const deleteTransaction = async (transactionId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-        await runTransaction(db, async (t) => {
-            const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
-            const txSnap = await t.get(txRef);
-            if (!txSnap.exists()) return;
-            const txData = txSnap.data() as Transaction;
-            
-            if (txData.financialPlanId) {
-                const planRef = doc(db, 'users', user.uid, 'financialPlans', txData.financialPlanId);
-                const planSnap = await t.get(planRef);
-                if (planSnap.exists()) {
-                    const plan = planSnap.data() as FinancialPlan;
-                    const newTotal = (plan.totalActualCost || 0) - txData.amount;
-                    const updatePayload: any = { totalActualCost: Math.max(0, newTotal) };
-                     if (txData.planItemId) {
-                        updatePayload.items = plan.items.map(i => i.id === txData.planItemId ? { ...i, actualCost: Math.max(0, (i.actualCost || 0) - txData.amount) } : i);
-                    }
-                    t.update(planRef, updatePayload);
-                }
-            }
-            t.delete(txRef);
-        });
+        await deleteDoc(doc(db, 'users', user.uid, 'transactions', transactionId));
         showNotification({ type: 'success', title: 'Transaction Deleted', description: '' });
         logger.info('Transaction deleted successfully', { transactionId });
     } catch (error) {
         logger.error('Error deleting transaction', error as Error, { transactionId });
-        showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
+        showNotification({ type: 'error', title: 'Error deleting transaction', description: '' });
     }
 };
 
@@ -573,61 +552,6 @@ const deleteTransaction = async (transactionId: string) => {
     } catch (error) {
       logger.error('Error deleting budget', error as Error, { budgetId });
       showNotification({ type: 'error', title: 'Error deleting budget', description: '' });
-    }
-  };
-  
-  const addFinancialPlan = async (plan: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'>) => {
-    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
-    try {
-        await addDoc(collection(db, 'users', user.uid, 'financialPlans'), {
-            ...plan, userId: user.uid, createdAt: serverTimestamp(),
-        });
-        showNotification({ type: 'success', title: 'Financial Plan Created!', description: `Your new plan "${plan.title}" is ready.` });
-        logger.info('Financial plan created', { title: plan.title });
-    } catch (error) {
-        logger.error('Error creating financial plan', error as Error);
-        showNotification({ type: 'error', title: 'Error creating plan', description: '' });
-    }
-  }
-
-  const updateFinancialPlan = async (planId: string, data: Partial<Omit<FinancialPlan, 'id'>>) => {
-    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
-    try {
-        await updateDoc(doc(db, 'users', user.uid, 'financialPlans', planId), data);
-        showNotification({ type: 'success', title: 'Financial Plan Updated', description: '' });
-        logger.info('Financial plan updated', { planId });
-    } catch (error) {
-        logger.error('Error updating financial plan', error as Error, { planId });
-        showNotification({ type: 'error', title: 'Error updating plan', description: '' });
-    }
-  };
-  
-  const startTrip = async (planId: string) => {
-    if (!user) { return; }
-    await updateFinancialPlan(planId, { status: 'active' });
-    await updateUserPreferences({ activeTripId: planId });
-    logger.info('Trip started', { planId });
-  };
-  
-  const endTrip = async (planId: string) => {
-    if (!user) { return; }
-    await updateFinancialPlan(planId, { status: 'completed' });
-    if (userProfile?.activeTripId === planId) {
-        await updateUserPreferences({ activeTripId: null });
-    }
-    logger.info('Trip ended', { planId });
-  };
-
-
-  const deleteFinancialPlan = async (planId: string) => {
-    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
-    try {
-        await deleteDoc(doc(db, 'users', user.uid, 'financialPlans', planId));
-        showNotification({ type: 'success', title: 'Financial Plan Deleted', description: '' });
-        logger.info('Financial plan deleted', { planId });
-    } catch (error) {
-        logger.error('Error deleting financial plan', error as Error, { planId });
-        showNotification({ type: 'error', title: 'Error deleting plan', description: '' });
     }
   };
 
@@ -790,7 +714,6 @@ const deleteTransaction = async (transactionId: string) => {
     }
   };
 
-
   const calculateNewBadges = (goal: SavingsGoal, newCurrentAmount: number): BadgeType[] => {
     const newBadges: BadgeType[] = [];
     const now = new Date().toISOString();
@@ -911,7 +834,7 @@ const deleteTransaction = async (transactionId: string) => {
     }
   }
 
-  const analyzeTaxesWithLimit = async (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'transactions' | 'investments' | 'savingsGoals'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
+  const analyzeTaxesWithLimit = async (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'investments' | 'savingsGoals'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
     if (!user || !userProfile || !userProfile.countryCode) { 
       const errorMsg = 'Country code is not set in user profile.';
       showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
@@ -926,7 +849,6 @@ const deleteTransaction = async (transactionId: string) => {
     const fullInput: AnalyzeTaxesInput = {
       ...input,
       countryCode: userProfile.countryCode,
-      transactions: transactions.map(t => ({ id: t.id, type: t.type, amount: t.amount, category: t.category, source: t.source, date: t.date })),
       investments: investments.map(i => ({ name: i.name, assetType: i.assetType, marketValue: i.quantity * i.currentPrice })),
       savingsGoals: savingsGoals.map(s => ({ title: s.title, currentAmount: s.currentAmount })),
     };
@@ -1005,7 +927,94 @@ const deleteTransaction = async (transactionId: string) => {
     logger.info('Receipt scanned');
     return result;
   };
+  
+  const createChecklistWithLimit = async (userQuery: string): Promise<CreateChecklistOutput | { error: string } | undefined> => {
+    if (!user || !userProfile) { return { error: 'Not authenticated' }; }
+    const result = await createChecklistAction({ userQuery, availableIcons: Object.keys(categoryIcons), availableCategories: expenseCategories });
+    logger.info('Checklist created with AI');
+    return result;
+  }
+  
+  const createBudgetsWithLimit = async (userQuery: string, existingCategories: string[]): Promise<CreateMonthlyBudgetsOutput | { error: string } | undefined> => {
+    if (!user || !userProfile) { return { error: 'Not authenticated' }; }
+    const result = await createMonthlyBudgetsAction({ userQuery, existingCategories });
+    logger.info('Budgets created with AI');
+    return result;
+  };
 
+  const createSavingsGoalWithLimit = async (userQuery: string): Promise<CreateSavingsGoalOutput | { error: string } | undefined> => {
+    if (!user || !userProfile) { return { error: 'Not authenticated' }; }
+    const result = await createSavingsGoalAction({ userQuery });
+    logger.info('Savings goal created with AI');
+    return result;
+  };
+  
+  const addChecklist = async (checklist: Omit<Checklist, 'id' | 'userId' | 'createdAt' | 'icon'>) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'checklists'), {
+            ...checklist, userId: user.uid, createdAt: serverTimestamp(),
+        });
+        showNotification({ type: 'success', title: 'Checklist Created!', description: `Your new checklist "${checklist.title}" is ready.` });
+        logger.info('Checklist created', { title: checklist.title });
+    } catch (error) {
+        logger.error('Error creating checklist', error as Error);
+        showNotification({ type: 'error', title: 'Error creating checklist', description: '' });
+    }
+  }
+
+  const updateChecklist = async (checklistId: string, data: Partial<Omit<Checklist, 'id'>>) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await updateDoc(doc(db, 'users', user.uid, 'checklists', checklistId), data);
+        logger.info('Checklist updated', { checklistId });
+    } catch (error) {
+        logger.error('Error updating checklist', error as Error, { checklistId });
+        showNotification({ type: 'error', title: 'Error updating checklist', description: '' });
+    }
+  };
+  
+  const deleteChecklist = async (checklistId: string) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'checklists', checklistId));
+        showNotification({ type: 'success', title: 'Checklist Deleted', description: '' });
+        logger.info('Checklist deleted', { checklistId });
+    } catch (error) {
+        logger.error('Error deleting checklist', error as Error, { checklistId });
+        showNotification({ type: 'error', title: 'Error deleting checklist', description: '' });
+    }
+  };
+
+  const createTemplateFromChecklist = async (checklist: Checklist) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await addDoc(collection(db, 'users', user.uid, 'checklistTemplates'), {
+            title: `${checklist.title} (Template)`,
+            iconName: checklist.iconName,
+            items: checklist.items,
+            userId: user.uid,
+            createdAt: serverTimestamp(),
+        });
+        showNotification({ type: 'success', title: 'Template Saved!', description: `Saved "${checklist.title}" as a new template.` });
+        logger.info('Checklist template created', { sourceChecklistId: checklist.id });
+    } catch (error) {
+        logger.error('Error saving checklist as template', error as Error);
+        showNotification({ type: 'error', title: 'Error saving template', description: '' });
+    }
+  }
+  
+  const deleteChecklistTemplate = async (templateId: string) => {
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    try {
+        await deleteDoc(doc(db, 'users', user.uid, 'checklistTemplates', templateId));
+        showNotification({ type: 'success', title: 'Template Deleted', description: '' });
+        logger.info('Checklist template deleted', { templateId });
+    } catch (error) {
+        logger.error('Error deleting checklist template', error as Error, { templateId });
+        showNotification({ type: 'error', title: 'Error deleting template', description: '' });
+    }
+  }
 
   const logout = async () => {
     if (user) {
@@ -1017,14 +1026,15 @@ const deleteTransaction = async (transactionId: string) => {
   return (
     <AppContext.Provider
       value={{
-        user, userProfile, isPremium, loading, transactions, deductibleTransactionsCount, addTransaction, updateTransaction,
+        user, userProfile, isPremium, loading, transactions, transactionsForCurrentCycle, deductibleTransactionsCount, addTransaction, updateTransaction,
         deleteTransaction, logout, categories: categoryIcons, expenseCategories, incomeCategories, allCategories,
         addCustomCategory, deleteCustomCategory, budgets, addBudget, updateBudget, deleteBudget,
-        financialPlans, addFinancialPlan, updateFinancialPlan, deleteFinancialPlan, startTrip, endTrip,
         updateUserPreferences, recurringTransactions, addRecurringTransaction,
         updateRecurringTransaction, deleteRecurringTransaction, savingsGoals,
         addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, 
         investments, addInvestment, updateInvestment, deleteInvestment,
+        checklists, addChecklist, updateChecklist, deleteChecklist,
+        checklistTemplates, createTemplateFromChecklist, deleteChecklistTemplate,
         formatCurrency,
         notifications, showNotification, markAllNotificationsAsRead,
         upgradeToPremium, downgradeFromPremium,
@@ -1032,6 +1042,7 @@ const deleteTransaction = async (transactionId: string) => {
         canGenerateReport, generateReportWithLimit,
         canGenerateInsights, generateInsightsWithLimit,
         canScanReceipt, scanReceiptWithLimit,
+        createChecklistWithLimit, createBudgetsWithLimit, createSavingsGoalWithLimit
       }}
     >
       {children}

@@ -14,10 +14,6 @@ import { Button } from '@/components/ui/button';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { PlusCircle, DraftingCompass, Sparkles } from 'lucide-react';
 import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CreatePlanDialog } from '@/components/dashboard/create-plan-dialog';
-import type { FinancialPlan, Budget } from '@/types';
-import { FinancialPlanCard } from '@/components/dashboard/financial-plan-card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,45 +27,24 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BudgetDetailsDialog } from '@/components/dashboard/budget-details-dialog';
 import { AddBudgetDialog } from '@/components/dashboard/add-budget-dialog';
+import type { Budget } from '@/types';
+import { AllocationPieChart } from '@/components/dashboard/allocation-pie-chart';
 
 export default function BudgetsPage() {
-  const { financialPlans, deleteFinancialPlan, isPremium, budgets, deleteBudget } = useAppContext();
+  const { isPremium, budgets, deleteBudget } = useAppContext();
   
   // Dialog states
   const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
-  const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
   const [isBudgetDetailsOpen, setIsBudgetDetailsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   // Data for dialogs
-  const [planToEdit, setPlanToEdit] = useState<FinancialPlan | null>(null);
-  const [planToDelete, setPlanToDelete] = useState<FinancialPlan | null>(null);
   const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
   const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
 
 
   const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
-  const canAddPlan = isPremium || financialPlans.length < FREE_TIER_LIMITS.financialPlans;
-
-  // Plan handlers
-  const handleEditPlan = (plan: FinancialPlan) => {
-    setPlanToEdit(plan);
-    setIsCreatePlanDialogOpen(true);
-  };
-  
-  const handleDeletePlan = (plan: FinancialPlan) => {
-    setPlanToDelete(plan);
-    setBudgetToDelete(null);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handlePlanDialogClose = (open: boolean) => {
-    if (!open) {
-      setPlanToEdit(null);
-    }
-    setIsCreatePlanDialogOpen(open);
-  }
 
   // Budget handlers
   const handleAddBudget = () => {
@@ -84,7 +59,6 @@ export default function BudgetsPage() {
 
   const handleDeleteBudget = (budget: Budget) => {
     setBudgetToDelete(budget);
-    setPlanToDelete(null);
     setIsDeleteDialogOpen(true);
   }
 
@@ -101,14 +75,10 @@ export default function BudgetsPage() {
   }
 
   const confirmDelete = async () => {
-    if (planToDelete) {
-      await deleteFinancialPlan(planToDelete.id);
-    }
     if (budgetToDelete) {
       await deleteBudget(budgetToDelete.id);
     }
     setIsDeleteDialogOpen(false);
-    setPlanToDelete(null);
     setBudgetToDelete(null);
   };
 
@@ -119,106 +89,48 @@ export default function BudgetsPage() {
       </Button>
   );
 
-  const CreatePlanButton = (
-     <Button onClick={() => setIsCreatePlanDialogOpen(true)} disabled={!canAddPlan}>
-        <PlusCircle className="mr-2 h-4 w-4" />
-        Create Plan
-      </Button>
-  );
 
   return (
     <>
       <div className="flex flex-1 flex-col">
         <Header title="Budgets & Plans" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
-          <Tabs defaultValue="monthly">
-            <div className='flex justify-between items-center mb-4'>
-                <TabsList>
-                    <TabsTrigger value="monthly">Monthly Budgets</TabsTrigger>
-                    <TabsTrigger value="plans">
-                      Financial Plans
-                      {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
-                    </TabsTrigger>
-                </TabsList>
-            </div>
-            
-            <TabsContent value="monthly">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Category Budgets</CardTitle>
-                    <CardDescription>
-                      Set and track your monthly spending limits for each category.
-                    </CardDescription>
-                  </div>
-                  {canAddBudget ? (
-                    AddBudgetButton
-                  ) : (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>{AddBudgetButton}</TooltipTrigger>
-                        <TooltipContent>
-                          <p>Upgrade to Premium for unlimited budgets.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </CardHeader>
-                <CardContent>
-                    <MonthlyBudgets 
-                      onEditBudget={handleEditBudget}
-                      onDeleteBudget={handleDeleteBudget}
-                      onShowDetails={handleShowBudgetDetails}
-                    />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="plans">
-              <Card>
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
-                      <div>
-                          <CardTitle>Financial Plans</CardTitle>
-                          <CardDescription>
-                              Plan for trips, savings goals, and large purchases with AI assistance.
-                          </CardDescription>
-                      </div>
-                      {canAddPlan ? (
-                        CreatePlanButton
-                      ) : (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>{CreatePlanButton}</TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Upgrade to Premium for unlimited plans.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                      )}
+                    <div>
+                      <CardTitle>Monthly Budgets</CardTitle>
+                      <CardDescription>
+                        Set and track your monthly spending limits for each category.
+                      </CardDescription>
+                    </div>
+                    {canAddBudget ? (
+                      AddBudgetButton
+                    ) : (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>{AddBudgetButton}</TooltipTrigger>
+                          <TooltipContent>
+                            <p>Upgrade to Premium for unlimited budgets.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </CardHeader>
                   <CardContent>
-                      {financialPlans.length > 0 ? (
-                          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                              {financialPlans.map((plan) => (
-                                  <FinancialPlanCard 
-                                      key={plan.id} 
-                                      plan={plan} 
-                                      onEdit={() => handleEditPlan(plan)}
-                                      onDelete={() => handleDeletePlan(plan)}
-                                  />
-                              ))}
-                          </div>
-                      ) : (
-                          <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
-                              <DraftingCompass className="h-12 w-12 mb-4" />
-                              <p className="text-lg font-semibold">No financial plans created yet.</p>
-                              <p>Click "Create Plan" to plan your next big goal with AI.</p>
-                          </div>
-                      )}
+                      <MonthlyBudgets 
+                        onEditBudget={handleEditBudget}
+                        onDeleteBudget={handleDeleteBudget}
+                        onShowDetails={handleShowBudgetDetails}
+                      />
                   </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                </Card>
+              </div>
+              <div className="lg:col-span-1">
+                <AllocationPieChart />
+              </div>
+            </div>
         </main>
       </div>
       
@@ -228,7 +140,6 @@ export default function BudgetsPage() {
         onOpenChange={handleBudgetDialogClose} 
         budgetToEdit={budgetToEdit}
       />
-      <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
       <BudgetDetailsDialog open={isBudgetDetailsOpen} onOpenChange={setIsBudgetDetailsOpen} budget={selectedBudget} />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -236,7 +147,7 @@ export default function BudgetsPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your financial plan for "{planToDelete?.title || budgetToDelete?.category}".
+                This action cannot be undone. This will permanently delete your budget for "{budgetToDelete?.category}".
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
