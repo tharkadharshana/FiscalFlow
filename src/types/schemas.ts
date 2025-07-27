@@ -94,27 +94,27 @@ export const AssistantActionInputSchema = z.object({
 export type AssistantActionInput = z.infer<typeof AssistantActionInputSchema>;
 
 
-// --- Trip Plan Schemas (formerly Financial Plan) ---
-export const TripItemSchema = z.object({
+// --- Financial Plan Schemas (formerly Trip Plan) ---
+export const PlanItemSchema = z.object({
     id: z.string().describe("A unique ID for the item, e.g., a short hash or timestamp-based."),
     description: z.string().describe('A clear description of the expense item.'),
     category: z.string().describe('A suitable category for the item (e.g., Flights, Food, Fees).'),
     predictedCost: z.number().describe('The estimated cost for this item.'),
     isAiSuggested: z.boolean().optional().describe('Set to true if this item was suggested by the AI, not the user.'),
 });
-export type TripItem = z.infer<typeof TripItemSchema>;
+export type PlanItem = z.infer<typeof PlanItemSchema>;
 
-export const CreateTripPlanOutputSchema = z.object({
-    title: z.string().describe('A concise title for the trip plan (e.g., "Paris Trip 2024").'),
-    items: z.array(TripItemSchema).describe('A list of all plan items, both from the user and suggested by the AI.'),
+export const CreateFinancialPlanOutputSchema = z.object({
+    title: z.string().describe('A concise title for the financial plan (e.g., "Summer Vacation to Italy", "Kitchen Remodel").'),
+    items: z.array(PlanItemSchema).describe('A list of all plan items, both from the user and suggested by the AI.'),
 });
-export type CreateTripPlanOutput = z.infer<typeof CreateTripPlanOutputSchema>;
+export type CreateFinancialPlanOutput = z.infer<typeof CreateFinancialPlanOutputSchema>;
 
-export const CreateTripPlanInputSchema = z.object({
+export const CreateFinancialPlanInputSchema = z.object({
     userQuery: z.string().describe("The user's natural language description of their goal or what to add to the plan."),
-    existingPlan: CreateTripPlanOutputSchema.optional().describe("The existing plan if the user is adding to it.")
+    existingPlan: CreateFinancialPlanOutputSchema.optional().describe("The existing plan if the user is adding to it.")
 });
-export type CreateTripPlanInput = z.infer<typeof CreateTripPlanInputSchema>;
+export type CreateFinancialPlanInput = z.infer<typeof CreateFinancialPlanInputSchema>;
 
 
 // --- Monthly Budgets Schemas ---

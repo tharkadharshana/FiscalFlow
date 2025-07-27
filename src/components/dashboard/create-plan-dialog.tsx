@@ -21,39 +21,32 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Mic, Loader2, Wand2, Trash2, Sparkles, Lightbulb, Plus, Keyboard, Upload, Camera, SwitchCamera, RotateCcw, MicOff } from 'lucide-react';
-import { createTripPlanAction, parseDocumentAction } from '@/lib/actions';
-import type { TripPlan } from '@/types';
+import { createFinancialPlanAction } from '@/lib/actions';
+import type { FinancialPlan } from '@/types';
 import { useAppContext } from '@/contexts/app-context';
 import { cn } from '@/lib/utils';
 import { nanoid } from 'nanoid';
 import Image from 'next/image';
+import { logger } from '@/lib/logger';
+import { CreateFinancialPlanInputSchema, CreateFinancialPlanOutputSchema, PlanItemSchema } from '@/types/schemas';
 
 
-type CreateTripPlanDialogProps = {
+type CreatePlanDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tripToEdit?: TripPlan | null;
+  planToEdit?: FinancialPlan | null;
 };
 
-const tripItemSchema = z.object({
-  id: z.string(),
-  description: z.string().min(1, "Description can't be empty."),
-  category: z.string(),
-  predictedCost: z.coerce.number().min(0, 'Cost must be a positive number.'),
-  actualCost: z.number().nullable(),
-  isAiSuggested: z.boolean().optional(),
-});
-
 const formSchema = z.object({
-  title: z.string().min(3, 'Trip title must be at least 3 characters.'),
-  items: z.array(tripItemSchema),
+  title: z.string().min(3, 'Plan title must be at least 3 characters.'),
+  items: z.array(PlanItemSchema),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 
-export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateTripPlanDialogProps) {
-    const { addTripPlan, updateTripPlan, showNotification } = useAppContext();
+export function CreatePlanDialog({ open, onOpenChange, planToEdit: planToEdit }: CreatePlanDialogProps) {
+    const { addFinancialPlan, updateFinancialPlan, showNotification } = useAppContext();
 
     const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
     const [userQuery, setUserQuery] = useState('');
@@ -97,15 +90,15 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
         }
     }
   
-    // Effect to reset state when dialog opens or tripToEdit changes
+    // Effect to reset state when dialog opens or planToEdit changes
     useEffect(() => {
         if(open) {
-            if (tripToEdit) {
+            if (planToEdit) {
                 form.reset({
-                    title: tripToEdit.title,
-                    items: tripToEdit.items.map(item => ({...item, actualCost: item.actualCost ?? null}))
+                    title: planToEdit.title,
+                    items: planToEdit.items.map(item => ({...item, actualCost: item.actualCost ?? null}))
                 });
-                setUserQuery(tripToEdit.description || '');
+                setUserQuery(planToEdit.description || '');
                 setView('review');
             } else {
                 resetToInputView();
@@ -119,7 +112,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
                 streamRef.current = null;
             }
         }
-    }, [open, tripToEdit, form]);
+    }, [open, planToEdit, form]);
 
     // Initialize SpeechRecognition
     useEffect(() => {
@@ -199,7 +192,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             setSelectedDeviceId(deviceId); // Set it after successfully getting the stream
             setHasCameraPermission(true);
           } catch (error) {
-            console.error('Error accessing camera:', error);
+            logger.error('Error accessing camera:', error as Error);
             setHasCameraPermission(false);
           }
         };
@@ -248,23 +241,17 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
         const finalImageUri = dataUri || imageUri;
         if (!finalImageUri) return;
 
-        setView('loading');
-        const result = await parseDocumentAction({ photoDataUri: finalImageUri });
-        if ('error' in result) {
-            showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
-            resetToInputView();
-        } else {
-            handleGeneratePlan(result.text);
-        }
+        // In a real app, you would call a different action here for OCR
+        showNotification({ type: 'info', title: 'Feature in Development', description: 'Document analysis for plans is coming soon.' });
     };
 
     const handleGeneratePlan = async (query: string) => {
         if (!query) return;
         setView('loading');
         setUserQuery(query);
-        const result = await createTripPlanAction({ 
+        const result = await createFinancialPlanAction({ 
             userQuery: query,
-            existingPlan: tripToEdit ? form.getValues() : undefined
+            existingPlan: planToEdit ? form.getValues() : undefined
         });
         
         if ('error' in result) {
@@ -273,7 +260,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
         } else {
             form.reset({
                 title: result.title,
-                items: result.items.map(item => ({...item, actualCost: null}))
+                items: result.items
             });
             setView('review');
         }
@@ -281,18 +268,19 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
 
     const handleSavePlan = async (data: FormData) => {
         const totalPredictedCost = data.items.reduce((sum, item) => sum + item.predictedCost, 0);
-        const planData = {
+        const planData: Omit<FinancialPlan, 'id' | 'userId' | 'createdAt'> = {
           ...data,
+          items: data.items.map(item => ({...item, actualCost: null })),
           description: userQuery,
-          status: 'planning' as const,
+          status: 'planning',
           totalPredictedCost,
-          totalActualCost: tripToEdit?.totalActualCost || 0,
+          totalActualCost: planToEdit?.totalActualCost || 0,
         };
 
-        if (tripToEdit) {
-            await updateTripPlan(tripToEdit.id, planData);
+        if (planToEdit) {
+            await updateFinancialPlan(planToEdit.id, planData);
         } else {
-            await addTripPlan(planData);
+            await addFinancialPlan(planData);
         }
         onOpenChange(false);
     };
@@ -302,7 +290,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             <DialogDescription>
               {isReviewMode 
                 ? "The AI has generated the following plan. Review the items and make any necessary changes before saving."
-                : "Manually add a title and items to create your trip plan."
+                : "Manually add a title and items to create your financial plan."
               }
             </DialogDescription>
             <div className="space-y-2">
@@ -343,7 +331,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
                 {form.formState.errors.items && <p className="text-sm text-destructive mt-2">There are errors in your plan items.</p>}
             </div>
     
-            {isReviewMode && !tripToEdit && (
+            {isReviewMode && !planToEdit && (
               <Alert>
                 <Sparkles className="h-4 w-4" />
                 <AlertTitle>Want to add more?</AlertTitle>
@@ -351,7 +339,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
               </Alert>
             )}
             
-            {isReviewMode && !tripToEdit && (
+            {isReviewMode && !planToEdit && (
                 <div className="space-y-2">
                     <Textarea 
                         placeholder="Type here to add more details to your plan..." 
@@ -392,7 +380,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             </TabsList>
 
             <TabsContent value="text" className="pt-4 space-y-4">
-                <DialogDescription>Describe your trip. The AI will structure it into an itemized plan.</DialogDescription>
+                <DialogDescription>Describe your plan. The AI will structure it into an itemized list.</DialogDescription>
                 <Textarea placeholder="e.g., A trip to Japan for two weeks..." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
                 <DialogFooter>
                     <Button onClick={() => handleGeneratePlan(userQuery)} disabled={!userQuery}>
@@ -410,7 +398,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             </TabsContent>
 
             <TabsContent value="camera" className="pt-4 space-y-4">
-                <DialogDescription>Position your document in the frame and capture an image to scan it.</DialogDescription>
+                <DialogDescription>Position a document in the frame and capture an image to scan it.</DialogDescription>
                 <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
                     <canvas ref={canvasRef} className="hidden" />
                     {imageUri ? (
@@ -459,7 +447,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit }: CreateT
             <DialogContent className="sm:max-w-xl">
                 <ScrollArea className="max-h-[90vh] pr-6">
                     <DialogHeader>
-                        <DialogTitle className="font-headline text-2xl">{tripToEdit ? 'Edit Trip Plan' : 'Create a New Trip Plan'}</DialogTitle>
+                        <DialogTitle className="font-headline text-2xl">{planToEdit ? 'Edit Financial Plan' : 'Create a New Financial Plan'}</DialogTitle>
                     </DialogHeader>
                     {renderContent()}
                 </ScrollArea>

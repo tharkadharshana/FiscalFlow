@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { TripPlan } from "@/types";
+import type { FinancialPlan } from "@/types";
 import {
   Card,
   CardContent,
@@ -22,40 +22,44 @@ import {
 import { Progress } from "../ui/progress";
 import { useAppContext } from "@/contexts/app-context";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
-type TripPlanCardProps = {
-  trip: TripPlan;
+type FinancialPlanCardProps = {
+  plan: FinancialPlan;
   onEdit: () => void;
   onDelete: () => void;
-  onViewReport: () => void;
 };
 
-export function TripPlanCard({ trip, onEdit, onDelete, onViewReport }: TripPlanCardProps) {
-  const { formatCurrency, startTrip, endTrip, userProfile } = useAppContext();
+export function FinancialPlanCard({ plan, onEdit, onDelete }: FinancialPlanCardProps) {
+  const { formatCurrency, updateUserPreferences, userProfile, updateFinancialPlan } = useAppContext();
   
-  const progress = trip.totalPredictedCost > 0 ? (trip.totalActualCost / trip.totalPredictedCost) * 100 : 0;
-  const uniqueCategories = [...new Set(trip.items.map(item => item.category))];
-  const isActiveTrip = userProfile?.activeTripId === trip.id;
+  const progress = plan.totalPredictedCost > 0 ? ((plan.totalActualCost || 0) / plan.totalPredictedCost) * 100 : 0;
+  const uniqueCategories = [...new Set(plan.items.map(item => item.category))];
+  const isActiveTrip = userProfile?.activeTripId === plan.id;
 
-  const handleStartTrip = (e: React.MouseEvent) => {
+  const handleStartTrip = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    startTrip(trip.id);
+    logger.info('Starting trip', { planId: plan.id });
+    await updateUserPreferences({ activeTripId: plan.id });
+    await updateFinancialPlan(plan.id, { status: 'active' });
   }
 
-  const handleEndTrip = (e: React.MouseEvent) => {
+  const handleEndTrip = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    endTrip(trip.id);
+    logger.info('Ending trip', { planId: plan.id });
+    await updateUserPreferences({ activeTripId: null });
+    await updateFinancialPlan(plan.id, { status: 'completed' });
   }
 
   return (
     <Card className={cn("flex flex-col transition-shadow hover:shadow-lg", isActiveTrip && "ring-2 ring-primary shadow-lg")}>
       <CardHeader className="flex flex-row items-start justify-between pb-4">
         <div>
-          <CardTitle className="text-xl">{trip.title}</CardTitle>
+          <CardTitle className="text-xl">{plan.title}</CardTitle>
           <CardDescription className="capitalize pt-1 font-medium flex items-center gap-2">
-            {trip.status === 'active' && <Rocket className="h-4 w-4 text-primary animate-pulse" />}
-            {trip.status === 'completed' && <CircleCheck className="h-4 w-4 text-green-600" />}
-            {trip.status}
+            {plan.status === 'active' && <Rocket className="h-4 w-4 text-primary animate-pulse" />}
+            {plan.status === 'completed' && <CircleCheck className="h-4 w-4 text-green-600" />}
+            {plan.status}
           </CardDescription>
         </div>
         <DropdownMenu>
@@ -65,8 +69,7 @@ export function TripPlanCard({ trip, onEdit, onDelete, onViewReport }: TripPlanC
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                {trip.status === 'planning' && <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>}
-                {trip.status === 'completed' && <DropdownMenuItem onClick={onViewReport}><Flag className="mr-2 h-4 w-4" /> View Report</DropdownMenuItem>}
+                {plan.status === 'planning' && <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>}
                 <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -75,30 +78,30 @@ export function TripPlanCard({ trip, onEdit, onDelete, onViewReport }: TripPlanC
         <div className="flex items-baseline justify-between font-mono">
             <div>
                 <p className="text-sm text-muted-foreground">Actual</p>
-                <span className="text-2xl font-bold">{formatCurrency(trip.totalActualCost)}</span>
+                <span className="text-2xl font-bold">{formatCurrency(plan.totalActualCost || 0)}</span>
             </div>
             <div className="text-right">
                 <p className="text-sm text-muted-foreground">Predicted</p>
-                <span className="text-lg text-muted-foreground">{formatCurrency(trip.totalPredictedCost)}</span>
+                <span className="text-lg text-muted-foreground">{formatCurrency(plan.totalPredictedCost)}</span>
             </div>
         </div>
         <Progress value={progress} />
       </CardContent>
       <CardFooter className="flex-col items-start gap-4">
          <div className="w-full">
-            {trip.status === 'planning' && (
+            {plan.status === 'planning' && (
                 <Button onClick={handleStartTrip} className="w-full" disabled={!!userProfile?.activeTripId}>
                     <Rocket className="mr-2 h-4 w-4"/> Start Trip
                 </Button>
             )}
-            {trip.status === 'active' && (
+            {plan.status === 'active' && (
                 <Button onClick={handleEndTrip} className="w-full" variant="destructive">
                     <Flag className="mr-2 h-4 w-4"/> End Trip
                 </Button>
             )}
-            {trip.status === 'completed' && (
-                 <Button onClick={onViewReport} className="w-full" variant="secondary">
-                    <Flag className="mr-2 h-4 w-4" /> View Report
+            {plan.status === 'completed' && (
+                 <Button variant="secondary" disabled className="w-full">
+                    <CircleCheck className="mr-2 h-4 w-4" /> Completed
                 </Button>
             )}
          </div>

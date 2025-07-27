@@ -5,14 +5,21 @@ import { useAppContext } from "@/contexts/app-context";
 import { Button } from "../ui/button";
 import { Rocket, X } from "lucide-react";
 import { useMemo } from "react";
+import { logger } from "@/lib/logger";
 
 export function ActiveTripBanner() {
-    const { userProfile, tripPlans, endTrip } = useAppContext();
+    const { userProfile, financialPlans: tripPlans, updateUserPreferences } = useAppContext();
 
     const activeTrip = useMemo(() => {
         if (!userProfile?.activeTripId) return null;
         return tripPlans.find(trip => trip.id === userProfile.activeTripId);
     }, [userProfile, tripPlans]);
+
+    const endTrip = async (tripId: string) => {
+        logger.info('Ending trip', { tripId });
+        await updateUserPreferences({ activeTripId: null });
+        // Also update the trip status itself
+    }
 
     if (!activeTrip) {
         return null;

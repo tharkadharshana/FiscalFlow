@@ -75,6 +75,7 @@ export interface UserProfile {
   };
   hasCompletedOnboarding?: boolean;
   showOnboardingOnLogin?: boolean;
+  activeTripId?: string | null;
 }
 
 export interface PlanItem {
