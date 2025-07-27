@@ -49,21 +49,27 @@ export default function BudgetsPage() {
   // --- Explicit handlers for each action ---
 
   const handleAddNewBudget = () => {
+    console.log('budgets/page.tsx: handleAddNewBudget triggered');
     setBudgetToEdit(null); // Ensure we're not in edit mode
     setIsAddBudgetDialogOpen(true);
+    console.log('budgets/page.tsx: AddBudgetDialog should open for new budget');
   }
 
   const handleEditBudget = (budget: Budget) => {
+    console.log('budgets/page.tsx: handleEditBudget triggered for budget:', budget.id);
     setBudgetToEdit(budget);
     setIsAddBudgetDialogOpen(true);
+     console.log('budgets/page.tsx: AddBudgetDialog should open for editing budget:', budget.id);
   }
 
   const handleShowBudgetDetails = (budget: Budget) => {
+    console.log('budgets/page.tsx: handleShowBudgetDetails triggered for budget:', budget.id);
     setSelectedBudget(budget);
     setIsBudgetDetailsOpen(true);
   }
 
   const handleDeleteBudget = (budget: Budget) => {
+    console.log('budgets/page.tsx: handleDeleteBudget triggered for budget:', budget.id);
     // THIS IS THE KEY FIX: Ensure the edit dialog is closed and its state is cleared
     // before opening the delete confirmation dialog.
     setIsAddBudgetDialogOpen(false); 
@@ -71,21 +77,26 @@ export default function BudgetsPage() {
 
     setBudgetToDelete(budget);
     setIsDeleteDialogOpen(true);
+    console.log('budgets/page.tsx: Delete confirmation dialog should open for budget:', budget.id);
   }
   
   const handleBudgetDialogClose = (open: boolean) => {
+    console.log('budgets/page.tsx: handleBudgetDialogClose called with open =', open);
     setIsAddBudgetDialogOpen(open);
     if (!open) {
+      console.log('budgets/page.tsx: Dialog closing, clearing budgetToEdit state.');
       // Always clear the edit state when the dialog closes.
       setBudgetToEdit(null);
     }
   }
 
   const confirmDelete = async () => {
+    console.log('budgets/page.tsx: confirmDelete triggered for budgetToDelete:', budgetToDelete?.id);
     if (budgetToDelete) {
       await deleteBudget(budgetToDelete.id);
     }
     setIsDeleteDialogOpen(false);
+    console.log('budgets/page.tsx: Closing delete dialog and clearing budgetToDelete.');
     setBudgetToDelete(null);
   };
 
