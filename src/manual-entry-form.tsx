@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -55,48 +54,60 @@ type ManualEntryFormProps = {
   itemToConvert?: { checklistId: string; item: ChecklistItem } | null;
 }
 
-const defaultValues = {
-  amount: 0,
-  source: '',
-  notes: '',
-  date: new Date(),
-  category: '',
-  tripId: undefined,
-  tripItemId: undefined,
-  isTaxDeductible: false,
-  checklistId: undefined,
-  checklistItemId: undefined,
-};
-
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
   const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
+  
+  const defaultValues = useMemo(() => {
+    if (transactionToEdit) {
+      return {
+        amount: transactionToEdit.amount,
+        source: transactionToEdit.source,
+        category: transactionToEdit.category,
+        date: parseISO(transactionToEdit.date),
+        notes: transactionToEdit.notes || '',
+        tripId: transactionToEdit.tripId || undefined,
+        tripItemId: transactionToEdit.tripItemId || undefined,
+        isTaxDeductible: transactionToEdit.isTaxDeductible || false,
+        checklistId: transactionToEdit.checklistId || undefined,
+        checklistItemId: transactionToEdit.checklistItemId || undefined,
+      };
+    }
+    if (itemToConvert) {
+      return {
+        amount: itemToConvert.item.predictedCost,
+        source: itemToConvert.item.description,
+        category: itemToConvert.item.category,
+        date: new Date(),
+        notes: '',
+        isTaxDeductible: false,
+        checklistId: itemToConvert.checklistId,
+        checklistItemId: itemToConvert.item.id,
+        tripId: undefined,
+        tripItemId: undefined,
+      };
+    }
+    return {
+      amount: 0,
+      source: '',
+      notes: '',
+      date: new Date(),
+      category: '',
+      tripId: undefined,
+      tripItemId: undefined,
+      isTaxDeductible: false,
+      checklistId: undefined,
+      checklistItemId: undefined,
+    };
+  }, [transactionToEdit, itemToConvert]);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues,
+    defaultValues,
   });
 
   useEffect(() => {
-    if (transactionToEdit) {
-      form.reset({
-        ...defaultValues,
-        ...transactionToEdit,
-        date: parseISO(transactionToEdit.date),
-      });
-    } else if (itemToConvert) {
-        form.reset({
-            ...defaultValues,
-            amount: itemToConvert.item.predictedCost,
-            source: itemToConvert.item.description,
-            category: itemToConvert.item.category,
-            checklistId: itemToConvert.checklistId,
-            checklistItemId: itemToConvert.item.id,
-        });
-    } else {
-      form.reset({
-        ...defaultValues,
-      });
-    }
-  }, [transactionToEdit, itemToConvert, form]);
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
 
   const selectedTripId = form.watch('tripId');
 
@@ -113,7 +124,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         date: values.date.toISOString(),
     };
 
-    if (activeTrip && !transactionToEdit) {
+    if (activeTrip && !transactionToEdit && !itemToConvert) {
       dataToSave.tripId = activeTrip.id;
     }
     
@@ -152,7 +163,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {activeTrip && !transactionToEdit && (
+        {activeTrip && !transactionToEdit && !itemToConvert && (
             <Alert>
                 <Rocket className="h-4 w-4" />
                 <AlertTitle>Trip Mode Active</AlertTitle>
