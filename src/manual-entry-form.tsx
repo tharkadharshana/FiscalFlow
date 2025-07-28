@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import { useMemo, useEffect } from 'react';
-import type { Transaction, ChecklistItem, TripPlan } from '@/types';
+import type { Transaction, ChecklistItem } from '@/types';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -69,7 +69,7 @@ const defaultValues = {
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { userProfile, addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
+  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
@@ -107,7 +107,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   }, [selectedTripId, tripPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log('[ManualEntryForm] Submitting. Active trip from context:', activeTrip?.id);
     const dataToSave: Omit<Transaction, 'id' | 'icon'> = {
         ...values,
         type: 'expense',
@@ -115,7 +114,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     };
 
     if (activeTrip && !transactionToEdit) {
-      console.log(`[ManualEntryForm] Active trip detected (${activeTrip.id}). Injecting into transaction.`);
       dataToSave.tripId = activeTrip.id;
     }
     
@@ -354,4 +352,3 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     </Form>
   );
 }
-

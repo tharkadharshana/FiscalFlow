@@ -141,7 +141,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const activeTrip = useMemo(() => {
     if (!userProfile?.activeTripId) return null;
     const trip = tripPlans.find(trip => trip.id === userProfile.activeTripId);
-    console.log('[AppContext] Active trip derived:', trip ? trip.id : 'None');
     return trip || null;
 }, [userProfile, tripPlans]);
 
@@ -271,7 +270,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (profileData.showOnboardingOnLogin === undefined) {
             profileData.showOnboardingOnLogin = true;
           }
-          console.log('[AppContext] User Profile Updated. Active Trip ID:', profileData.activeTripId);
           setUserProfile({ uid: docSnap.id, ...profileData } as UserProfile);
         } else {
             logger.warn("User profile document not found for authenticated user. Login form should handle creation.", { userId: user.uid });
@@ -304,7 +302,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const userTripPlans: TripPlan[] = snapshot.docs.map(doc => ({
             id: doc.id, ...doc.data(), createdAt: doc.data().createdAt?.toDate().toISOString(),
         } as TripPlan));
-        console.log('[AppContext] Trip plans updated from Firestore:', userTripPlans.map(p => p.id));
         setTripPlans(userTripPlans);
       }, (error) => logger.error("Error subscribing to trip plans", error));
 
@@ -425,7 +422,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' });
       return;
     }
-    console.log('[addTransaction] Received transaction data:', transaction);
 
     try {
       await runTransaction(db, async (firestoreTransaction) => {
@@ -468,7 +464,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             tripItemId: tripItemId || null,
           };
 
-        console.log('[addTransaction] Data being sent to Firestore:', dataToSave);
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         firestoreTransaction.set(newTransactionRef, dataToSave);
   
@@ -546,10 +541,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       });
       showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
-      logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
     } catch (error) {
       logger.error('Error adding transaction', error as Error);
-      console.error('[addTransaction] Firestore error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
       showNotification({ type: 'error', title: 'Error', description: errorMessage });
     }
@@ -567,7 +560,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             t.update(txRef, finalUpdateData);
         });
         showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
-        logger.info('Transaction updated successfully', { transactionId });
     } catch (error) {
         logger.error('Error updating transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
@@ -579,7 +571,6 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'transactions', transactionId));
         showNotification({ type: 'success', title: 'Transaction Deleted', description: '' });
-        logger.info('Transaction deleted successfully', { transactionId });
     } catch (error) {
         logger.error('Error deleting transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error deleting transaction', description: '' });
@@ -610,7 +601,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         title: 'Budget Added',
         description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
       });
-      logger.info('Budget added', { category: budget.category, budgetId: budgetRef.id });
     } catch (error) {
       logger.error('Error adding budget', error as Error);
       showNotification({ type: 'error', title: 'Error adding budget', description: '' });
@@ -625,7 +615,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         const currentMonth = new Date().toISOString().slice(0, 7);
         await updateDoc(budgetRef, {...data, month: currentMonth });
         showNotification({ type: 'success', title: 'Budget Updated', description: '' });
-        logger.info('Budget updated', { budgetId });
     } catch (error) {
         setBudgets(prev => [...prev]);
         logger.error('Error updating budget', error as Error, { budgetId });
@@ -642,7 +631,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
-      logger.info('Budget deleted', { budgetId });
     } catch (error) {
       setBudgets(originalBudgets); // Revert UI on error
       logger.error('Error deleting budget', error as Error, { budgetId });
@@ -658,7 +646,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             startDate: Timestamp.fromDate(new Date(transaction.startDate)), createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Recurring Transaction Added', description: `Scheduled "${transaction.title}".` });
-        logger.info('Recurring transaction added', { title: transaction.title });
     } catch (error) {
         logger.error('Error adding recurring transaction', error as Error);
         showNotification({ type: 'error', title: 'Error adding recurring item', description: '' });
@@ -673,7 +660,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId), updateData);
         showNotification({ type: 'success', title: 'Recurring Transaction Updated', description: '' });
-        logger.info('Recurring transaction updated', { transactionId });
     } catch (error) {
         logger.error('Error updating recurring transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error updating recurring item', description: '' });
@@ -685,7 +671,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId));
         showNotification({ type: 'success', title: 'Recurring Transaction Deleted', description: '' });
-        logger.info('Recurring transaction deleted', { transactionId });
     } catch (error) {
         logger.error('Error deleting recurring transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error deleting recurring item', description: '' });
@@ -715,7 +700,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         
         await batch.commit();
         showNotification({ type: 'success', title: 'Savings Goal Created!', description: `You're on your way to saving for "${goal.title}".` });
-        logger.info('Savings goal added', { title: goal.title });
     } catch (error) {
         logger.error('Error adding savings goal', error as Error);
         showNotification({ type: 'error', title: 'Error creating goal', description: '' });
@@ -745,7 +729,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         batch.update(goalRef, finalData);
         await batch.commit();
         showNotification({ type: 'success', title: 'Savings Goal Updated', description: '' });
-        logger.info('Savings goal updated', { goalId });
     } catch (error) {
         logger.error('Error updating savings goal', error as Error, { goalId });
         showNotification({ type: 'error', title: 'Error updating goal', description: '' });
@@ -757,7 +740,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'savingsGoals', goalId));
         showNotification({ type: 'success', title: 'Savings Goal Deleted', description: '' });
-        logger.info('Savings goal deleted', { goalId });
     } catch (error) {
         logger.error('Error deleting savings goal', error as Error, { goalId });
         showNotification({ type: 'error', title: 'Error deleting goal', description: '' });
@@ -774,7 +756,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Investment Added', description: `Added ${investment.name} to your portfolio.` });
-        logger.info('Investment added', { name: investment.name });
     } catch (error) {
         logger.error('Error adding investment', error as Error);
         showNotification({ type: 'error', title: 'Error adding investment', description: '' });
@@ -790,7 +771,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid, 'investments', investmentId), updateData);
         showNotification({ type: 'success', title: 'Investment Updated', description: '' });
-        logger.info('Investment updated', { investmentId });
     } catch (error) {
         logger.error('Error updating investment', error as Error, { investmentId });
         showNotification({ type: 'error', title: 'Error updating investment', description: '' });
@@ -802,7 +782,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'investments', investmentId));
         showNotification({ type: 'success', title: 'Investment Deleted', description: '' });
-        logger.info('Investment deleted', { investmentId });
     } catch (error) {
         logger.error('Error deleting investment', error as Error, { investmentId });
         showNotification({ type: 'error', title: 'Error deleting investment', description: '' });
@@ -818,7 +797,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Trip Plan Created!', description: `Your plan "${plan.title}" is ready.` });
-        logger.info('Trip plan created', { title: plan.title });
     } catch (error) {
         logger.error('Error creating trip plan', error as Error);
         showNotification({ type: 'error', title: 'Error creating trip plan', description: '' });
@@ -830,7 +808,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid, 'tripPlans', planId), data);
         showNotification({ type: 'success', title: 'Trip Plan Updated', description: '' });
-        logger.info('Trip plan updated', { planId });
     } catch (error) {
         logger.error('Error updating trip plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error updating trip plan', description: '' });
@@ -853,7 +830,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
 
         await batch.commit();
         showNotification({ type: 'success', title: 'Trip Restarted!', description: '' });
-        logger.info('Trip restarted', { planId });
     } catch (error) {
         logger.error('Error restarting trip', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error restarting trip', description: '' });
@@ -869,7 +845,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         }
         await deleteDoc(doc(db, 'users', user.uid, 'tripPlans', planId));
         showNotification({ type: 'success', title: 'Trip Plan Deleted', description: '' });
-        logger.info('Trip plan deleted', { planId });
     } catch (error) {
         logger.error('Error deleting trip plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error deleting trip plan', description: '' });
@@ -916,7 +891,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       const { subscription, ...restData } = data; // Prevent direct subscription changes here
       await updateDoc(doc(db, 'users', user.uid), restData);
       showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
-      logger.info('User preferences updated', data);
     } catch (error) {
       logger.error('Error updating user preferences', error as Error);
       showNotification({ type: 'error', title: 'Error saving settings', description: '' });
@@ -942,7 +916,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       });
 
       showNotification({ type: 'success', title: 'Upgrade Successful!', description: 'Welcome to FiscalFlow Premium.' });
-      logger.info('User upgraded to premium', { plan });
     } catch (error) {
       logger.error('Error upgrading to premium', error as Error);
       showNotification({ type: 'error', title: 'Upgrade Failed', description: 'Could not update your subscription.' });
@@ -960,7 +933,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         });
 
         showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
-        logger.info('User downgraded from premium');
     } catch (error) {
         logger.error('Error downgrading from premium', error as Error);
         showNotification({ type: 'error', title: 'Cancellation Failed', description: 'Could not update your subscription.' });
@@ -977,7 +949,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayUnion(category) });
         showNotification({ type: 'success', title: `Category "${category}" added.`, description: '' });
-        logger.info('Custom category added', { category });
     } catch (error) {
         logger.error('Error adding custom category', error as Error, { category });
         showNotification({ type: 'error', title: 'Error adding category', description: '' });
@@ -989,7 +960,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayRemove(category) });
         showNotification({ type: 'success', title: `Category "${category}" removed.`, description: '' });
-        logger.info('Custom category deleted', { category });
     } catch (error) {
         logger.error('Error deleting custom category', error as Error, { category });
         showNotification({ type: 'error', title: 'Error deleting category', description: '' });
@@ -1042,7 +1012,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             'subscription.monthlyReports': { count: newCount, month: currentMonth }
         });
     }
-    logger.info('Report generated');
     return true;
   }
   
@@ -1062,7 +1031,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             'subscription.monthlyInsights': { count: newCount, month: currentMonth }
         });
     }
-    logger.info('Insights generated');
     return result;
   }
 
@@ -1086,28 +1054,24 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             'subscription.monthlyOcrScans': { count: newCount, month: currentMonth }
         });
     }
-    logger.info('Receipt scanned');
     return result;
   };
   
   const createChecklistWithLimit = async (userQuery: string): Promise<CreateChecklistOutput | { error: string } | undefined> => {
     if (!user || !userProfile) { return { error: 'Not authenticated' }; }
     const result = await createChecklistAction({ userQuery, availableIcons: Object.keys(categoryIcons), availableCategories: expenseCategories });
-    logger.info('Checklist created with AI');
     return result;
   }
   
   const createBudgetsWithLimit = async (userQuery: string, existingCategories: string[]): Promise<CreateMonthlyBudgetsOutput | { error: string } | undefined> => {
     if (!user || !userProfile) { return { error: 'Not authenticated' }; }
     const result = await createMonthlyBudgetsAction({ userQuery, existingCategories });
-    logger.info('Budgets created with AI');
     return result;
   };
 
   const createSavingsGoalWithLimit = async (userQuery: string): Promise<CreateSavingsGoalOutput | { error: string } | undefined> => {
     if (!user || !userProfile) { return { error: 'Not authenticated' }; }
     const result = await createSavingsGoalAction({ userQuery });
-    logger.info('Savings goal created with AI');
     return result;
   };
   
@@ -1118,7 +1082,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             ...checklist, userId: user.uid, createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Checklist Created!', description: `Your new checklist "${checklist.title}" is ready.` });
-        logger.info('Checklist created', { title: checklist.title });
     } catch (error) {
         logger.error('Error creating checklist', error as Error);
         showNotification({ type: 'error', title: 'Error creating checklist', description: '' });
@@ -1129,7 +1092,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await updateDoc(doc(db, 'users', user.uid, 'checklists', checklistId), data);
-        logger.info('Checklist updated', { checklistId });
     } catch (error) {
         logger.error('Error updating checklist', error as Error, { checklistId });
         showNotification({ type: 'error', title: 'Error updating checklist', description: '' });
@@ -1141,7 +1103,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'checklists', checklistId));
         showNotification({ type: 'success', title: 'Checklist Deleted', description: '' });
-        logger.info('Checklist deleted', { checklistId });
     } catch (error) {
         logger.error('Error deleting checklist', error as Error, { checklistId });
         showNotification({ type: 'error', title: 'Error deleting checklist', description: '' });
@@ -1159,7 +1120,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Template Saved!', description: `Saved "${checklist.title}" as a new template.` });
-        logger.info('Checklist template created', { sourceChecklistId: checklist.id });
     } catch (error) {
         logger.error('Error saving checklist as template', error as Error);
         showNotification({ type: 'error', title: 'Error saving template', description: '' });
@@ -1171,7 +1131,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'checklistTemplates', templateId));
         showNotification({ type: 'success', title: 'Template Deleted', description: '' });
-        logger.info('Checklist template deleted', { templateId });
     } catch (error) {
         logger.error('Error deleting checklist template', error as Error, { templateId });
         showNotification({ type: 'error', title: 'Error deleting template', description: '' });
@@ -1180,7 +1139,6 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
 
   const logout = async () => {
     if (user) {
-        logger.info('User logging out');
         await auth.signOut();
     }
   };
