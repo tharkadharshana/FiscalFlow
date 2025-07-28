@@ -112,24 +112,20 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   }, [selectedTripId, tripPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    let finalValues = { ...values };
-
-    // This is the critical fix:
-    // If there's an active trip and we are NOT editing a transaction,
-    // forcefully link this new transaction to the active trip.
-    if (activeTrip && !transactionToEdit) {
-      finalValues.tripId = activeTrip.id;
-    }
-
-    const data = {
-        ...finalValues,
-        type: 'expense' as const,
-        date: finalValues.date.toISOString(),
+    const dataToSave: Omit<Transaction, 'id' | 'icon'> = {
+        ...values,
+        type: 'expense',
+        date: values.date.toISOString(),
     };
+
+    if (activeTrip && !transactionToEdit) {
+      dataToSave.tripId = activeTrip.id;
+    }
+    
     if (transactionToEdit) {
-        updateTransaction(transactionToEdit.id, data as Partial<Transaction>);
+        updateTransaction(transactionToEdit.id, dataToSave as Partial<Transaction>);
     } else {
-        addTransaction(data);
+        addTransaction(dataToSave);
     }
     onFormSubmit();
   }
