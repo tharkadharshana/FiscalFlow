@@ -403,16 +403,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let endDate: Date;
   
     if (currentDay >= cycleStartDay) {
-      // Cycle started this month, ends next month
       startDate = new Date(currentYear, currentMonth, cycleStartDay);
       endDate = new Date(currentYear, currentMonth + 1, cycleStartDay - 1);
     } else {
-      // Cycle started last month, ends this month
       startDate = new Date(currentYear, currentMonth - 1, cycleStartDay);
       endDate = new Date(currentYear, currentMonth, cycleStartDay - 1);
     }
   
-    // Set times to cover full days
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
   
@@ -1193,6 +1190,7 @@ export function useAppContext() {
   }
   return context;
 }
+
 
 
 
