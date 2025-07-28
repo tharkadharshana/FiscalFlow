@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow to create a structured checklist from a user's natural language description.
@@ -8,7 +9,6 @@
 import {ai} from '@/ai/genkit';
 import { CreateChecklistInputSchema, CreateChecklistOutputSchema } from '@/types/schemas';
 import type { CreateChecklistInput, CreateChecklistOutput } from '@/types/schemas';
-import { allIcons } from '@/data/icons';
 
 
 export async function createChecklist(input: CreateChecklistInput): Promise<CreateChecklistOutput> {
@@ -31,6 +31,7 @@ Follow these rules:
     - A 'predictedCost' (estimate if not provided).
     - An appropriate 'category' from the list of expense categories.
 5.  **Handle Ambiguity:** If the user is vague, make reasonable assumptions. For "car checkup," you might include items like 'Oil Change' and 'Tire Rotation'.
+6.  **Use Provided Context:** You MUST use the provided lists of available icons and categories to populate the respective fields.
 
 **Available Icons:**
 {{#each availableIcons}}
@@ -62,8 +63,5 @@ Now, generate the complete checklist object.
     }
   );
 
-  return createChecklistFlow({
-      ...input,
-      availableIcons: Object.keys(allIcons),
-  });
+  return createChecklistFlow(input);
 }

@@ -193,7 +193,11 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
     if (!query) return;
     setView('loading');
     setUserQuery(query);
-    const result = await createChecklistAction({ userQuery });
+    const result = await createChecklistAction({
+        userQuery,
+        availableIcons: Object.keys(allIcons),
+        availableCategories: expenseCategories,
+    });
     
     if ('error' in result) {
         showNotification({ type: 'error', title: 'AI Error', description: result.error });
