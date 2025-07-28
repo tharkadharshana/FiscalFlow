@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -98,10 +99,17 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     } else {
       form.reset({
         ...defaultValues,
-        tripId: activeTrip?.id,
       });
     }
-  }, [transactionToEdit, itemToConvert, form, activeTrip]);
+  }, [transactionToEdit, itemToConvert, form]);
+
+  // Effect to specifically handle setting the active trip ID
+  useEffect(() => {
+    if (!transactionToEdit && !itemToConvert) {
+        form.setValue('tripId', activeTrip?.id);
+    }
+  }, [activeTrip, transactionToEdit, itemToConvert, form]);
+
 
   const selectedTripId = form.watch('tripId');
 

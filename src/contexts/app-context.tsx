@@ -578,7 +578,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     }
     
     try {
-      const month = new Date().toISOString().slice(0, 7);
+      const month = new Date().toISOString().slice(0, 7); // Correct YYYY-MM format
       
       const newBudgetData = {
           ...budget,
@@ -589,14 +589,13 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         };
 
       const budgetRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), newBudgetData);
-      setBudgets(prev => [...prev, { ...newBudgetData, id: budgetRef.id, createdAt: new Date().toISOString() } as Budget]);
 
       showNotification({
         type: 'success',
         title: 'Budget Added',
         description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
       });
-      logger.info('Budget added', { category: budget.category });
+      logger.info('Budget added', { category: budget.category, budgetId: budgetRef.id });
     } catch (error) {
       logger.error('Error adding budget', error as Error);
       showNotification({ type: 'error', title: 'Error adding budget', description: '' });
@@ -610,7 +609,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     
     try {
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
-      const currentMonth = new Date().toISOString().slice(0, 7);
+      const currentMonth = new Date().toISOString().slice(0, 7); // Correct YYYY-MM format
       await updateDoc(budgetRef, {...data, month: currentMonth });
       showNotification({ type: 'success', title: 'Budget Updated', description: '' });
       logger.info('Budget updated', { budgetId });
@@ -851,6 +850,10 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
   const deleteTripPlan = async (planId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
+        // If the trip being deleted is the active one, clear it from user profile
+        if (userProfile?.activeTripId === planId) {
+            await updateDoc(doc(db, 'users', user.uid), { activeTripId: null });
+        }
         await deleteDoc(doc(db, 'users', user.uid, 'tripPlans', planId));
         showNotification({ type: 'success', title: 'Trip Plan Deleted', description: '' });
         logger.info('Trip plan deleted', { planId });
