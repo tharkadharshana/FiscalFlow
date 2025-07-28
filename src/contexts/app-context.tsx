@@ -445,8 +445,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // --- ALL READS MUST GO HERE, BEFORE ANY WRITES ---
         
         // Potential Read 1: Roundup Goal
-        const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
-        const roundupGoalSnap = await firestoreTransaction.get(roundupGoalQuery.docs[0]?.ref);
+        let roundupGoalSnap: any;
+        const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
+        const roundupGoals = await firestoreTransaction.get(roundupGoalQuery);
+        if (!roundupGoals.empty) {
+            roundupGoalSnap = roundupGoals.docs[0];
+        }
 
         // Potential Read 2: Checklist
         let checklistSnap: any;
@@ -514,7 +518,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         
         // Write 2: Update Checklist
-        if (checklistId && checklistItemId && checklistSnap.exists()) {
+        if (checklistId && checklistItemId && checklistSnap && checklistSnap.exists()) {
             const checklist = checklistSnap.data() as Checklist;
             const updatedItems = checklist.items.map(item =>
                 item.id === checklistItemId ? { ...item, isCompleted: true } : item
@@ -523,7 +527,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         
         // Write 3: Update Trip Plan
-        if (tripId && tripSnap.exists()) {
+        if (tripId && tripSnap && tripSnap.exists()) {
             const trip = tripSnap.data() as TripPlan;
             let newTotalActualCost = trip.totalActualCost || 0;
             
@@ -1221,7 +1225,4 @@ export function useAppContext() {
   return context;
 }
 
-
-
-
-
+    
