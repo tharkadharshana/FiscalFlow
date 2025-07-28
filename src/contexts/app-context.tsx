@@ -604,19 +604,17 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
 
   const updateBudget = async (budgetId: string, data: Partial<Omit<Budget, 'id'>>) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
-    const originalBudgets = [...budgets];
-    setBudgets(prev => prev.map(b => b.id === budgetId ? { ...b, ...data } as Budget : b));
-    
     try {
-      const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
-      const currentMonth = new Date().toISOString().slice(0, 7); // Correct YYYY-MM format
-      await updateDoc(budgetRef, {...data, month: currentMonth });
-      showNotification({ type: 'success', title: 'Budget Updated', description: '' });
-      logger.info('Budget updated', { budgetId });
+        setBudgets(prev => prev.map(b => b.id === budgetId ? { ...b, ...data } as Budget : b));
+        const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        await updateDoc(budgetRef, {...data, month: currentMonth });
+        showNotification({ type: 'success', title: 'Budget Updated', description: '' });
+        logger.info('Budget updated', { budgetId });
     } catch (error) {
-      setBudgets(originalBudgets); // Revert UI on error
-      logger.error('Error updating budget', error as Error, { budgetId });
-      showNotification({ type: 'error', title: 'Error updating budget', description: (error as Error).message });
+        setBudgets(prev => [...prev]);
+        logger.error('Error updating budget', error as Error, { budgetId });
+        showNotification({ type: 'error', title: 'Error updating budget', description: (error as Error).message });
     }
   };
   

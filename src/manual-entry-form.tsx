@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Textarea } from './ui/textarea';
 import { useMemo, useEffect } from 'react';
-import type { Transaction, ChecklistItem } from '@/types';
+import type { Transaction, ChecklistItem, TripPlan } from '@/types';
 import { Switch } from './ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -103,14 +103,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     }
   }, [transactionToEdit, itemToConvert, form]);
 
-  // Effect to specifically handle setting the active trip ID
-  useEffect(() => {
-    if (!transactionToEdit && !itemToConvert) {
-        form.setValue('tripId', activeTrip?.id);
-    }
-  }, [activeTrip, transactionToEdit, itemToConvert, form]);
-
-
   const selectedTripId = form.watch('tripId');
 
   const selectedTripItems = useMemo(() => {
@@ -120,10 +112,19 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   }, [selectedTripId, tripPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    let finalValues = { ...values };
+
+    // This is the critical fix:
+    // If there's an active trip and we are NOT editing a transaction,
+    // forcefully link this new transaction to the active trip.
+    if (activeTrip && !transactionToEdit) {
+      finalValues.tripId = activeTrip.id;
+    }
+
     const data = {
-        ...values,
-        type: 'expense',
-        date: values.date.toISOString(),
+        ...finalValues,
+        type: 'expense' as const,
+        date: finalValues.date.toISOString(),
     };
     if (transactionToEdit) {
         updateTransaction(transactionToEdit.id, data as Partial<Transaction>);
