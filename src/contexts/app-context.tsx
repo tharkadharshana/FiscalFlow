@@ -392,21 +392,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const transactionsForCurrentCycle = useMemo(() => {
     if (!userProfile) return [];
+    
     const cycleStartDay = userProfile.financialCycleStartDay || 1;
     const now = new Date();
-    let startDate, endDate;
-  
-    if (now.getDate() >= cycleStartDay) {
-      // Cycle is within the current month
-      startDate = new Date(now.getFullYear(), now.getMonth(), cycleStartDay);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, cycleStartDay - 1);
-    } else {
-      // Cycle spans across previous and current months
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, cycleStartDay);
-      endDate = new Date(now.getFullYear(), now.getMonth(), cycleStartDay - 1);
-    }
+    const currentDay = now.getDate();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
     
-    // Set time to include the entire day
+    let startDate: Date;
+    let endDate: Date;
+
+    if (currentDay >= cycleStartDay) {
+        // The cycle started in the current month.
+        startDate = new Date(currentYear, currentMonth, cycleStartDay);
+        // The cycle ends in the next month.
+        endDate = new Date(currentYear, currentMonth + 1, cycleStartDay - 1);
+    } else {
+        // The cycle started in the previous month.
+        startDate = new Date(currentYear, currentMonth - 1, cycleStartDay);
+        // The cycle ends in the current month.
+        endDate = new Date(currentYear, currentMonth, cycleStartDay - 1);
+    }
+
+    // Set time to include the entire day range
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
 
@@ -1187,4 +1195,5 @@ export function useAppContext() {
   }
   return context;
 }
+
 
