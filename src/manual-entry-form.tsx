@@ -69,16 +69,11 @@ const defaultValues = {
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { userProfile, addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
+  const { userProfile, addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
   });
-  
-  const activeTrip = useMemo(() => {
-    if (!userProfile?.activeTripId) return null;
-    return tripPlans.find(trip => trip.id === userProfile.activeTripId);
-  }, [userProfile, tripPlans]);
 
   useEffect(() => {
     if (transactionToEdit) {
@@ -112,6 +107,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   }, [selectedTripId, tripPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log('[ManualEntryForm] Submitting. Active trip from context:', activeTrip?.id);
     const dataToSave: Omit<Transaction, 'id' | 'icon'> = {
         ...values,
         type: 'expense',
@@ -119,6 +115,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     };
 
     if (activeTrip && !transactionToEdit) {
+      console.log(`[ManualEntryForm] Active trip detected (${activeTrip.id}). Injecting into transaction.`);
       dataToSave.tripId = activeTrip.id;
     }
     
@@ -357,3 +354,4 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     </Form>
   );
 }
+
