@@ -1,5 +1,5 @@
 import type { Transaction } from '@/types';
-import { ShoppingCart, Utensils, Fuel, Home, Shirt, Gift, Film, Bus, HeartPulse, Briefcase, TrendingUp, Award, GitFork, DollarSign, Hammer, Plane, GraduationCap, Dumbbell } from 'lucide-react';
+import { ShoppingCart, Utensils, Fuel, Home, Shirt, Gift, Film, Bus, HeartPulse, Briefcase, TrendingUp, Award, GitFork, DollarSign, Hammer, GraduationCap, Dumbbell } from 'lucide-react';
 
 export const categories: Record<string, React.ComponentType<{ className?: string }>> = {
   // Expenses
@@ -13,7 +13,6 @@ export const categories: Record<string, React.ComponentType<{ className?: string
   "Utilities": HeartPulse,
   "Public Transport": Bus,
   "Home Repair": Hammer,
-  "Travel": Plane,
   "Education": GraduationCap,
   "Health & Fitness": Dumbbell,
   // Income
@@ -39,7 +38,6 @@ export const defaultExpenseCategories = [
     "Utilities",
     "Public Transport",
     "Home Repair",
-    "Travel",
     "Education",
     "Health & Fitness",
 ];
