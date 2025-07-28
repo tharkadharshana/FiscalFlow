@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -353,7 +352,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
                         ))}
                     </div>
                 </ScrollArea>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: '' })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: 'Groceries' })}>
                     <Plus className="mr-2 h-4 w-4" />Add Item
                 </Button>
             </div>
@@ -375,7 +374,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
       <Tabs value={activeTab} onValueChange={(value) => {
         setActiveTab(value);
         if (value === 'manual' && view === 'input' && fields.length === 0) {
-            replace([{ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: '' }]);
+            replace([{ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: 'Groceries' }]);
             setView('review');
         }
       }} className="w-full h-full flex flex-col">
@@ -439,3 +438,5 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
     </Dialog>
   );
 }
+
+    
