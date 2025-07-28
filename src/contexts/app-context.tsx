@@ -403,11 +403,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let endDate: Date;
   
     if (currentDay >= cycleStartDay) {
-      // Cycle started this month and ends next month
+      // Cycle started this month, ends next month
       startDate = new Date(currentYear, currentMonth, cycleStartDay);
       endDate = new Date(currentYear, currentMonth + 1, cycleStartDay - 1);
     } else {
-      // Cycle started last month and ends this month
+      // Cycle started last month, ends this month
       startDate = new Date(currentYear, currentMonth - 1, cycleStartDay);
       endDate = new Date(currentYear, currentMonth, cycleStartDay - 1);
     }
@@ -434,101 +434,83 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'icon'>) => {
     if (!user || !userProfile) {
-      showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' });
-      return;
+        showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' });
+        return;
     }
 
     try {
-      await runTransaction(db, async (firestoreTransaction) => {
         const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, ...restOfTransaction } = transaction;
-
-        // --- ALL READS MUST GO HERE, BEFORE ANY WRITES ---
-        
-        // Potential Read 1: Roundup Goal
-        let roundupGoalSnap: any;
-        const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
-        const roundupGoals = await firestoreTransaction.get(roundupGoalQuery);
-        if (!roundupGoals.empty) {
-            roundupGoalSnap = roundupGoals.docs[0];
-        }
-
-        // Potential Read 2: Checklist
-        let checklistSnap: any;
-        if (checklistId) {
-            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
-            checklistSnap = await firestoreTransaction.get(checklistRef);
-        }
-
-        // Potential Read 3: Trip Plan
-        let tripSnap: any;
-        if (tripId) {
-            const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
-            tripSnap = await firestoreTransaction.get(tripRef);
-        }
-
-        // --- ALL WRITES GO HERE, AFTER ALL READS ---
         const finalAmount = items && items.length > 0
-          ? items.reduce((sum, item) => sum + item.amount, 0)
-          : transaction.amount;
-        
-        const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
-        
-        const dataToSave = {
-            ...restOfTransaction,
-            amount: finalAmount,
-            items: items || [],
-            date: Timestamp.fromDate(new Date(date)),
-            createdAt: serverTimestamp(),
-            userId: user.uid,
-            isTaxDeductible: isTaxDeductible || false,
-            carbonFootprint,
-            checklistId: checklistId || null,
-            checklistItemId: checklistItemId || null,
-            tripId: tripId || null,
-            tripItemId: tripItemId || null,
-          };
-  
-        const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
-        firestoreTransaction.set(newTransactionRef, dataToSave);
-  
-        // Write 1: Update Roundup Goal
+            ? items.reduce((sum, item) => sum + item.amount, 0)
+            : transaction.amount;
+
+        // Perform all reads first
+        let roundupGoalDoc: any;
+        let checklistDoc: any;
+        let tripDoc: any;
+
         const currentMonth = new Date().toISOString().slice(0, 7);
         const monthlyRoundups = userProfile.subscription.monthlyRoundups;
         const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
 
-        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount) && roundupGoalSnap && roundupGoalSnap.exists()) {
-            const goalDoc = roundupGoalSnap;
-            const goal = goalDoc.data() as SavingsGoal;
-            const roundupAmount = Math.ceil(finalAmount) - finalAmount;
-    
-            if (roundupAmount > 0) {
-              const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
-              const newBadges = calculateNewBadges(goal, newCurrentAmount);
-              firestoreTransaction.update(goalDoc.ref, {
-                currentAmount: newCurrentAmount,
-                badges: arrayUnion(...newBadges)
-              });
-    
-              if (!isPremium) {
-                const userDocRef = doc(db, 'users', user.uid);
-                const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
-                firestoreTransaction.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
-              }
+        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
+            const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
+            const querySnapshot = await getDocs(roundupGoalQuery);
+            if (!querySnapshot.empty) {
+                roundupGoalDoc = querySnapshot.docs[0];
             }
         }
-        
-        // Write 2: Update Checklist
-        if (checklistId && checklistItemId && checklistSnap && checklistSnap.exists()) {
-            const checklist = checklistSnap.data() as Checklist;
+        if (checklistId) {
+            checklistDoc = await getDocs(query(collection(db, 'users', user.uid, 'checklists'), where('__name__', '==', checklistId)));
+        }
+        if (tripId) {
+            tripDoc = await getDocs(query(collection(db, 'users', user.uid, 'tripPlans'), where('__name__', '==', tripId)));
+        }
+
+        // Now, perform all writes in a batch
+        const batch = writeBatch(db);
+
+        const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
+        const dataToSave = {
+            ...restOfTransaction, amount: finalAmount, items: items || [], date: Timestamp.fromDate(new Date(date)),
+            createdAt: serverTimestamp(), userId: user.uid, isTaxDeductible: isTaxDeductible || false,
+            carbonFootprint, checklistId: checklistId || null, checklistItemId: checklistItemId || null,
+            tripId: tripId || null, tripItemId: tripItemId || null,
+        };
+        const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
+        batch.set(newTransactionRef, dataToSave);
+
+        // Update Roundup Goal
+        if (roundupGoalDoc) {
+            const goal = roundupGoalDoc.data() as SavingsGoal;
+            const roundupAmount = Math.ceil(finalAmount) - finalAmount;
+            if (roundupAmount > 0) {
+                const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
+                const newBadges = calculateNewBadges(goal, newCurrentAmount);
+                batch.update(roundupGoalDoc.ref, {
+                    currentAmount: newCurrentAmount,
+                    badges: arrayUnion(...newBadges)
+                });
+                if (!isPremium) {
+                    const userDocRef = doc(db, 'users', user.uid);
+                    const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
+                    batch.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
+                }
+            }
+        }
+
+        // Update Checklist
+        if (checklistDoc && !checklistDoc.empty && checklistItemId) {
+            const checklist = checklistDoc.docs[0].data() as Checklist;
             const updatedItems = checklist.items.map(item =>
                 item.id === checklistItemId ? { ...item, isCompleted: true } : item
             );
-            firestoreTransaction.update(checklistSnap.ref, { items: updatedItems });
+            batch.update(checklistDoc.docs[0].ref, { items: updatedItems });
         }
-        
-        // Write 3: Update Trip Plan
-        if (tripId && tripSnap && tripSnap.exists()) {
-            const trip = tripSnap.data() as TripPlan;
+
+        // Update Trip Plan
+        if (tripDoc && !tripDoc.empty) {
+            const trip = tripDoc.docs[0].data() as TripPlan;
             let newTotalActualCost = trip.totalActualCost || 0;
             
             if (transaction.type === 'expense') newTotalActualCost += finalAmount;
@@ -538,24 +520,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 const updatedItems = trip.items.map(item => 
                     item.id === tripItemId ? { ...item, actualCost: finalAmount } : item
                 );
-                firestoreTransaction.update(tripSnap.ref, { items: updatedItems, totalActualCost: newTotalActualCost });
+                batch.update(tripDoc.docs[0].ref, { items: updatedItems, totalActualCost: newTotalActualCost });
             } else if (transaction.type === 'expense') {
                 const newUnplannedItem: TripItem = {
                     id: nanoid(), description: transaction.source, category: transaction.category,
                     predictedCost: 0, actualCost: finalAmount, isAiSuggested: false,
                 };
-                firestoreTransaction.update(tripSnap.ref, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
+                batch.update(tripDoc.docs[0].ref, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
             } else {
-                firestoreTransaction.update(tripSnap.ref, { totalActualCost: newTotalActualCost });
+                batch.update(tripDoc.docs[0].ref, { totalActualCost: newTotalActualCost });
             }
         }
-      });
-      showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
-      logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
+
+        await batch.commit();
+
+        showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
+        logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
     } catch (error) {
-      logger.error('Error adding transaction', error as Error);
-      const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
-      showNotification({ type: 'error', title: 'Error', description: errorMessage });
+        logger.error('Error adding transaction', error as Error);
+        const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
+        showNotification({ type: 'error', title: 'Error', description: errorMessage });
     }
   };
   
@@ -1224,5 +1208,3 @@ export function useAppContext() {
   }
   return context;
 }
-
-    
