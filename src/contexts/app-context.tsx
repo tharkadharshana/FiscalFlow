@@ -403,13 +403,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let endDate: Date;
   
     if (currentDay >= cycleStartDay) {
+      // Cycle started this month and ends next month
       startDate = new Date(currentYear, currentMonth, cycleStartDay);
       endDate = new Date(currentYear, currentMonth + 1, cycleStartDay - 1);
     } else {
+      // Cycle started last month and ends this month
       startDate = new Date(currentYear, currentMonth - 1, cycleStartDay);
       endDate = new Date(currentYear, currentMonth, cycleStartDay - 1);
     }
   
+    // Set times to cover full days
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
   
@@ -430,35 +433,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [userProfile?.currencyPreference]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id' | 'icon'>) => {
-    if (!user) {
+    if (!user || !userProfile) {
       showNotification({ type: 'error', title: 'Authentication Error', description: 'You must be logged in.' });
       return;
     }
 
     try {
       await runTransaction(db, async (firestoreTransaction) => {
-        const userDocRef = doc(db, 'users', user.uid);
-  
-        // Destructure to handle optional properties correctly
         const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, ...restOfTransaction } = transaction;
-  
+
+        // --- ALL READS MUST GO HERE, BEFORE ANY WRITES ---
+        
+        // Potential Read 1: Roundup Goal
+        const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
+        const roundupGoalSnap = await firestoreTransaction.get(roundupGoalQuery.docs[0]?.ref);
+
+        // Potential Read 2: Checklist
+        let checklistSnap: any;
+        if (checklistId) {
+            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
+            checklistSnap = await firestoreTransaction.get(checklistRef);
+        }
+
+        // Potential Read 3: Trip Plan
+        let tripSnap: any;
+        if (tripId) {
+            const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
+            tripSnap = await firestoreTransaction.get(tripRef);
+        }
+
+        // --- ALL WRITES GO HERE, AFTER ALL READS ---
         const finalAmount = items && items.length > 0
           ? items.reduce((sum, item) => sum + item.amount, 0)
           : transaction.amount;
-  
-        // --- READS FIRST ---
-        let roundupGoalSnap: any;
-  
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const monthlyRoundups = userProfile?.subscription.monthlyRoundups;
-        const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
-  
-        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
-          const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true));
-          roundupGoalSnap = await getDocs(roundupGoalQuery);
-        }
-  
-        // --- WRITES SECOND ---
+        
         const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
         
         const dataToSave = {
@@ -475,84 +483,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
             tripId: tripId || null,
             tripItemId: tripItemId || null,
           };
-
+  
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         firestoreTransaction.set(newTransactionRef, dataToSave);
   
-        if (roundupGoalSnap && !roundupGoalSnap.empty) {
-          const goalDoc = roundupGoalSnap.docs[0];
-          const goal = goalDoc.data() as SavingsGoal;
-          const roundupAmount = Math.ceil(finalAmount) - finalAmount;
-  
-          if (roundupAmount > 0) {
-            const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
-            const newBadges = calculateNewBadges(goal, newCurrentAmount);
-            firestoreTransaction.update(goalDoc.ref, {
-              currentAmount: newCurrentAmount,
-              badges: arrayUnion(...newBadges)
-            });
-  
-            if (!isPremium && userProfile) {
-              const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
-              firestoreTransaction.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
-            }
-          }
-        }
-        
-        if (checklistId && checklistItemId) {
-            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
-            const checklistSnap = await firestoreTransaction.get(checklistRef);
-            if (checklistSnap.exists()) {
-                const checklist = checklistSnap.data() as Checklist;
-                const updatedItems = checklist.items.map(item =>
-                    item.id === checklistItemId ? { ...item, isCompleted: true } : item
-                );
-                firestoreTransaction.update(checklistRef, { items: updatedItems });
-            }
-        }
-        
-        // This is the updated trip logic
-        if (tripId) {
-            const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
-            const tripSnap = await firestoreTransaction.get(tripRef);
-            if (tripSnap.exists()) {
-                const trip = tripSnap.data() as TripPlan;
-                let newTotalActualCost = trip.totalActualCost || 0;
-                
-                if (transaction.type === 'expense') {
-                    newTotalActualCost += finalAmount;
-                } else if (transaction.type === 'income') {
-                    newTotalActualCost -= finalAmount;
-                }
+        // Write 1: Update Roundup Goal
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const monthlyRoundups = userProfile.subscription.monthlyRoundups;
+        const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
 
-                if (tripItemId) {
-                    const updatedItems = trip.items.map(item => {
-                        if (item.id === tripItemId) {
-                            return { ...item, actualCost: finalAmount };
-                        }
-                        return item;
-                    });
-                    firestoreTransaction.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
-                } else if (transaction.type === 'expense') {
-                    const newUnplannedItem: TripItem = {
-                        id: nanoid(),
-                        description: transaction.source,
-                        category: transaction.category,
-                        predictedCost: 0,
-                        actualCost: finalAmount,
-                        isAiSuggested: false,
-                    };
-                    firestoreTransaction.update(tripRef, { 
-                        items: arrayUnion(newUnplannedItem),
-                        totalActualCost: newTotalActualCost 
-                    });
-                } else {
-                    firestoreTransaction.update(tripRef, { totalActualCost: newTotalActualCost });
-                }
+        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount) && roundupGoalSnap && roundupGoalSnap.exists()) {
+            const goalDoc = roundupGoalSnap;
+            const goal = goalDoc.data() as SavingsGoal;
+            const roundupAmount = Math.ceil(finalAmount) - finalAmount;
+    
+            if (roundupAmount > 0) {
+              const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
+              const newBadges = calculateNewBadges(goal, newCurrentAmount);
+              firestoreTransaction.update(goalDoc.ref, {
+                currentAmount: newCurrentAmount,
+                badges: arrayUnion(...newBadges)
+              });
+    
+              if (!isPremium) {
+                const userDocRef = doc(db, 'users', user.uid);
+                const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
+                firestoreTransaction.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
+              }
+            }
+        }
+        
+        // Write 2: Update Checklist
+        if (checklistId && checklistItemId && checklistSnap.exists()) {
+            const checklist = checklistSnap.data() as Checklist;
+            const updatedItems = checklist.items.map(item =>
+                item.id === checklistItemId ? { ...item, isCompleted: true } : item
+            );
+            firestoreTransaction.update(checklistSnap.ref, { items: updatedItems });
+        }
+        
+        // Write 3: Update Trip Plan
+        if (tripId && tripSnap.exists()) {
+            const trip = tripSnap.data() as TripPlan;
+            let newTotalActualCost = trip.totalActualCost || 0;
+            
+            if (transaction.type === 'expense') newTotalActualCost += finalAmount;
+            else if (transaction.type === 'income') newTotalActualCost -= finalAmount;
+
+            if (tripItemId) {
+                const updatedItems = trip.items.map(item => 
+                    item.id === tripItemId ? { ...item, actualCost: finalAmount } : item
+                );
+                firestoreTransaction.update(tripSnap.ref, { items: updatedItems, totalActualCost: newTotalActualCost });
+            } else if (transaction.type === 'expense') {
+                const newUnplannedItem: TripItem = {
+                    id: nanoid(), description: transaction.source, category: transaction.category,
+                    predictedCost: 0, actualCost: finalAmount, isAiSuggested: false,
+                };
+                firestoreTransaction.update(tripSnap.ref, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
+            } else {
+                firestoreTransaction.update(tripSnap.ref, { totalActualCost: newTotalActualCost });
             }
         }
       });
       showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
+      logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
     } catch (error) {
       logger.error('Error adding transaction', error as Error);
       const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
@@ -572,6 +567,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             t.update(txRef, finalUpdateData);
         });
         showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
+        logger.info('Transaction updated successfully', { transactionId });
     } catch (error) {
         logger.error('Error updating transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
@@ -583,6 +579,7 @@ const deleteTransaction = async (transactionId: string) => {
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'transactions', transactionId));
         showNotification({ type: 'success', title: 'Transaction Deleted', description: '' });
+        logger.info('Transaction deleted successfully', { transactionId });
     } catch (error) {
         logger.error('Error deleting transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error deleting transaction', description: '' });
@@ -613,6 +610,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         title: 'Budget Added',
         description: `New budget for ${budget.category} set to ${formatCurrency(budget.limit)}.`,
       });
+      logger.info('Budget added', { category: budget.category, budgetId: budgetRef.id });
     } catch (error) {
       logger.error('Error adding budget', error as Error);
       showNotification({ type: 'error', title: 'Error adding budget', description: '' });
@@ -627,6 +625,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         const currentMonth = new Date().toISOString().slice(0, 7);
         await updateDoc(budgetRef, {...data, month: currentMonth });
         showNotification({ type: 'success', title: 'Budget Updated', description: '' });
+        logger.info('Budget updated', { budgetId });
     } catch (error) {
         setBudgets(prev => [...prev]);
         logger.error('Error updating budget', error as Error, { budgetId });
@@ -643,6 +642,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       const budgetRef = doc(db, 'users', user.uid, 'budgets', budgetId);
       await deleteDoc(budgetRef);
       showNotification({ type: 'success', title: 'Budget Deleted', description: '' });
+      logger.info('Budget deleted', { budgetId });
     } catch (error) {
       setBudgets(originalBudgets); // Revert UI on error
       logger.error('Error deleting budget', error as Error, { budgetId });
@@ -658,6 +658,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             startDate: Timestamp.fromDate(new Date(transaction.startDate)), createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Recurring Transaction Added', description: `Scheduled "${transaction.title}".` });
+        logger.info('Recurring transaction added', { title: transaction.title });
     } catch (error) {
         logger.error('Error adding recurring transaction', error as Error);
         showNotification({ type: 'error', title: 'Error adding recurring item', description: '' });
@@ -672,6 +673,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId), updateData);
         showNotification({ type: 'success', title: 'Recurring Transaction Updated', description: '' });
+        logger.info('Recurring transaction updated', { transactionId });
     } catch (error) {
         logger.error('Error updating recurring transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error updating recurring item', description: '' });
@@ -683,6 +685,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'recurringTransactions', transactionId));
         showNotification({ type: 'success', title: 'Recurring Transaction Deleted', description: '' });
+        logger.info('Recurring transaction deleted', { transactionId });
     } catch (error) {
         logger.error('Error deleting recurring transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error deleting recurring item', description: '' });
@@ -712,6 +715,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         
         await batch.commit();
         showNotification({ type: 'success', title: 'Savings Goal Created!', description: `You're on your way to saving for "${goal.title}".` });
+        logger.info('Savings goal added', { title: goal.title });
     } catch (error) {
         logger.error('Error adding savings goal', error as Error);
         showNotification({ type: 'error', title: 'Error creating goal', description: '' });
@@ -741,6 +745,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         batch.update(goalRef, finalData);
         await batch.commit();
         showNotification({ type: 'success', title: 'Savings Goal Updated', description: '' });
+        logger.info('Savings goal updated', { goalId });
     } catch (error) {
         logger.error('Error updating savings goal', error as Error, { goalId });
         showNotification({ type: 'error', title: 'Error updating goal', description: '' });
@@ -752,6 +757,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'savingsGoals', goalId));
         showNotification({ type: 'success', title: 'Savings Goal Deleted', description: '' });
+        logger.info('Savings goal deleted', { goalId });
     } catch (error) {
         logger.error('Error deleting savings goal', error as Error, { goalId });
         showNotification({ type: 'error', title: 'Error deleting goal', description: '' });
@@ -768,6 +774,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Investment Added', description: `Added ${investment.name} to your portfolio.` });
+        logger.info('Investment added', { name: investment.name });
     } catch (error) {
         logger.error('Error adding investment', error as Error);
         showNotification({ type: 'error', title: 'Error adding investment', description: '' });
@@ -783,6 +790,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid, 'investments', investmentId), updateData);
         showNotification({ type: 'success', title: 'Investment Updated', description: '' });
+        logger.info('Investment updated', { investmentId });
     } catch (error) {
         logger.error('Error updating investment', error as Error, { investmentId });
         showNotification({ type: 'error', title: 'Error updating investment', description: '' });
@@ -794,6 +802,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'investments', investmentId));
         showNotification({ type: 'success', title: 'Investment Deleted', description: '' });
+        logger.info('Investment deleted', { investmentId });
     } catch (error) {
         logger.error('Error deleting investment', error as Error, { investmentId });
         showNotification({ type: 'error', title: 'Error deleting investment', description: '' });
@@ -809,6 +818,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Trip Plan Created!', description: `Your plan "${plan.title}" is ready.` });
+        logger.info('Trip plan created', { title: plan.title });
     } catch (error) {
         logger.error('Error creating trip plan', error as Error);
         showNotification({ type: 'error', title: 'Error creating trip plan', description: '' });
@@ -820,6 +830,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid, 'tripPlans', planId), data);
         showNotification({ type: 'success', title: 'Trip Plan Updated', description: '' });
+        logger.info('Trip plan updated', { planId });
     } catch (error) {
         logger.error('Error updating trip plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error updating trip plan', description: '' });
@@ -842,6 +853,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
 
         await batch.commit();
         showNotification({ type: 'success', title: 'Trip Restarted!', description: '' });
+        logger.info('Trip restarted', { planId });
     } catch (error) {
         logger.error('Error restarting trip', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error restarting trip', description: '' });
@@ -857,6 +869,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         }
         await deleteDoc(doc(db, 'users', user.uid, 'tripPlans', planId));
         showNotification({ type: 'success', title: 'Trip Plan Deleted', description: '' });
+        logger.info('Trip plan deleted', { planId });
     } catch (error) {
         logger.error('Error deleting trip plan', error as Error, { planId });
         showNotification({ type: 'error', title: 'Error deleting trip plan', description: '' });
@@ -903,6 +916,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       const { subscription, ...restData } = data; // Prevent direct subscription changes here
       await updateDoc(doc(db, 'users', user.uid), restData);
       showNotification({ type: 'success', title: 'Settings Saved', description: 'Your preferences have been updated.' });
+      logger.info('User preferences updated', data);
     } catch (error) {
       logger.error('Error updating user preferences', error as Error);
       showNotification({ type: 'error', title: 'Error saving settings', description: '' });
@@ -928,6 +942,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       });
 
       showNotification({ type: 'success', title: 'Upgrade Successful!', description: 'Welcome to FiscalFlow Premium.' });
+      logger.info('User upgraded to premium', { plan });
     } catch (error) {
       logger.error('Error upgrading to premium', error as Error);
       showNotification({ type: 'error', title: 'Upgrade Failed', description: 'Could not update your subscription.' });
@@ -945,6 +960,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         });
 
         showNotification({ type: 'info', title: 'Subscription Cancelled', description: 'Your Premium features will be disabled. We hope to see you back!' });
+        logger.info('User downgraded from premium');
     } catch (error) {
         logger.error('Error downgrading from premium', error as Error);
         showNotification({ type: 'error', title: 'Cancellation Failed', description: 'Could not update your subscription.' });
@@ -961,6 +977,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayUnion(category) });
         showNotification({ type: 'success', title: `Category "${category}" added.`, description: '' });
+        logger.info('Custom category added', { category });
     } catch (error) {
         logger.error('Error adding custom category', error as Error, { category });
         showNotification({ type: 'error', title: 'Error adding category', description: '' });
@@ -972,6 +989,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await updateDoc(doc(db, 'users', user.uid), { customCategories: arrayRemove(category) });
         showNotification({ type: 'success', title: `Category "${category}" removed.`, description: '' });
+        logger.info('Custom category deleted', { category });
     } catch (error) {
         logger.error('Error deleting custom category', error as Error, { category });
         showNotification({ type: 'error', title: 'Error deleting category', description: '' });
@@ -1024,6 +1042,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             'subscription.monthlyReports': { count: newCount, month: currentMonth }
         });
     }
+    logger.info('Report generated');
     return true;
   }
   
@@ -1043,6 +1062,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             'subscription.monthlyInsights': { count: newCount, month: currentMonth }
         });
     }
+    logger.info('Insights generated');
     return result;
   }
 
@@ -1066,24 +1086,28 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             'subscription.monthlyOcrScans': { count: newCount, month: currentMonth }
         });
     }
+    logger.info('Receipt scanned');
     return result;
   };
   
   const createChecklistWithLimit = async (userQuery: string): Promise<CreateChecklistOutput | { error: string } | undefined> => {
     if (!user || !userProfile) { return { error: 'Not authenticated' }; }
     const result = await createChecklistAction({ userQuery, availableIcons: Object.keys(categoryIcons), availableCategories: expenseCategories });
+    logger.info('Checklist created with AI');
     return result;
   }
   
   const createBudgetsWithLimit = async (userQuery: string, existingCategories: string[]): Promise<CreateMonthlyBudgetsOutput | { error: string } | undefined> => {
     if (!user || !userProfile) { return { error: 'Not authenticated' }; }
     const result = await createMonthlyBudgetsAction({ userQuery, existingCategories });
+    logger.info('Budgets created with AI');
     return result;
   };
 
   const createSavingsGoalWithLimit = async (userQuery: string): Promise<CreateSavingsGoalOutput | { error: string } | undefined> => {
     if (!user || !userProfile) { return { error: 'Not authenticated' }; }
     const result = await createSavingsGoalAction({ userQuery });
+    logger.info('Savings goal created with AI');
     return result;
   };
   
@@ -1094,6 +1118,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             ...checklist, userId: user.uid, createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Checklist Created!', description: `Your new checklist "${checklist.title}" is ready.` });
+        logger.info('Checklist created', { title: checklist.title });
     } catch (error) {
         logger.error('Error creating checklist', error as Error);
         showNotification({ type: 'error', title: 'Error creating checklist', description: '' });
@@ -1104,6 +1129,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         await updateDoc(doc(db, 'users', user.uid, 'checklists', checklistId), data);
+        logger.info('Checklist updated', { checklistId });
     } catch (error) {
         logger.error('Error updating checklist', error as Error, { checklistId });
         showNotification({ type: 'error', title: 'Error updating checklist', description: '' });
@@ -1115,6 +1141,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'checklists', checklistId));
         showNotification({ type: 'success', title: 'Checklist Deleted', description: '' });
+        logger.info('Checklist deleted', { checklistId });
     } catch (error) {
         logger.error('Error deleting checklist', error as Error, { checklistId });
         showNotification({ type: 'error', title: 'Error deleting checklist', description: '' });
@@ -1132,6 +1159,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
             createdAt: serverTimestamp(),
         });
         showNotification({ type: 'success', title: 'Template Saved!', description: `Saved "${checklist.title}" as a new template.` });
+        logger.info('Checklist template created', { sourceChecklistId: checklist.id });
     } catch (error) {
         logger.error('Error saving checklist as template', error as Error);
         showNotification({ type: 'error', title: 'Error saving template', description: '' });
@@ -1143,6 +1171,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     try {
         await deleteDoc(doc(db, 'users', user.uid, 'checklistTemplates', templateId));
         showNotification({ type: 'success', title: 'Template Deleted', description: '' });
+        logger.info('Checklist template deleted', { templateId });
     } catch (error) {
         logger.error('Error deleting checklist template', error as Error, { templateId });
         showNotification({ type: 'error', title: 'Error deleting template', description: '' });
@@ -1151,6 +1180,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
 
   const logout = async () => {
     if (user) {
+        logger.info('User logging out');
         await auth.signOut();
     }
   };
@@ -1190,6 +1220,7 @@ export function useAppContext() {
   }
   return context;
 }
+
 
 
 
