@@ -394,17 +394,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!userProfile) return [];
     const cycleStartDay = userProfile.financialCycleStartDay || 1;
     const now = new Date();
-    let startDate;
-
+    let startDate, endDate;
+  
     if (now.getDate() >= cycleStartDay) {
-        // Current cycle started this month
-        startDate = new Date(now.getFullYear(), now.getMonth(), cycleStartDay);
+      // Cycle is within the current month
+      startDate = new Date(now.getFullYear(), now.getMonth(), cycleStartDay);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, cycleStartDay - 1);
     } else {
-        // Current cycle started last month
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, cycleStartDay);
+      // Cycle spans across previous and current months
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, cycleStartDay);
+      endDate = new Date(now.getFullYear(), now.getMonth(), cycleStartDay - 1);
     }
     
-    return transactions.filter(t => new Date(t.date) >= startDate);
+    // Set time to include the entire day
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    return transactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate >= startDate && transactionDate <= endDate;
+    });
   }, [transactions, userProfile]);
 
 
@@ -1178,3 +1187,4 @@ export function useAppContext() {
   }
   return context;
 }
+
