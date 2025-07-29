@@ -70,45 +70,34 @@ const defaultValues = {
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
   const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   
-  // This helper function prepares the initial form state.
-  // It's the key to fixing the bug by ensuring `tripId` is never `null`.
-  const getInitialValues = () => {
-    if (transactionToEdit) {
-      return {
-        ...transactionToEdit,
-        date: parseISO(transactionToEdit.date),
-        // This is the fix: convert null to undefined before the form sees it.
-        tripId: transactionToEdit.tripId ?? undefined,
-        tripItemId: transactionToEdit.tripItemId ?? undefined,
-      };
-    }
-    if (itemToConvert) {
-      return {
-        ...defaultValues,
-        amount: itemToConvert.item.predictedCost,
-        source: itemToConvert.item.description,
-        category: itemToConvert.item.category,
-        checklistId: itemToConvert.checklistId,
-        checklistItemId: itemToConvert.item.id,
-      };
-    }
-    // For new transactions, link to active trip if it exists.
-    return {
-      ...defaultValues,
-      tripId: activeTrip?.id,
-    };
-  };
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    // Initialize the form with the sanitized values.
-    defaultValues: getInitialValues(),
+    defaultValues: defaultValues,
   });
-
-  // Effect to reset the form if the props change (e.g., closing and reopening the dialog for a different item)
+  
   useEffect(() => {
-    form.reset(getInitialValues());
-  }, [transactionToEdit, itemToConvert, activeTrip]);
+    if (transactionToEdit) {
+      form.reset({
+        ...defaultValues,
+        ...transactionToEdit,
+        date: parseISO(transactionToEdit.date),
+      });
+    } else if (itemToConvert) {
+        form.reset({
+            ...defaultValues,
+            amount: itemToConvert.item.predictedCost,
+            source: itemToConvert.item.description,
+            category: itemToConvert.item.category,
+            checklistId: itemToConvert.checklistId,
+            checklistItemId: itemToConvert.item.id,
+        });
+    } else {
+      form.reset({
+        ...defaultValues,
+        tripId: activeTrip?.id,
+      });
+    }
+  }, [transactionToEdit, itemToConvert, form, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
 
@@ -123,7 +112,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         ...values,
         type: 'expense',
         date: values.date.toISOString(),
-        // Ensure the value sent to the database is either a string or null.
         tripId: values.tripId === 'none' || values.tripId === undefined ? null : values.tripId,
     };
     
@@ -278,7 +266,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                         <Select 
                             onValueChange={(value) => {
                                 field.onChange(value === 'none' ? undefined : value);
-                                form.setValue('tripItemId', undefined); // Reset item when plan changes
+                                form.setValue('tripItemId', undefined);
                             }} 
                             value={field.value ?? 'none'}
                             disabled={!!activeTrip && !transactionToEdit}
@@ -309,7 +297,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Trip Item</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger disabled={!selectedTripId}>
                                         <SelectValue placeholder="Select a trip item" />
@@ -362,3 +350,5 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     </Form>
   );
 }
+
+    
