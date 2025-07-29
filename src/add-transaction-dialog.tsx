@@ -67,7 +67,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
                     <MinusCircle className="mr-2 h-4 w-4" />
                     Expense
                   </TabsTrigger>
-                  <TabsTrigger value="income" disabled={itemToConvert || transactionToEdit?.type === 'expense'}>
+                  <TabsTrigger value="income" disabled={transactionToEdit?.type === 'expense' || !!itemToConvert}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Income
                   </TabsTrigger>

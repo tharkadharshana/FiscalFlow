@@ -91,7 +91,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
       source: '',
       notes: '',
       date: new Date(),
-      category: '',
+      category: 'Groceries',
       tripId: undefined,
       tripItemId: undefined,
       isTaxDeductible: false,
@@ -106,8 +106,50 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   });
 
   useEffect(() => {
-    form.reset(defaultValues);
-  }, [defaultValues, form]);
+    const newDefaults = {
+      ...(transactionToEdit
+        ? {
+            amount: transactionToEdit.amount,
+            source: transactionToEdit.source,
+            category: transactionToEdit.category,
+            date: parseISO(transactionToEdit.date),
+            notes: transactionToEdit.notes || '',
+            tripId: transactionToEdit.tripId || undefined,
+            tripItemId: transactionToEdit.tripItemId || undefined,
+            isTaxDeductible: transactionToEdit.isTaxDeductible || false,
+            checklistId: transactionToEdit.checklistId || undefined,
+            checklistItemId: transactionToEdit.checklistItemId || undefined,
+          }
+        : itemToConvert
+        ? {
+            amount: itemToConvert.item.predictedCost,
+            source: itemToConvert.item.description,
+            category: itemToConvert.item.category,
+            date: new Date(),
+            notes: '',
+            isTaxDeductible: false,
+            checklistId: itemToConvert.checklistId,
+            checklistItemId: itemToConvert.item.id,
+            tripId: undefined,
+            tripItemId: undefined,
+          }
+        : {
+            amount: 0,
+            source: '',
+            notes: '',
+            date: new Date(),
+            category: 'Groceries',
+            tripId: undefined,
+            tripItemId: undefined,
+            isTaxDeductible: false,
+            checklistId: undefined,
+            checklistItemId: undefined,
+          }),
+    };
+
+    form.reset(newDefaults);
+
+  }, [transactionToEdit, itemToConvert, form]);
 
   const selectedTripId = form.watch('tripId');
 
