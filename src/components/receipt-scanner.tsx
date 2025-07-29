@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { nanoid } from 'nanoid';
 import { ScrollArea } from './ui/scroll-area';
+import { Checkbox } from './ui/checkbox';
 
 type ParsedTxWithId = ParsedReceiptTransaction & { id: string, include: boolean };
 
