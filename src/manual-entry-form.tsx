@@ -54,55 +54,25 @@ type ManualEntryFormProps = {
   itemToConvert?: { checklistId: string; item: ChecklistItem } | null;
 }
 
+const defaultValues = {
+  amount: 0,
+  source: '',
+  notes: '',
+  date: new Date(),
+  category: 'Groceries',
+  tripId: undefined,
+  tripItemId: undefined,
+  isTaxDeductible: false,
+  checklistId: undefined,
+  checklistItemId: undefined,
+};
+
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
   const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   
-  const defaultValues = useMemo(() => {
-    if (transactionToEdit) {
-      return {
-        amount: transactionToEdit.amount,
-        source: transactionToEdit.source,
-        category: transactionToEdit.category,
-        date: parseISO(transactionToEdit.date),
-        notes: transactionToEdit.notes || '',
-        tripId: transactionToEdit.tripId || undefined,
-        tripItemId: transactionToEdit.tripItemId || undefined,
-        isTaxDeductible: transactionToEdit.isTaxDeductible || false,
-        checklistId: transactionToEdit.checklistId || undefined,
-        checklistItemId: transactionToEdit.checklistItemId || undefined,
-      };
-    }
-    if (itemToConvert) {
-      return {
-        amount: itemToConvert.item.predictedCost,
-        source: itemToConvert.item.description,
-        category: itemToConvert.item.category,
-        date: new Date(),
-        notes: '',
-        isTaxDeductible: false,
-        checklistId: itemToConvert.checklistId,
-        checklistItemId: itemToConvert.item.id,
-        tripId: undefined,
-        tripItemId: undefined,
-      };
-    }
-    return {
-      amount: 0,
-      source: '',
-      notes: '',
-      date: new Date(),
-      category: 'Groceries',
-      tripId: undefined,
-      tripItemId: undefined,
-      isTaxDeductible: false,
-      checklistId: undefined,
-      checklistItemId: undefined,
-    };
-  }, [transactionToEdit, itemToConvert]);
-  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues,
+    defaultValues: defaultValues,
   });
 
   useEffect(() => {
@@ -134,22 +104,12 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
             tripItemId: undefined,
           }
         : {
-            amount: 0,
-            source: '',
-            notes: '',
-            date: new Date(),
-            category: 'Groceries',
-            tripId: undefined,
-            tripItemId: undefined,
-            isTaxDeductible: false,
-            checklistId: undefined,
-            checklistItemId: undefined,
+            ...defaultValues,
+            tripId: activeTrip?.id || undefined,
           }),
     };
-
     form.reset(newDefaults);
-
-  }, [transactionToEdit, itemToConvert, form]);
+  }, [transactionToEdit, itemToConvert, form, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
 
@@ -165,10 +125,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         type: 'expense',
         date: values.date.toISOString(),
     };
-
-    if (activeTrip && !transactionToEdit && !itemToConvert) {
-      dataToSave.tripId = activeTrip.id;
-    }
     
     if (transactionToEdit) {
         updateTransaction(transactionToEdit.id, dataToSave as Partial<Transaction>);
