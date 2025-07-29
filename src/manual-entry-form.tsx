@@ -77,20 +77,29 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   
   useEffect(() => {
     if (transactionToEdit) {
+      // Convert null values to undefined
+      const sanitizedTransaction = {
+        ...transactionToEdit,
+        tripId: transactionToEdit.tripId ?? undefined,
+        tripItemId: transactionToEdit.tripItemId ?? undefined,
+        checklistId: transactionToEdit.checklistId ?? undefined,
+        checklistItemId: transactionToEdit.checklistItemId ?? undefined,
+      };
+
       form.reset({
         ...defaultValues,
-        ...transactionToEdit,
+        ...sanitizedTransaction,
         date: parseISO(transactionToEdit.date),
       });
     } else if (itemToConvert) {
-        form.reset({
-            ...defaultValues,
-            amount: itemToConvert.item.predictedCost,
-            source: itemToConvert.item.description,
-            category: itemToConvert.item.category,
-            checklistId: itemToConvert.checklistId,
-            checklistItemId: itemToConvert.item.id,
-        });
+      form.reset({
+        ...defaultValues,
+        amount: itemToConvert.item.predictedCost,
+        source: itemToConvert.item.description,
+        category: itemToConvert.item.category,
+        checklistId: itemToConvert.checklistId,
+        checklistItemId: itemToConvert.item.id,
+      });
     } else {
       form.reset({
         ...defaultValues,
@@ -112,7 +121,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         ...values,
         type: 'expense',
         date: values.date.toISOString(),
-        tripId: values.tripId === 'none' || values.tripId === undefined ? null : values.tripId,
     };
     
     if (transactionToEdit) {
@@ -258,36 +266,37 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         <div className="space-y-4 rounded-md border p-4">
             <h3 className="text-sm font-medium text-muted-foreground">Link to Trip (Optional)</h3>
             <FormField
-                control={form.control}
-                name="tripId"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Trip Plan</FormLabel>
-                        <Select 
-                            onValueChange={(value) => {
-                                field.onChange(value === 'none' ? undefined : value);
-                                form.setValue('tripItemId', undefined);
-                            }} 
-                            value={field.value ?? 'none'}
-                            disabled={!!activeTrip && !transactionToEdit}
-                        >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a trip to link this expense to" />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                {tripPlans.filter(p => p.status === 'active' || p.status === 'planning').map((trip) => (
-                                    <SelectItem key={trip.id} value={trip.id}>
-                                    {trip.title}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )}
+              control={form.control}
+              name="tripId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trip Plan</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      // Convert "none" to undefined
+                      field.onChange(value === 'none' ? undefined : value);
+                      form.setValue('tripItemId', undefined);
+                    }} 
+                    value={field.value ?? 'none'}  // Handle undefined/null
+                    disabled={!!activeTrip && !transactionToEdit}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a trip to link this expense to" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {tripPlans.filter(p => p.status === 'active' || p.status === 'planning').map((trip) => (
+                        <SelectItem key={trip.id} value={trip.id}>
+                          {trip.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             
             {selectedTripId && (
@@ -350,5 +359,3 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
     </Form>
   );
 }
-
-    
