@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Mic, MicOff, Loader2, Sparkles, CheckCircle } from 'lucide-react';
+import { Mic, MicOff, Loader2, Sparkles, CheckCircle, XCircle } from 'lucide-react';
 import { assistantAction } from '@/lib/actions';
 import { useAppContext } from '@/contexts/app-context';
 import { cn } from '@/lib/utils';
@@ -113,15 +113,19 @@ export function VoiceAssistantDialog({ open, onOpenChange }: VoiceAssistantDialo
         switch (result.action) {
             case 'logTransaction':
                 await addTransaction({ ...result.params, date: new Date().toISOString() });
+                setView('success');
                 break;
             case 'createBudget':
                 await addBudget(result.params);
+                setView('success');
                 break;
             case 'unknown':
-                throw new Error(result.reason);
+                // This is not an exception, but a handled failure state.
+                setView('error');
+                break;
         }
-        setView('success');
     } catch(e: any) {
+        // This catches actual exceptions from addTransaction/addBudget
         console.error("Error executing action: ", e);
         setView('error');
     }
@@ -167,7 +171,11 @@ export function VoiceAssistantDialog({ open, onOpenChange }: VoiceAssistantDialo
             )}
             {(view === 'success' || view === 'error') && (
                 <div className="text-center">
-                    <CheckCircle className={cn("h-8 w-8 mx-auto mb-2", view === 'success' ? 'text-green-500' : 'text-destructive')} />
+                    {view === 'success' ? (
+                        <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                    ) : (
+                        <XCircle className="h-8 w-8 mx-auto mb-2 text-destructive" />
+                    )}
                     <p className="font-medium">{getFeedbackMessage()}</p>
                 </div>
             )}
@@ -183,7 +191,7 @@ export function VoiceAssistantDialog({ open, onOpenChange }: VoiceAssistantDialo
                     "h-16 w-16 rounded-full",
                     isRecording && "bg-destructive hover:bg-destructive/90 animate-pulse"
                 )}
-                disabled={view === 'processing' || view === 'success'}
+                disabled={view === 'processing'}
             >
                 {isRecording ? <MicOff /> : <Mic />}
             </Button>
