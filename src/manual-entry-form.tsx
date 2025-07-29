@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -71,51 +70,41 @@ const defaultValues = {
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
   const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: transactionToEdit
-    ? {
+  // Sanitize the initial values before they are passed to the form hook.
+  // This is the key fix: prevent `null` from ever reaching the form state for `tripId`.
+  const getInitialValues = () => {
+    if (transactionToEdit) {
+      return {
         ...transactionToEdit,
         date: parseISO(transactionToEdit.date),
-      }
-    : itemToConvert
-    ? {
+        tripId: transactionToEdit.tripId ?? undefined, // Convert null to undefined
+        tripItemId: transactionToEdit.tripItemId ?? undefined,
+      };
+    }
+    if (itemToConvert) {
+      return {
         ...defaultValues,
         amount: itemToConvert.item.predictedCost,
         source: itemToConvert.item.description,
         category: itemToConvert.item.category,
         checklistId: itemToConvert.checklistId,
         checklistItemId: itemToConvert.item.id,
-      }
-    : {
-        ...defaultValues,
-        tripId: activeTrip?.id,
-      },
+      };
+    }
+    return {
+      ...defaultValues,
+      tripId: activeTrip?.id,
+    };
+  };
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: getInitialValues(),
   });
 
   useEffect(() => {
-    const newDefaults = {
-      ...(transactionToEdit
-        ? {
-            ...transactionToEdit,
-            date: parseISO(transactionToEdit.date),
-          }
-        : itemToConvert
-        ? {
-            ...defaultValues,
-            amount: itemToConvert.item.predictedCost,
-            source: itemToConvert.item.description,
-            category: itemToConvert.item.category,
-            checklistId: itemToConvert.checklistId,
-            checklistItemId: itemToConvert.item.id,
-          }
-        : {
-            ...defaultValues,
-            tripId: activeTrip?.id,
-          }),
-    };
-    form.reset(newDefaults as any);
-  }, [transactionToEdit, itemToConvert, form, activeTrip]);
+    form.reset(getInitialValues());
+  }, [transactionToEdit, itemToConvert, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
 
@@ -130,6 +119,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         ...values,
         type: 'expense',
         date: values.date.toISOString(),
+        tripId: values.tripId === 'none' ? null : values.tripId,
     };
     
     if (transactionToEdit) {
