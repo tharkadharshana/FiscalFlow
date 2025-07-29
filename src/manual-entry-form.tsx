@@ -70,14 +70,15 @@ const defaultValues = {
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
   const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   
-  // Sanitize the initial values before they are passed to the form hook.
-  // This is the key fix: prevent `null` from ever reaching the form state for `tripId`.
+  // This helper function prepares the initial form state.
+  // It's the key to fixing the bug by ensuring `tripId` is never `null`.
   const getInitialValues = () => {
     if (transactionToEdit) {
       return {
         ...transactionToEdit,
         date: parseISO(transactionToEdit.date),
-        tripId: transactionToEdit.tripId ?? undefined, // Convert null to undefined
+        // This is the fix: convert null to undefined before the form sees it.
+        tripId: transactionToEdit.tripId ?? undefined,
         tripItemId: transactionToEdit.tripItemId ?? undefined,
       };
     }
@@ -91,6 +92,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         checklistItemId: itemToConvert.item.id,
       };
     }
+    // For new transactions, link to active trip if it exists.
     return {
       ...defaultValues,
       tripId: activeTrip?.id,
@@ -99,9 +101,11 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    // Initialize the form with the sanitized values.
     defaultValues: getInitialValues(),
   });
 
+  // Effect to reset the form if the props change (e.g., closing and reopening the dialog for a different item)
   useEffect(() => {
     form.reset(getInitialValues());
   }, [transactionToEdit, itemToConvert, activeTrip]);
@@ -119,7 +123,8 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         ...values,
         type: 'expense',
         date: values.date.toISOString(),
-        tripId: values.tripId === 'none' ? null : values.tripId,
+        // Ensure the value sent to the database is either a string or null.
+        tripId: values.tripId === 'none' || values.tripId === undefined ? null : values.tripId,
     };
     
     if (transactionToEdit) {
@@ -275,7 +280,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                                 field.onChange(value === 'none' ? undefined : value);
                                 form.setValue('tripItemId', undefined); // Reset item when plan changes
                             }} 
-                            value={field.value || 'none'}
+                            value={field.value ?? 'none'}
                             disabled={!!activeTrip && !transactionToEdit}
                         >
                             <FormControl>
