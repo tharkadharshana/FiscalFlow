@@ -446,30 +446,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // Perform all reads first
         let roundupGoalDoc: any;
-        let checklistDoc: any;
-        let tripDoc: any;
-
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const monthlyRoundups = userProfile.subscription.monthlyRoundups;
-        const canRoundup = isPremium || (!monthlyRoundups || monthlyRoundups.month !== currentMonth || monthlyRoundups.count < FREE_TIER_LIMITS.roundups);
-
-        if (canRoundup && transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
+        if (transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
             const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
             const querySnapshot = await getDocs(roundupGoalQuery);
             if (!querySnapshot.empty) {
                 roundupGoalDoc = querySnapshot.docs[0];
             }
         }
-        if (checklistId) {
-            checklistDoc = await getDocs(query(collection(db, 'users', user.uid, 'checklists'), where('__name__', '==', checklistId)));
-        }
-        if (tripId) {
-            tripDoc = await getDocs(query(collection(db, 'users', user.uid, 'tripPlans'), where('__name__', '==', tripId)));
-        }
 
-        // Now, perform all writes in a batch
         const batch = writeBatch(db);
-
         const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
         const dataToSave = {
             ...restOfTransaction, amount: finalAmount, items: items || [], date: Timestamp.fromDate(new Date(date)),
@@ -482,54 +467,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // Update Roundup Goal
         if (roundupGoalDoc) {
-            const goal = roundupGoalDoc.data() as SavingsGoal;
-            const roundupAmount = Math.ceil(finalAmount) - finalAmount;
-            if (roundupAmount > 0) {
-                const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
-                const newBadges = calculateNewBadges(goal, newCurrentAmount);
-                batch.update(roundupGoalDoc.ref, {
-                    currentAmount: newCurrentAmount,
-                    badges: arrayUnion(...newBadges)
-                });
-                if (!isPremium) {
-                    const userDocRef = doc(db, 'users', user.uid);
-                    const newRoundupCount = (!monthlyRoundups || monthlyRoundups.month !== currentMonth) ? 1 : monthlyRoundups.count + 1;
-                    batch.update(userDocRef, { 'subscription.monthlyRoundups': { count: newRoundupCount, month: currentMonth } });
-                }
-            }
+          const goal = roundupGoalDoc.data() as SavingsGoal;
+          const roundupAmount = Math.ceil(finalAmount) - finalAmount;
+          if (roundupAmount > 0) {
+              const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
+              const newBadges = calculateNewBadges(goal, newCurrentAmount);
+              batch.update(roundupGoalDoc.ref, {
+                  currentAmount: newCurrentAmount,
+                  badges: arrayUnion(...newBadges)
+              });
+          }
         }
 
         // Update Checklist
-        if (checklistDoc && !checklistDoc.empty && checklistItemId) {
-            const checklist = checklistDoc.docs[0].data() as Checklist;
-            const updatedItems = checklist.items.map(item =>
-                item.id === checklistItemId ? { ...item, isCompleted: true } : item
-            );
-            batch.update(checklistDoc.docs[0].ref, { items: updatedItems });
+        if (checklistId && checklistItemId) {
+            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
+            const checklistSnap = await getDocs(query(collection(db, `users/${user.uid}/checklists`), where('__name__', '==', checklistId)));
+            if (!checklistSnap.empty) {
+                const checklist = checklistSnap.docs[0].data() as Checklist;
+                const updatedItems = checklist.items.map(item =>
+                    item.id === checklistItemId ? { ...item, isCompleted: true } : item
+                );
+                batch.update(checklistRef, { items: updatedItems });
+            }
         }
 
         // Update Trip Plan
-        if (tripDoc && !tripDoc.empty) {
-            const trip = tripDoc.docs[0].data() as TripPlan;
-            let newTotalActualCost = trip.totalActualCost || 0;
-            
-            if (transaction.type === 'expense') newTotalActualCost += finalAmount;
-            else if (transaction.type === 'income') newTotalActualCost -= finalAmount;
+        if (tripId) {
+          const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
+          const tripSnap = await getDocs(query(collection(db, `users/${user.uid}/tripPlans`), where('__name__', '==', tripId)));
+          if (!tripSnap.empty) {
+              const trip = tripSnap.docs[0].data() as TripPlan;
+              let newTotalActualCost = trip.totalActualCost || 0;
+              
+              if (transaction.type === 'expense') newTotalActualCost += finalAmount;
+              else if (transaction.type === 'income') newTotalActualCost -= finalAmount;
 
-            if (tripItemId) {
-                const updatedItems = trip.items.map(item => 
-                    item.id === tripItemId ? { ...item, actualCost: finalAmount } : item
-                );
-                batch.update(tripDoc.docs[0].ref, { items: updatedItems, totalActualCost: newTotalActualCost });
-            } else if (transaction.type === 'expense') {
-                const newUnplannedItem: TripItem = {
-                    id: nanoid(), description: transaction.source, category: transaction.category,
-                    predictedCost: 0, actualCost: finalAmount, isAiSuggested: false,
-                };
-                batch.update(tripDoc.docs[0].ref, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
-            } else {
-                batch.update(tripDoc.docs[0].ref, { totalActualCost: newTotalActualCost });
-            }
+              if (tripItemId) {
+                  const updatedItems = trip.items.map(item => 
+                      item.id === tripItemId ? { ...item, actualCost: finalAmount } : item
+                  );
+                  batch.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+              } else if (transaction.type === 'expense') {
+                  const newUnplannedItem: TripItem = {
+                      id: nanoid(), description: transaction.source, category: transaction.category,
+                      predictedCost: 0, actualCost: finalAmount, isAiSuggested: false,
+                  };
+                  batch.update(tripRef, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
+              } else {
+                  batch.update(tripRef, { totalActualCost: newTotalActualCost });
+              }
+          }
         }
 
         await batch.commit();
@@ -546,21 +534,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateTransaction = async (transactionId: string, updatedData: Partial<Transaction>) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-        await runTransaction(db, async (t) => {
-            const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
-            const carbonFootprint = estimateCarbonFootprint({ ...transactions.find(t => t.id === transactionId)!, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
-    
-            const finalUpdateData: any = { ...updatedData, carbonFootprint };
-            if (finalUpdateData.date) finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
-            t.update(txRef, finalUpdateData);
-        });
+        const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
+        const carbonFootprint = estimateCarbonFootprint({ ...transactions.find(t => t.id === transactionId)!, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
+
+        const finalUpdateData: any = { 
+            ...updatedData, 
+            carbonFootprint,
+            tripId: updatedData.tripId || null,
+            tripItemId: updatedData.tripItemId || null,
+        };
+        
+        if (finalUpdateData.date && typeof finalUpdateData.date === 'string') {
+          finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
+        }
+
+        await updateDoc(txRef, finalUpdateData);
+
         showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
         logger.info('Transaction updated successfully', { transactionId });
     } catch (error) {
         logger.error('Error updating transaction', error as Error, { transactionId });
         showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
     }
-};
+  };
 
 const deleteTransaction = async (transactionId: string) => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
@@ -1208,3 +1204,4 @@ export function useAppContext() {
   }
   return context;
 }
+

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -72,43 +73,48 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues,
+    defaultValues: transactionToEdit
+    ? {
+        ...transactionToEdit,
+        date: parseISO(transactionToEdit.date),
+      }
+    : itemToConvert
+    ? {
+        ...defaultValues,
+        amount: itemToConvert.item.predictedCost,
+        source: itemToConvert.item.description,
+        category: itemToConvert.item.category,
+        checklistId: itemToConvert.checklistId,
+        checklistItemId: itemToConvert.item.id,
+      }
+    : {
+        ...defaultValues,
+        tripId: activeTrip?.id,
+      },
   });
 
   useEffect(() => {
     const newDefaults = {
       ...(transactionToEdit
         ? {
-            amount: transactionToEdit.amount,
-            source: transactionToEdit.source,
-            category: transactionToEdit.category,
+            ...transactionToEdit,
             date: parseISO(transactionToEdit.date),
-            notes: transactionToEdit.notes || '',
-            tripId: transactionToEdit.tripId || undefined,
-            tripItemId: transactionToEdit.tripItemId || undefined,
-            isTaxDeductible: transactionToEdit.isTaxDeductible || false,
-            checklistId: transactionToEdit.checklistId || undefined,
-            checklistItemId: transactionToEdit.checklistItemId || undefined,
           }
         : itemToConvert
         ? {
+            ...defaultValues,
             amount: itemToConvert.item.predictedCost,
             source: itemToConvert.item.description,
             category: itemToConvert.item.category,
-            date: new Date(),
-            notes: '',
-            isTaxDeductible: false,
             checklistId: itemToConvert.checklistId,
             checklistItemId: itemToConvert.item.id,
-            tripId: undefined,
-            tripItemId: undefined,
           }
         : {
             ...defaultValues,
-            tripId: activeTrip?.id || undefined,
+            tripId: activeTrip?.id,
           }),
     };
-    form.reset(newDefaults);
+    form.reset(newDefaults as any);
   }, [transactionToEdit, itemToConvert, form, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
