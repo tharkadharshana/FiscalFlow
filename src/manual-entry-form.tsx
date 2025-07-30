@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,46 +68,51 @@ const defaultValues = {
   checklistItemId: undefined,
 };
 
+const getInitialValues = (
+    transactionToEdit?: Transaction | null,
+    itemToConvert?: { checklistId: string; item: ChecklistItem } | null,
+    activeTrip?: TripPlan | null
+) => {
+    if (transactionToEdit) {
+        return {
+          ...defaultValues,
+          ...transactionToEdit,
+          date: parseISO(transactionToEdit.date),
+          tripId: transactionToEdit.tripId ?? undefined,
+          tripItemId: transactionToEdit.tripItemId ?? undefined,
+          checklistId: transactionToEdit.checklistId ?? undefined,
+          checklistItemId: transactionToEdit.checklistItemId ?? undefined,
+        };
+    }
+    if (itemToConvert) {
+        return {
+            ...defaultValues,
+            amount: itemToConvert.item.predictedCost,
+            source: itemToConvert.item.description,
+            category: itemToConvert.item.category,
+            checklistId: itemToConvert.checklistId,
+            checklistItemId: itemToConvert.item.id,
+        };
+    }
+    return {
+        ...defaultValues,
+        tripId: activeTrip?.id,
+    };
+};
+
+
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
   const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues,
+    defaultValues: getInitialValues(transactionToEdit, itemToConvert, activeTrip),
   });
   
   useEffect(() => {
-    if (transactionToEdit) {
-      // Convert null values to undefined
-      const sanitizedTransaction = {
-        ...transactionToEdit,
-        tripId: transactionToEdit.tripId ?? undefined,
-        tripItemId: transactionToEdit.tripItemId ?? undefined,
-        checklistId: transactionToEdit.checklistId ?? undefined,
-        checklistItemId: transactionToEdit.checklistItemId ?? undefined,
-      };
+    form.reset(getInitialValues(transactionToEdit, itemToConvert, activeTrip));
+  }, [transactionToEdit, itemToConvert, activeTrip, form]);
 
-      form.reset({
-        ...defaultValues,
-        ...sanitizedTransaction,
-        date: parseISO(transactionToEdit.date),
-      });
-    } else if (itemToConvert) {
-      form.reset({
-        ...defaultValues,
-        amount: itemToConvert.item.predictedCost,
-        source: itemToConvert.item.description,
-        category: itemToConvert.item.category,
-        checklistId: itemToConvert.checklistId,
-        checklistItemId: itemToConvert.item.id,
-      });
-    } else {
-      form.reset({
-        ...defaultValues,
-        tripId: activeTrip?.id,
-      });
-    }
-  }, [transactionToEdit, itemToConvert, form, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
 
@@ -273,12 +279,10 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                   <FormLabel>Trip Plan</FormLabel>
                   <Select 
                     onValueChange={(value) => {
-                      // Convert "none" to undefined
                       field.onChange(value === 'none' ? undefined : value);
                       form.setValue('tripItemId', undefined);
                     }} 
-                    value={field.value ?? 'none'}  // Handle undefined/null
-                    disabled={!!activeTrip && !transactionToEdit}
+                    value={field.value ?? 'none'}
                   >
                     <FormControl>
                       <SelectTrigger>

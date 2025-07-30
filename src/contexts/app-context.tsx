@@ -446,12 +446,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // Perform all reads first
         let roundupGoalDoc: any;
+        let checklistDoc: any;
+        let tripPlanDoc: any;
+
         if (transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
             const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
             const querySnapshot = await getDocs(roundupGoalQuery);
             if (!querySnapshot.empty) {
                 roundupGoalDoc = querySnapshot.docs[0];
             }
+        }
+
+        if (checklistId && checklistItemId) {
+            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
+            checklistDoc = await getDocs(query(collection(db, `users/${user.uid}/checklists`), where('__name__', '==', checklistId)));
+        }
+
+        if (tripId) {
+            const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
+            tripPlanDoc = await getDocs(query(collection(db, `users/${user.uid}/tripPlans`), where('__name__', '==', tripId)));
         }
 
         const batch = writeBatch(db);
@@ -480,24 +493,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         // Update Checklist
-        if (checklistId && checklistItemId) {
-            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
-            const checklistSnap = await getDocs(query(collection(db, `users/${user.uid}/checklists`), where('__name__', '==', checklistId)));
-            if (!checklistSnap.empty) {
-                const checklist = checklistSnap.docs[0].data() as Checklist;
-                const updatedItems = checklist.items.map(item =>
-                    item.id === checklistItemId ? { ...item, isCompleted: true } : item
-                );
-                batch.update(checklistRef, { items: updatedItems });
-            }
+        if (checklistDoc && !checklistDoc.empty) {
+            const checklist = checklistDoc.docs[0].data() as Checklist;
+            const updatedItems = checklist.items.map(item =>
+                item.id === checklistItemId ? { ...item, isCompleted: true } : item
+            );
+            batch.update(checklistDoc.docs[0].ref, { items: updatedItems });
         }
-
+        
         // Update Trip Plan
-        if (tripId) {
-          const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
-          const tripSnap = await getDocs(query(collection(db, `users/${user.uid}/tripPlans`), where('__name__', '==', tripId)));
-          if (!tripSnap.empty) {
-              const trip = tripSnap.docs[0].data() as TripPlan;
+        if (tripPlanDoc && !tripPlanDoc.empty) {
+              const trip = tripPlanDoc.docs[0].data() as TripPlan;
               let newTotalActualCost = trip.totalActualCost || 0;
               
               if (transaction.type === 'expense') newTotalActualCost += finalAmount;
@@ -507,17 +513,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   const updatedItems = trip.items.map(item => 
                       item.id === tripItemId ? { ...item, actualCost: finalAmount } : item
                   );
-                  batch.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
+                  batch.update(tripPlanDoc.docs[0].ref, { items: updatedItems, totalActualCost: newTotalActualCost });
               } else if (transaction.type === 'expense') {
                   const newUnplannedItem: TripItem = {
                       id: nanoid(), description: transaction.source, category: transaction.category,
                       predictedCost: 0, actualCost: finalAmount, isAiSuggested: false,
                   };
-                  batch.update(tripRef, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
+                  batch.update(tripPlanDoc.docs[0].ref, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
               } else {
-                  batch.update(tripRef, { totalActualCost: newTotalActualCost });
+                  batch.update(tripPlanDoc.docs[0].ref, { totalActualCost: newTotalActualCost });
               }
-          }
         }
 
         await batch.commit();
@@ -544,7 +549,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             tripItemId: updatedData.tripItemId || null,
         };
         
-        if (finalUpdateData.date && typeof finalUpdateData.date === 'string') {
+        if (finalUpdateData.date && finalUpdateData.date instanceof Date) {
+          finalUpdateData.date = Timestamp.fromDate(finalUpdateData.date);
+        } else if (finalUpdateData.date && typeof finalUpdateData.date === 'string') {
           finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
         }
 
@@ -1204,4 +1211,3 @@ export function useAppContext() {
   }
   return context;
 }
-
