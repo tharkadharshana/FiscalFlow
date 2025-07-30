@@ -76,35 +76,36 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   });
   
   useEffect(() => {
-    const getInitialValues = () => {
-      if (transactionToEdit) {
-        return {
-          ...defaultValues,
-          ...transactionToEdit,
-          date: parseISO(transactionToEdit.date),
-          tripId: transactionToEdit.tripId ?? undefined,
-          tripItemId: transactionToEdit.tripItemId ?? undefined,
-          checklistId: transactionToEdit.checklistId ?? undefined,
-          checklistItemId: transactionToEdit.checklistItemId ?? undefined,
-        };
-      }
-      if (itemToConvert) {
-        return {
-          ...defaultValues,
-          amount: itemToConvert.item.predictedCost,
-          source: itemToConvert.item.description,
-          category: itemToConvert.item.category,
-          checklistId: itemToConvert.checklistId,
-          checklistItemId: itemToConvert.item.id,
-        };
-      }
-      return {
+    if (transactionToEdit) {
+      // Sanitize null values from Firestore to undefined for the form
+      const sanitizedTransaction = {
+        ...transactionToEdit,
+        tripId: transactionToEdit.tripId ?? undefined,
+        tripItemId: transactionToEdit.tripItemId ?? undefined,
+        checklistId: transactionToEdit.checklistId ?? undefined,
+        checklistItemId: transactionToEdit.checklistItemId ?? undefined,
+      };
+
+      form.reset({
+        ...defaultValues,
+        ...sanitizedTransaction,
+        date: parseISO(transactionToEdit.date),
+      });
+    } else if (itemToConvert) {
+      form.reset({
+        ...defaultValues,
+        amount: itemToConvert.item.predictedCost,
+        source: itemToConvert.item.description,
+        category: itemToConvert.item.category,
+        checklistId: itemToConvert.checklistId,
+        checklistItemId: itemToConvert.item.id,
+      });
+    } else {
+      form.reset({
         ...defaultValues,
         tripId: activeTrip?.id,
-      };
-    };
-
-    form.reset(getInitialValues());
+      });
+    }
   }, [transactionToEdit, itemToConvert, form, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
