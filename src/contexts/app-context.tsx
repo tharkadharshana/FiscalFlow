@@ -26,6 +26,7 @@ import {
   getDocs,
   writeBatch,
   limit,
+  deleteField,
 } from 'firebase/firestore';
 import { estimateCarbonFootprint } from '@/lib/carbon';
 import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction, createTripPlanAction } from '@/lib/actions';
@@ -532,29 +533,101 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
   
   const updateTransaction = async (transactionId: string, updatedData: Partial<Transaction>) => {
-    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+    if (!user) {
+        showNotification({ type: 'error', title: 'Not authenticated', description: '' });
+        return;
+    }
+
     try {
-        const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
-        const carbonFootprint = estimateCarbonFootprint({ ...transactions.find(t => t.id === transactionId)!, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
+        await runTransaction(db, async (t) => {
+            const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
+            const txDoc = await t.get(txRef);
 
-        const finalUpdateData: any = { 
-            ...updatedData, 
-            carbonFootprint,
-            tripId: updatedData.tripId || null,
-            tripItemId: updatedData.tripItemId || null,
-        };
-        
-        if (finalUpdateData.date && typeof finalUpdateData.date === 'string') {
-          finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
-        }
+            if (!txDoc.exists()) {
+                throw new Error("Transaction not found.");
+            }
 
-        await updateDoc(txRef, finalUpdateData);
+            const originalTx = txDoc.data() as Transaction;
+            const oldTripId = originalTx.tripId;
+            const oldTripItemId = originalTx.tripItemId;
+            const oldAmount = originalTx.amount;
 
-        showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
+            const newTripId = 'tripId' in updatedData ? updatedData.tripId : oldTripId;
+            const newTripItemId = 'tripItemId' in updatedData ? updatedData.tripItemId : oldTripItemId;
+            const newAmount = updatedData.amount ?? oldAmount;
+
+            // Step 1: Handle the old trip, if it exists and is being changed/removed
+            if (oldTripId && oldTripId !== newTripId) {
+                const oldTripRef = doc(db, 'users', user.uid, 'tripPlans', oldTripId);
+                const oldTripDoc = await t.get(oldTripRef);
+                if (oldTripDoc.exists()) {
+                    const oldTripData = oldTripDoc.data() as TripPlan;
+                    const updates: { [key: string]: any } = {
+                        totalActualCost: (oldTripData.totalActualCost || 0) - oldAmount
+                    };
+                    if (oldTripItemId) {
+                        updates.items = oldTripData.items.map(item =>
+                            item.id === oldTripItemId ? { ...item, actualCost: null } : item
+                        );
+                    }
+                    t.update(oldTripRef, updates);
+                }
+            }
+
+            // Step 2: Handle the new trip, if it exists
+            if (newTripId) {
+                const newTripRef = doc(db, 'users', user.uid, 'tripPlans', newTripId);
+                const newTripDoc = await t.get(newTripRef);
+                if (newTripDoc.exists()) {
+                    const newTripData = newTripDoc.data() as TripPlan;
+                    let costChange = newAmount;
+                    if (oldTripId === newTripId) {
+                        costChange = newAmount - oldAmount;
+                    }
+
+                    const updates: { [key: string]: any } = {
+                        totalActualCost: (newTripData.totalActualCost || 0) + costChange
+                    };
+
+                    updates.items = newTripData.items.map(item => {
+                        // If item is being unlinked within the same trip
+                        if (item.id === oldTripItemId && oldTripItemId !== newTripItemId) {
+                            return { ...item, actualCost: null };
+                        }
+                        // If item is being linked
+                        if (item.id === newTripItemId) {
+                            return { ...item, actualCost: newAmount };
+                        }
+                        return item;
+                    });
+
+                    t.update(newTripRef, updates);
+                }
+            }
+
+            // Step 3: Update the transaction itself
+            const carbonFootprint = estimateCarbonFootprint({ ...originalTx, ...updatedData } as Omit<Transaction, 'id', 'icon'>);
+            const finalUpdateData: any = { ...updatedData, carbonFootprint };
+
+            if (finalUpdateData.date && typeof finalUpdateData.date === 'string') {
+                finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
+            }
+
+            if (updatedData.tripId === undefined) {
+                finalUpdateData.tripId = deleteField();
+            }
+            if (updatedData.tripItemId === undefined) {
+                finalUpdateData.tripItemId = deleteField();
+            }
+
+            t.update(txRef, finalUpdateData);
+        });
+
+        showNotification({ type: 'success', title: 'Transaction Updated', description: 'Your changes have been saved.' });
         logger.info('Transaction updated successfully', { transactionId });
     } catch (error) {
         logger.error('Error updating transaction', error as Error, { transactionId });
-        showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
+        showNotification({ type: 'error', title: 'Update Failed', description: (error as Error).message });
     }
   };
 
