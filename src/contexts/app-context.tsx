@@ -440,194 +440,90 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-        const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, ...restOfTransaction } = transaction;
-        const finalAmount = items && items.length > 0
-            ? items.reduce((sum, item) => sum + item.amount, 0)
-            : transaction.amount;
-
-        // Perform all reads first
-        let roundupGoalDoc: any;
-        if (transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
-            const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
-            const querySnapshot = await getDocs(roundupGoalQuery);
-            if (!querySnapshot.empty) {
-                roundupGoalDoc = querySnapshot.docs[0];
-            }
-        }
-
         const batch = writeBatch(db);
+        const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, ...restOfTransaction } = transaction;
+        const finalAmount = items && items.length > 0 ? items.reduce((sum, item) => sum + item.amount, 0) : transaction.amount;
         const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
-        const dataToSave = {
+        const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
+        batch.set(newTransactionRef, {
             ...restOfTransaction, amount: finalAmount, items: items || [], date: Timestamp.fromDate(new Date(date)),
             createdAt: serverTimestamp(), userId: user.uid, isTaxDeductible: isTaxDeductible || false,
             carbonFootprint, checklistId: checklistId || null, checklistItemId: checklistItemId || null,
             tripId: tripId || null, tripItemId: tripItemId || null,
-        };
-        const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
-        batch.set(newTransactionRef, dataToSave);
+        });
 
-        // Update Roundup Goal
-        if (roundupGoalDoc) {
-          const goal = roundupGoalDoc.data() as SavingsGoal;
-          const roundupAmount = Math.ceil(finalAmount) - finalAmount;
-          if (roundupAmount > 0) {
-              const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
-              const newBadges = calculateNewBadges(goal, newCurrentAmount);
-              batch.update(roundupGoalDoc.ref, {
-                  currentAmount: newCurrentAmount,
-                  badges: arrayUnion(...newBadges)
-              });
-          }
+        // Handle Roundup Goal
+        if (transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
+            const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
+            const roundupGoalSnap = await getDocs(roundupGoalQuery);
+            if (!roundupGoalSnap.empty) {
+                const goalDoc = roundupGoalSnap.docs[0];
+                const goal = goalDoc.data() as SavingsGoal;
+                const roundupAmount = Math.ceil(finalAmount) - finalAmount;
+                if (roundupAmount > 0) {
+                    const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
+                    const newBadges = calculateNewBadges(goal, newCurrentAmount);
+                    batch.update(goalDoc.ref, { currentAmount: newCurrentAmount, badges: arrayUnion(...newBadges) });
+                }
+            }
         }
-
-        // Update Checklist
+        // Handle Checklist Update
         if (checklistId && checklistItemId) {
             const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
-            const checklistSnap = await getDocs(query(collection(db, `users/${user.uid}/checklists`), where('__name__', '==', checklistId)));
+            const checklistSnap = await getDocs(query(collection(db, 'users', user.uid, 'checklists'), where('__name__', '==', checklistId), limit(1)));
             if (!checklistSnap.empty) {
-                const checklist = checklistSnap.docs[0].data() as Checklist;
-                const updatedItems = checklist.items.map(item =>
-                    item.id === checklistItemId ? { ...item, isCompleted: true } : item
-                );
+                const checklistData = checklistSnap.docs[0].data() as Checklist;
+                const updatedItems = checklistData.items.map(item => item.id === checklistItemId ? { ...item, isCompleted: true } : item);
                 batch.update(checklistRef, { items: updatedItems });
             }
         }
-
-        // Update Trip Plan
+        // Handle Trip Plan Update
         if (tripId) {
-          const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
-          const tripSnap = await getDocs(query(collection(db, `users/${user.uid}/tripPlans`), where('__name__', '==', tripId)));
-          if (!tripSnap.empty) {
-              const trip = tripSnap.docs[0].data() as TripPlan;
-              let newTotalActualCost = trip.totalActualCost || 0;
-              
-              if (transaction.type === 'expense') newTotalActualCost += finalAmount;
-              else if (transaction.type === 'income') newTotalActualCost -= finalAmount;
-
-              if (tripItemId) {
-                  const updatedItems = trip.items.map(item => 
-                      item.id === tripItemId ? { ...item, actualCost: finalAmount } : item
-                  );
-                  batch.update(tripRef, { items: updatedItems, totalActualCost: newTotalActualCost });
-              } else if (transaction.type === 'expense') {
-                  const newUnplannedItem: TripItem = {
-                      id: nanoid(), description: transaction.source, category: transaction.category,
-                      predictedCost: 0, actualCost: finalAmount, isAiSuggested: false,
-                  };
-                  batch.update(tripRef, { items: arrayUnion(newUnplannedItem), totalActualCost: newTotalActualCost });
-              } else {
-                  batch.update(tripRef, { totalActualCost: newTotalActualCost });
-              }
-          }
+            const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
+            const tripSnap = await getDocs(query(collection(db, 'users', user.uid, 'tripPlans'), where('__name__', '==', tripId), limit(1)));
+            if (!tripSnap.empty) {
+                const tripData = tripSnap.docs[0].data() as TripPlan;
+                let newTotalActualCost = tripData.totalActualCost || 0;
+                if (transaction.type === 'expense') newTotalActualCost += finalAmount;
+                else if (transaction.type === 'income') newTotalActualCost -= finalAmount;
+                
+                const updates: any = { totalActualCost: newTotalActualCost };
+                if (tripItemId) {
+                    updates.items = tripData.items.map(item => item.id === tripItemId ? { ...item, actualCost: finalAmount } : item);
+                } else if (transaction.type === 'expense') {
+                    updates.items = arrayUnion({ id: nanoid(), description: transaction.source, category: transaction.category, predictedCost: 0, actualCost: finalAmount, isAiSuggested: false });
+                }
+                batch.update(tripRef, updates);
+            }
         }
 
         await batch.commit();
-
         showNotification({ type: 'success', title: 'Transaction Added', description: `Added ${formatCurrency(transaction.amount)} for ${transaction.source}.` });
         logger.info('Transaction added successfully', { amount: transaction.amount, type: transaction.type });
     } catch (error) {
         logger.error('Error adding transaction', error as Error);
-        const errorMessage = error instanceof Error ? error.message : 'Could not add transaction.';
-        showNotification({ type: 'error', title: 'Error', description: errorMessage });
+        showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
     }
   };
   
   const updateTransaction = async (transactionId: string, updatedData: Partial<Transaction>) => {
-    if (!user) {
-        showNotification({ type: 'error', title: 'Not authenticated', description: '' });
-        return;
-    }
-
+    if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
-        await runTransaction(db, async (t) => {
-            const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
-            const txDoc = await t.get(txRef);
+        const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
+        const carbonFootprint = estimateCarbonFootprint({ ...transactions.find(t => t.id === transactionId)!, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
+        
+        const finalUpdateData: any = { ...updatedData, carbonFootprint };
+        // Convert date string back to Timestamp for Firestore
+        if (updatedData.date && typeof updatedData.date === 'string') {
+            finalUpdateData.date = Timestamp.fromDate(new Date(updatedData.date));
+        }
 
-            if (!txDoc.exists()) {
-                throw new Error("Transaction not found.");
-            }
-
-            const originalTx = txDoc.data() as Transaction;
-            const oldTripId = originalTx.tripId;
-            const oldTripItemId = originalTx.tripItemId;
-            const oldAmount = originalTx.amount;
-
-            const newTripId = 'tripId' in updatedData ? updatedData.tripId : oldTripId;
-            const newTripItemId = 'tripItemId' in updatedData ? updatedData.tripItemId : oldTripItemId;
-            const newAmount = updatedData.amount ?? oldAmount;
-
-            // Step 1: Handle the old trip, if it exists and is being changed/removed
-            if (oldTripId && oldTripId !== newTripId) {
-                const oldTripRef = doc(db, 'users', user.uid, 'tripPlans', oldTripId);
-                const oldTripDoc = await t.get(oldTripRef);
-                if (oldTripDoc.exists()) {
-                    const oldTripData = oldTripDoc.data() as TripPlan;
-                    const updates: { [key: string]: any } = {
-                        totalActualCost: (oldTripData.totalActualCost || 0) - oldAmount
-                    };
-                    if (oldTripItemId) {
-                        updates.items = oldTripData.items.map(item =>
-                            item.id === oldTripItemId ? { ...item, actualCost: null } : item
-                        );
-                    }
-                    t.update(oldTripRef, updates);
-                }
-            }
-
-            // Step 2: Handle the new trip, if it exists
-            if (newTripId) {
-                const newTripRef = doc(db, 'users', user.uid, 'tripPlans', newTripId);
-                const newTripDoc = await t.get(newTripRef);
-                if (newTripDoc.exists()) {
-                    const newTripData = newTripDoc.data() as TripPlan;
-                    let costChange = newAmount;
-                    if (oldTripId === newTripId) {
-                        costChange = newAmount - oldAmount;
-                    }
-
-                    const updates: { [key: string]: any } = {
-                        totalActualCost: (newTripData.totalActualCost || 0) + costChange
-                    };
-
-                    updates.items = newTripData.items.map(item => {
-                        // If item is being unlinked within the same trip
-                        if (item.id === oldTripItemId && oldTripItemId !== newTripItemId) {
-                            return { ...item, actualCost: null };
-                        }
-                        // If item is being linked
-                        if (item.id === newTripItemId) {
-                            return { ...item, actualCost: newAmount };
-                        }
-                        return item;
-                    });
-
-                    t.update(newTripRef, updates);
-                }
-            }
-
-            // Step 3: Update the transaction itself
-            const carbonFootprint = estimateCarbonFootprint({ ...originalTx, ...updatedData } as Omit<Transaction, 'id', 'icon'>);
-            const finalUpdateData: any = { ...updatedData, carbonFootprint };
-
-            if (finalUpdateData.date && typeof finalUpdateData.date === 'string') {
-                finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
-            }
-
-            if (updatedData.tripId === undefined) {
-                finalUpdateData.tripId = deleteField();
-            }
-            if (updatedData.tripItemId === undefined) {
-                finalUpdateData.tripItemId = deleteField();
-            }
-
-            t.update(txRef, finalUpdateData);
-        });
-
-        showNotification({ type: 'success', title: 'Transaction Updated', description: 'Your changes have been saved.' });
+        await updateDoc(txRef, finalUpdateData);
+        showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
         logger.info('Transaction updated successfully', { transactionId });
     } catch (error) {
         logger.error('Error updating transaction', error as Error, { transactionId });
-        showNotification({ type: 'error', title: 'Update Failed', description: (error as Error).message });
+        showNotification({ type: 'error', title: 'Error', description: (error as Error).message });
     }
   };
 
@@ -1277,4 +1173,3 @@ export function useAppContext() {
   }
   return context;
 }
-
