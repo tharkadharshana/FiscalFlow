@@ -63,6 +63,8 @@ export function LoginForm() {
               expiryDate: null,
             },
             hasCompletedOnboarding: false,
+            activeTripId: null, // Ensure this field is created by default
+            gmailConnected: false,
           }, { merge: true });
         logger.info('Successfully created user document in Firestore', { userId: user.uid });
     } catch (error) {

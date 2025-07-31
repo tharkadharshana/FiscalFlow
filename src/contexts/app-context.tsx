@@ -513,10 +513,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const carbonFootprint = estimateCarbonFootprint({ ...transactions.find(t => t.id === transactionId)!, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
         
         const finalUpdateData: any = { ...updatedData, carbonFootprint };
-        // Convert date string back to Timestamp for Firestore
-        if (updatedData.date && typeof updatedData.date === 'string') {
-            finalUpdateData.date = Timestamp.fromDate(new Date(updatedData.date));
+        
+        // Convert date string/object back to Timestamp for Firestore
+        if (finalUpdateData.date) {
+            finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
         }
+
+        // Ensure optional fields are either set or deleted correctly
+        finalUpdateData.tripId = finalUpdateData.tripId === undefined ? null : finalUpdateData.tripId;
+        finalUpdateData.tripItemId = finalUpdateData.tripItemId === undefined ? null : finalUpdateData.tripItemId;
+        finalUpdateData.checklistId = finalUpdateData.checklistId === undefined ? null : finalUpdateData.checklistId;
+        finalUpdateData.checklistItemId = finalUpdateData.checklistItemId === undefined ? null : finalUpdateData.checklistItemId;
+
 
         await updateDoc(txRef, finalUpdateData);
         showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
