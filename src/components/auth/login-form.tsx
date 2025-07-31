@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { countries } from '@/data/countries';
 import { logger } from '@/lib/logger';
+import { FREE_TIER_LIMITS } from '@/contexts/app-context';
 
 export function LoginForm() {
   const router = useRouter();
@@ -44,7 +45,10 @@ export function LoginForm() {
   const handleNewUserSetup = async (user: User, countryCode: string) => {
     logger.info('Starting new user setup in Firestore', { userId: user.uid, email: user.email });
     try {
-        await setDoc(doc(db, "users", user.uid), {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+
+        // This is the new, standardized user profile object.
+        const newUserProfile = {
             displayName: user.displayName,
             email: user.email,
             createdAt: serverTimestamp(),
@@ -57,15 +61,26 @@ export function LoginForm() {
                 recurringPayment: true,
             },
             profilePictureURL: user.photoURL || null,
+            customCategories: [],
+            activeTripId: null,
+            gmailConnected: false,
+            hasCompletedOnboarding: false,
+            showOnboardingOnLogin: true,
             subscription: {
               tier: 'free',
               isActive: true,
+              planType: null,
               expiryDate: null,
+              monthlyOcrScans: { count: 0, month: currentMonth },
+              monthlyRoundups: { count: 0, month: currentMonth },
+              monthlyTaxReports: { count: 0, month: currentMonth },
+              monthlyVoiceCommands: { count: 0, month: currentMonth },
+              monthlyReports: { count: 0, month: currentMonth },
+              monthlyInsights: { count: 0, month: currentMonth },
             },
-            hasCompletedOnboarding: false,
-            activeTripId: null, // Ensure this field is created by default
-            gmailConnected: false,
-          }, { merge: true });
+          };
+
+        await setDoc(doc(db, "users", user.uid), newUserProfile, { merge: true });
         logger.info('Successfully created user document in Firestore', { userId: user.uid });
     } catch (error) {
         logger.error("CRITICAL: Failed to create user document in Firestore.", error as Error, { userId: user.uid });
