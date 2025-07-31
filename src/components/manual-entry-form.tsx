@@ -59,7 +59,7 @@ const defaultValues = {
   source: '',
   notes: '',
   date: new Date(),
-  category: '',
+  category: 'Groceries',
   tripId: undefined,
   tripItemId: undefined,
   isTaxDeductible: false,
@@ -68,33 +68,38 @@ const defaultValues = {
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { userProfile, addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount } = useAppContext();
+  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultValues,
   });
   
-  const activeTrip = useMemo(() => {
-    if (!userProfile?.activeTripId) return null;
-    return tripPlans.find(trip => trip.id === userProfile.activeTripId);
-  }, [userProfile, tripPlans]);
-
   useEffect(() => {
     if (transactionToEdit) {
+      // Convert null values to undefined for the form to handle them correctly
+      const sanitizedTransaction = {
+        ...transactionToEdit,
+        tripId: transactionToEdit.tripId ?? undefined,
+        tripItemId: transactionToEdit.tripItemId ?? undefined,
+        checklistId: transactionToEdit.checklistId ?? undefined,
+        checklistItemId: transactionToEdit.checklistItemId ?? undefined,
+      };
+
       form.reset({
         ...defaultValues,
-        ...transactionToEdit,
+        ...sanitizedTransaction,
         date: parseISO(transactionToEdit.date),
       });
     } else if (itemToConvert) {
-        form.reset({
-            ...defaultValues,
-            amount: itemToConvert.item.predictedCost,
-            source: itemToConvert.item.description,
-            category: itemToConvert.item.category,
-            checklistId: itemToConvert.checklistId,
-            checklistItemId: itemToConvert.item.id,
-        });
+      form.reset({
+        ...defaultValues,
+        amount: itemToConvert.item.predictedCost,
+        source: itemToConvert.item.description,
+        category: itemToConvert.item.category,
+        checklistId: itemToConvert.checklistId,
+        checklistItemId: itemToConvert.item.id,
+      });
     } else {
       form.reset({
         ...defaultValues,
@@ -112,15 +117,16 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   }, [selectedTripId, tripPlans]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const data = {
+    const dataToSave: Omit<Transaction, 'id' | 'icon'> = {
         ...values,
         type: 'expense',
         date: values.date.toISOString(),
     };
+    
     if (transactionToEdit) {
-        updateTransaction(transactionToEdit.id, data as Partial<Transaction>);
+        updateTransaction(transactionToEdit.id, dataToSave as Partial<Transaction>);
     } else {
-        addTransaction(data);
+        addTransaction(dataToSave);
     }
     onFormSubmit();
   }
@@ -152,7 +158,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {activeTrip && !transactionToEdit && (
+        {activeTrip && !transactionToEdit && !itemToConvert && (
             <Alert>
                 <Rocket className="h-4 w-4" />
                 <AlertTitle>Trip Mode Active</AlertTitle>
@@ -260,36 +266,35 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         <div className="space-y-4 rounded-md border p-4">
             <h3 className="text-sm font-medium text-muted-foreground">Link to Trip (Optional)</h3>
             <FormField
-                control={form.control}
-                name="tripId"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Trip Plan</FormLabel>
-                        <Select 
-                            onValueChange={(value) => {
-                                field.onChange(value === 'none' ? undefined : value);
-                                form.setValue('tripItemId', undefined); // Reset item when plan changes
-                            }} 
-                            value={field.value || 'none'}
-                            disabled={!!activeTrip && !transactionToEdit}
-                        >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a trip to link this expense to" />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                {tripPlans.filter(p => p.status === 'active' || p.status === 'planning').map((trip) => (
-                                    <SelectItem key={trip.id} value={trip.id}>
-                                    {trip.title}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )}
+              control={form.control}
+              name="tripId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trip Plan</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      field.onChange(value === 'none' ? undefined : value);
+                      form.setValue('tripItemId', undefined);
+                    }} 
+                    value={field.value ?? 'none'}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a trip to link this expense to" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {tripPlans.filter(p => p.status === 'active' || p.status === 'planning').map((trip) => (
+                        <SelectItem key={trip.id} value={trip.id}>
+                          {trip.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             
             {selectedTripId && (
@@ -299,7 +304,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Trip Item</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger disabled={!selectedTripId}>
                                         <SelectValue placeholder="Select a trip item" />
