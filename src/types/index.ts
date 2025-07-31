@@ -1,4 +1,5 @@
 
+
 export interface TransactionItem {
   id: string;
   description: string;
@@ -65,7 +66,7 @@ export interface UserProfile {
   subscription: {
     tier: 'free' | 'premium';
     isActive: boolean;
-    planType?: 'monthly' | 'yearly';
+    planType?: 'monthly' | 'yearly' | null;
     expiryDate: string | null;
     monthlyOcrScans?: { count: number; month: string }; // YYYY-MM
     monthlyRoundups?: { count: number; month: string };

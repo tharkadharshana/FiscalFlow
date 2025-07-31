@@ -18,22 +18,33 @@ const prompt = ai.definePrompt({
   name: 'parseReceiptPrompt',
   input: {schema: ParseReceiptInputSchema},
   output: {schema: ParseReceiptOutputSchema},
-  prompt: `You are an expert receipt processing AI. Analyze the receipt image provided.
-
-Your primary goal is to identify individual line items and categorize them. If items on the receipt belong to different logical categories (e.g., 'Groceries' and 'Health & Fitness' from a supermarket), you should create separate transactions for each category, grouping the relevant items under them.
+  prompt: `You are an expert receipt processing AI. Your task is to analyze the provided receipt image and extract as much information as possible into a standardized JSON format.
 
 **Instructions:**
-1.  Read the entire receipt.
-2.  Extract the merchant/store name.
-3.  Extract the transaction date in YYYY-MM-DD format.
-4.  Group all purchased items by a logical category (e.g., 'Groceries', 'Clothing', 'Utilities').
-5.  For each category group, create a single transaction object.
-6.  Each transaction object must contain:
-    - A 'suggestedCategory'.
-    - A list of 'lineItems' belonging to that category, each with a 'description' and 'amount'.
-    - The 'totalAmount' for that specific transaction (sum of its line items).
-7.  If all items belong to one category, you will return a single transaction object in the array.
-8.  If you cannot find specific line items, create a single transaction with the total amount and your best guess for the category.
+1.  **Read the entire receipt carefully.** Identify all sections: header, line items, and summary.
+2.  **Extract Merchant Information:**
+    -   Find the 'merchantName'.
+    -   Find the 'merchantAddress'.
+    -   Find the 'merchantPhone' number.
+3.  **Extract Transaction Details:**
+    -   Find the 'transactionDate' in YYYY-MM-DD format. If no year is present, assume the current year.
+    -   Find the 'transactionTime' in HH:mm format if available.
+    -   Find any 'receiptNumber' or 'transactionId'.
+4.  **Extract Line Items:**
+    -   Create a list of all purchased items. Each item in the 'lineItems' array must have:
+        -   'description': The name of the item.
+        -   'quantity': The quantity purchased (default to 1 if not specified).
+        -   'unitPrice': The price of a single item, if available.
+        -   'totalPrice': The final price for that line item.
+5.  **Extract Financial Summary:**
+    -   Find the 'subtotal' (the total before taxes and discounts).
+    -   Find all 'taxes'. For each tax, create an object with its 'description' (e.g., VAT) and 'amount'.
+    -   Find all 'discounts'. For each discount, create an object with its 'description' and 'amount'.
+    -   Find the final 'totalAmount' paid. This is the most important value.
+6.  **Extract Payment and Currency:**
+    -   Identify the 'paymentMethod' (e.g., "Cash", "Credit Card", "Visa ****1234").
+    -   Identify the 'currency' code (e.g., USD, EUR, GBP).
+7.  **Final Output:** Structure all the extracted information into a single JSON object that perfectly matches the 'ParseReceiptOutput' schema. If a field is not present on the receipt, omit it from the JSON.
 
 Receipt Image: {{media url=photoDataUri}}`,
 });

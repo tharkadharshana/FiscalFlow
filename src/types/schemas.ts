@@ -1,4 +1,3 @@
-
 // src/types/schemas.ts
 
 /**
@@ -186,6 +185,44 @@ export const ParseReceiptInputSchema = z.object({
 });
 export type ParseReceiptInput = z.infer<typeof ParseReceiptInputSchema>;
 
+// This is the new, detailed Bill Schema
+export const ParsedBillSchema = z.object({
+  merchantName: z.string().optional().describe('The name of the store or merchant.'),
+  merchantAddress: z.string().optional().describe('The address of the merchant.'),
+  merchantPhone: z.string().optional().describe('The phone number of the merchant.'),
+  transactionDate: z.string().optional().describe('The date of the transaction in YYYY-MM-DD format.'),
+  transactionTime: z.string().optional().describe('The time of the transaction in HH:mm format.'),
+  lineItems: z.array(z.object({
+    description: z.string().describe('The description of the item purchased.'),
+    quantity: z.number().optional().describe('The quantity of the item.'),
+    unitPrice: z.number().optional().describe('The price of a single unit of the item.'),
+    totalPrice: z.number().describe('The total price for this line item (quantity * unit price).'),
+  })).optional().describe('An array of all line items from the receipt.'),
+  subtotal: z.number().optional().describe('The total amount before taxes and discounts.'),
+  taxes: z.array(z.object({
+    description: z.string().describe('The type of tax (e.g., VAT, GST, Sales Tax).'),
+    amount: z.number().describe('The amount of the tax.'),
+  })).optional().describe('An array of all taxes listed on the receipt.'),
+  discounts: z.array(z.object({
+    description: z.string().describe('The description of the discount (e.g., "Coupon", "20% Off").'),
+    amount: z.number().describe('The amount of the discount (as a positive number).'),
+  })).optional(),
+  totalAmount: z.number().describe('The final total amount paid.'),
+  paymentMethod: z.string().optional().describe('The method of payment used (e.g., "Cash", "Visa ****1234").'),
+  receiptNumber: z.string().optional().describe('The receipt or transaction ID number.'),
+  currency: z.string().optional().describe('The three-letter currency code (e.g., USD, EUR).'),
+  rawText: z.string().optional().describe('The full raw text extracted from the receipt for debugging.'),
+});
+export type ParsedBill = z.infer<typeof ParsedBillSchema>;
+
+// This schema will wrap the new ParsedBillSchema for the flow's output
+export const ParseReceiptOutputSchema = z.object({
+  bill: ParsedBillSchema.optional(),
+  rawText: z.string().optional().describe('The full raw text extracted from the receipt for debugging.'),
+});
+export type ParseReceiptOutput = z.infer<typeof ParseReceiptOutputSchema>;
+
+// LEGACY SCHEMA for backwards compatibility if needed, though we are replacing its usage.
 export const ParsedReceiptTransactionSchema = z.object({
     storeName: z.string().optional().describe('The name of the store or merchant.'),
     transactionDate: z.string().optional().describe('The date of the transaction in YYYY-MM-DD format. If no year is present, assume the current year.'),
@@ -194,12 +231,6 @@ export const ParsedReceiptTransactionSchema = z.object({
     totalAmount: z.number().optional().describe('The sum of the line items for this specific transaction.'),
 });
 export type ParsedReceiptTransaction = z.infer<typeof ParsedReceiptTransactionSchema>;
-
-export const ParseReceiptOutputSchema = z.object({
-  transactions: z.array(ParsedReceiptTransactionSchema).describe("An array of transactions extracted from the receipt. There will be one transaction per category identified."),
-  rawText: z.string().optional().describe('The full raw text extracted from the receipt for debugging.'),
-});
-export type ParseReceiptOutput = z.infer<typeof ParseReceiptOutputSchema>;
 
 
 // --- Trip Plan Schemas ---
