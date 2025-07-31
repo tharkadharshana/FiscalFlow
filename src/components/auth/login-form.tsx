@@ -49,13 +49,16 @@ export function LoginForm() {
 
         // This is the new, standardized user profile object.
         const newUserProfile = {
-            displayName: user.displayName,
+            displayName: user.displayName || name || "New User",
             email: user.email,
             createdAt: serverTimestamp(),
             lastLoginAt: serverTimestamp(),
             countryCode: countryCode,
             currencyPreference: 'USD',
             darkModeBanner: false,
+            financialCycleStartDay: 1,
+            hasCompletedOnboarding: false,
+            showOnboardingOnLogin: true,
             notificationPreferences: {
                 budgetThreshold: true,
                 recurringPayment: true,
@@ -64,8 +67,6 @@ export function LoginForm() {
             customCategories: [],
             activeTripId: null,
             gmailConnected: false,
-            hasCompletedOnboarding: false,
-            showOnboardingOnLogin: true,
             subscription: {
               tier: 'free',
               isActive: true,
