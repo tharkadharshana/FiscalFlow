@@ -21,6 +21,7 @@ import { IncomeVsExpenseChart } from '@/components/dashboard/reports/income-vs-e
 import { SpendingByCategory } from '@/components/dashboard/reports/spending-by-category';
 import { ReportSummaryCards } from '@/components/dashboard/reports/report-summary-cards';
 import { BudgetPerformance } from '@/components/dashboard/reports/budget-performance';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ReportsPage() {
   const { transactions, budgets, formatCurrency, showNotification, isPremium, canGenerateReport, generateReportWithLimit } = useAppContext();
@@ -29,6 +30,8 @@ export default function ReportsPage() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+
+  const [activeType, setActiveType] = useState<'all' | 'income' | 'expense'>('all');
 
   const filteredData = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -40,10 +43,14 @@ export default function ReportsPage() {
       };
     }
     
-    const filteredTransactions = transactions.filter(t => {
+    let filteredTransactions = transactions.filter(t => {
       const transactionDate = new Date(t.date);
       return transactionDate >= dateRange.from! && transactionDate <= dateRange.to!;
     });
+    
+    if (activeType !== 'all') {
+        filteredTransactions = filteredTransactions.filter(t => t.type === activeType);
+    }
     
     const reportMonth = format(dateRange.from, 'yyyy-MM');
     const filteredBudgets = budgets.filter(b => b.month === reportMonth);
@@ -57,7 +64,7 @@ export default function ReportsPage() {
       totalIncome,
       totalExpenses
     };
-  }, [transactions, budgets, dateRange]);
+  }, [transactions, budgets, dateRange, activeType]);
 
   const handleExportCSV = async () => {
     if (!await generateReportWithLimit()) return;
@@ -117,9 +124,10 @@ export default function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Report Filters</CardTitle>
-            <CardDescription>Select a date range to generate your financial summary.</CardDescription>
+            <CardDescription>Select a date range and type to generate your financial summary.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row gap-4">
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <Popover>
                   <PopoverTrigger asChild>
                   <Button
@@ -149,16 +157,26 @@ export default function ReportsPage() {
                 <Button variant="outline" onClick={handleExportCSV} disabled={!isPremium}><FileDown /> CSV</Button>
                 <Button variant="outline" onClick={handleExportPDF} disabled={!isPremium}><FileDown /> PDF</Button>
               </div>
+            </div>
+            <Tabs defaultValue="all" onValueChange={(v) => setActiveType(v as any)}>
+              <TabsList>
+                <TabsTrigger value="all">All Transactions</TabsTrigger>
+                <TabsTrigger value="expense">Expenses Only</TabsTrigger>
+                <TabsTrigger value="income">Income Only</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardContent>
         </Card>
 
         <div className="space-y-6">
             <ReportSummaryCards data={filteredData} />
             <IncomeVsExpenseChart data={filteredData} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SpendingByCategory data={filteredData} />
-                <BudgetPerformance data={filteredData} />
-            </div>
+            {activeType !== 'income' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <SpendingByCategory data={filteredData} />
+                  <BudgetPerformance data={filteredData} />
+              </div>
+            )}
         </div>
       </main>
     </div>
