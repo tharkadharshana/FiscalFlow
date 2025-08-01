@@ -55,6 +55,7 @@ export function LoginForm() {
             lastLoginAt: serverTimestamp(),
             countryCode: countryCode,
             currencyPreference: 'USD',
+            languagePreference: 'en',
             darkModeBanner: false,
             financialCycleStartDay: 1,
             hasCompletedOnboarding: false,

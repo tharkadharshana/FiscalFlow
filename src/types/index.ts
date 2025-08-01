@@ -50,6 +50,7 @@ export interface UserProfile {
   email: string;
   countryCode: string; // e.g., 'US', 'LK', 'GB'
   currencyPreference: string;
+  languagePreference: 'en' | 'si' | 'ta';
   darkModeBanner: boolean;
   notificationPreferences: {
     budgetThreshold: boolean;
@@ -75,6 +76,7 @@ export interface UserProfile {
   showOnboardingOnLogin?: boolean;
   activeTripId?: string | null;
   gmailConnected?: boolean;
+  financialCycleStartDay: number;
 }
 
 export interface ChecklistItem {

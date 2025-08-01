@@ -29,6 +29,7 @@ const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
   countryCode: z.string(),
   currencyPreference: z.string(),
+  languagePreference: z.enum(['en', 'si', 'ta']),
   financialCycleStartDay: z.coerce.number().min(1).max(31),
   darkModeBanner: z.boolean(),
   showOnboardingOnLogin: z.boolean(),
@@ -48,6 +49,7 @@ export default function SettingsPage() {
       displayName: '',
       countryCode: 'US',
       currencyPreference: 'USD',
+      languagePreference: 'en',
       financialCycleStartDay: 1,
       darkModeBanner: false,
       showOnboardingOnLogin: true,
@@ -64,6 +66,7 @@ export default function SettingsPage() {
         displayName: userProfile.displayName || '',
         countryCode: userProfile.countryCode || 'US',
         currencyPreference: userProfile.currencyPreference || 'USD',
+        languagePreference: userProfile.languagePreference || 'en',
         financialCycleStartDay: userProfile.financialCycleStartDay || 1,
         darkModeBanner: userProfile.darkModeBanner || false,
         showOnboardingOnLogin: userProfile.showOnboardingOnLogin ?? true,
@@ -333,6 +336,28 @@ export default function SettingsPage() {
                     )}
                     />
                  </div>
+                 <FormField
+                  control={form.control}
+                  name="languagePreference"
+                  render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>Language</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Select a language" />
+                          </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                              <SelectItem value="en">English</SelectItem>
+                              <SelectItem value="si">Sinhala (සිංහල)</SelectItem>
+                              <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
+                          </SelectContent>
+                      </Select>
+                      <FormDescription>Set your preferred language for the app.</FormDescription>
+                      </FormItem>
+                  )}
+                  />
                 <FormField
                   control={form.control}
                   name="financialCycleStartDay"
