@@ -515,7 +515,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const finalUpdateData: any = { ...updatedData, carbonFootprint };
         
         // Convert date string/object back to Timestamp for Firestore
-        if (finalUpdateData.date) {
+        if (finalUpdateData.date && !(finalUpdateData.date instanceof Timestamp)) {
             finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
         }
 
@@ -1038,6 +1038,10 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     }
 
     const result = await parseReceiptAction(input);
+
+    if (!result) {
+        return { error: 'Failed to get a result from the AI action.' };
+    }
 
     if (!('error' in result) && !isPremium) {
         const currentMonth = new Date().toISOString().slice(0, 7);
