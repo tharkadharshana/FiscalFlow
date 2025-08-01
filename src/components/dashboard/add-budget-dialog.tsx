@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -34,6 +35,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '../ui/label';
 import { parseDocumentAction } from '@/lib/actions';
 import Image from 'next/image';
+import { logger } from '@/lib/logger';
 
 // --------- Zod Schemas ---------
 const budgetItemSchema = z.object({
@@ -215,6 +217,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
     }
   }, [showNotification]);
   
+  // Camera logic
   useEffect(() => {
     if (activeTab !== 'camera' || view !== 'input') {
         if (streamRef.current) {
@@ -229,20 +232,40 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
         const devices = await navigator.mediaDevices.enumerateDevices();
         const cameras = devices.filter(d => d.kind === 'videoinput');
         setVideoDevices(cameras);
-        if (cameras.length === 0) throw new Error("No camera found");
-        const deviceId = selectedDeviceId || cameras.find(d => d.label.toLowerCase().includes('back'))?.deviceId || cameras[0].deviceId;
-        if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+
+        if (cameras.length === 0) {
+          setHasCameraPermission(false);
+          return;
+        }
+
+        const backCam = cameras.find(d => d.label.toLowerCase().includes('back'));
+        const deviceId = selectedDeviceId || backCam?.deviceId || cameras[0].deviceId;
+        
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
         streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-        setSelectedDeviceId(deviceId);
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+        }
+        setSelectedDeviceId(deviceId); // Set it after successfully getting the stream
         setHasCameraPermission(true);
       } catch (error) {
+        logger.error('Error accessing camera:', error as Error);
         setHasCameraPermission(false);
       }
     };
+
     startCamera();
-    return () => { if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop()); };
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
   }, [activeTab, view, selectedDeviceId]);
 
   const handleToggleRecording = () => {
@@ -447,13 +470,31 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                 <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
           </TabsContent>
           <TabsContent value="camera" className="pt-4 space-y-4">
-                <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
-                <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
-                    <canvas ref={canvasRef} className="hidden" />
-                    {imageUri ? <Image src={imageUri} alt="Budget preview" fill objectFit="contain" /> : <><video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />{hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" />Camera Access Denied</Alert>}</>}
-                    {videoDevices.length > 1 && !imageUri && <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10"><SwitchCamera className="h-5 w-5" /></Button>}
-                </div>
-                {imageUri ? (<div className="grid grid-cols-2 gap-4"><Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button><Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button></div>) : (<Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>)}
+              <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
+              <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
+                  <canvas ref={canvasRef} className="hidden" />
+                  {imageUri ? (
+                      <Image src={imageUri} alt="Budget preview" fill style={{ objectFit: 'contain' }} />
+                  ) : (
+                      <>
+                          <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                          {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle></Alert>}
+                      </>
+                  )}
+                  {videoDevices.length > 1 && !imageUri && (
+                      <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50">
+                          <SwitchCamera className="h-5 w-5" />
+                      </Button>
+                  )}
+              </div>
+              {imageUri ? (
+                  <div className="grid grid-cols-2 gap-4">
+                      <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
+                      <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
+                  </div>
+              ) : (
+                  <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>
+              )}
             </TabsContent>
             <TabsContent value="upload" className="pt-4 h-full">
                 <div className="flex flex-col items-center justify-center h-full space-y-4">
