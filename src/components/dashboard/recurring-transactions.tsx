@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/app-context';
-import { PlusCircle, Repeat, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, Repeat, MoreVertical, Pencil, Trash2, Search, ArrowUpDown } from 'lucide-react';
 import { AddRecurringTransactionDialog } from './add-recurring-transaction-dialog';
 import type { RecurringTransaction } from '@/types';
 import {
@@ -27,24 +28,55 @@ import {
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Input } from '../ui/input';
 
 type SortDescriptor = {
   column: 'title' | 'amount' | 'category' | 'frequency';
   direction: 'ascending' | 'descending';
 };
 
-type RecurringTransactionsProps = {
-  filterValue: string;
-  sortDescriptor: SortDescriptor;
-};
+const RecurringTableControls = ({
+    filterValue,
+    onFilterChange,
+    sortDescriptor,
+    onSortChange,
+}: {
+    filterValue: string;
+    onFilterChange: (value: string) => void;
+    sortDescriptor: SortDescriptor;
+    onSortChange: (descriptor: SortDescriptor) => void;
+}) => (
+    <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b">
+        <div className="relative w-full md:w-auto">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input type="search" placeholder="Filter by title or category..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
+        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Sort by</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'title', direction: 'ascending' })}>Title (A-Z)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'title', direction: 'descending' })}>Title (Z-A)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'descending' })}>Amount: High-Low</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'ascending' })}>Amount: Low-High</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'ascending' })}>Category (A-Z)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'descending' })}>Category (Z-A)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'frequency', direction: 'ascending' })}>Frequency</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    </div>
+);
 
-export function RecurringTransactions({ filterValue, sortDescriptor }: RecurringTransactionsProps) {
+
+export function RecurringTransactions() {
   const { recurringTransactions, deleteRecurringTransaction, formatCurrency, isPremium, FREE_TIER_LIMITS } = useAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<RecurringTransaction | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<RecurringTransaction | null>(null);
   
+  const [filterValue, setFilterValue] = useState('');
+  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({ column: 'title', direction: 'ascending' });
+
   const handleEdit = (transaction: RecurringTransaction) => {
     setTransactionToEdit(transaction);
     setIsDialogOpen(true);
@@ -73,7 +105,7 @@ export function RecurringTransactions({ filterValue, sortDescriptor }: Recurring
   const filteredItems = useMemo(() => {
     return recurringTransactions.filter(t => 
         t.title.toLowerCase().includes(filterValue.toLowerCase()) ||
-        t.source.toLowerCase().includes(filterValue.toLowerCase())
+        t.category.toLowerCase().includes(filterValue.toLowerCase())
     );
   }, [recurringTransactions, filterValue]);
 
@@ -145,41 +177,49 @@ export function RecurringTransactions({ filterValue, sortDescriptor }: Recurring
 
   return (
     <>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Recurring Transactions</CardTitle>
-          <CardDescription>
-            Manage automatic income and expenses like salaries and subscriptions.
-          </CardDescription>
-        </div>
-        {canAddRecurring ? AddRecurringButton : (
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        {AddRecurringButton}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Upgrade to Premium for more recurring transactions.</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-        )}
-      </CardHeader>
-      <CardContent>
-        {sortedItems.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {sortedItems.map((transaction) => (
-              <RecurringTransactionCard key={transaction.id} transaction={transaction} />
-            ))}
-          </div>
-        ) : (
-          <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
-            <Repeat className="h-12 w-12 mb-4" />
-            <p className="text-lg font-semibold">No matching recurring transactions found.</p>
-            <p>Try clearing your filters or add a new recurring item.</p>
-          </div>
-        )}
-      </CardContent>
+      <Card>
+        <RecurringTableControls 
+            filterValue={filterValue}
+            onFilterChange={setFilterValue}
+            sortDescriptor={sortDescriptor}
+            onSortChange={setSortDescriptor}
+        />
+        <CardHeader className="flex flex-row items-center justify-between pt-0">
+            <div>
+            <CardTitle>Recurring Transactions</CardTitle>
+            <CardDescription>
+                Manage automatic income and expenses like salaries and subscriptions.
+            </CardDescription>
+            </div>
+            {canAddRecurring ? AddRecurringButton : (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            {AddRecurringButton}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Upgrade to Premium for more recurring transactions.</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+        </CardHeader>
+        <CardContent>
+            {sortedItems.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+                {sortedItems.map((transaction) => (
+                <RecurringTransactionCard key={transaction.id} transaction={transaction} />
+                ))}
+            </div>
+            ) : (
+            <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
+                <Repeat className="h-12 w-12 mb-4" />
+                <p className="text-lg font-semibold">No recurring transactions found.</p>
+                <p>Try clearing your filters or add a new recurring item.</p>
+            </div>
+            )}
+        </CardContent>
+      </Card>
 
       <AddRecurringTransactionDialog open={isDialogOpen} onOpenChange={handleDialogClose} transactionToEdit={transactionToEdit} />
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -11,7 +12,7 @@ import { useAppContext } from '@/contexts/app-context';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import type { Transaction } from '@/types';
+import type { Transaction, RecurringTransaction } from '@/types';
 import { RecurringTransactions } from '@/components/dashboard/recurring-transactions';
 import { Repeat, MoreVertical, Pencil, Trash2, Sparkles, ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import {
@@ -36,9 +37,11 @@ import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
+import { AddRecurringTransactionDialog } from '@/components/add-recurring-transaction-dialog';
+
 
 type SortDescriptor = {
-  column: 'date' | 'amount' | 'category';
+  column: 'date' | 'amount' | 'source';
   direction: 'ascending' | 'descending';
 };
 
@@ -63,7 +66,7 @@ const TransactionTableControls = ({
     <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b">
         <div className="relative w-full md:w-auto">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Filter by source..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
+            <Input type="search" placeholder="Filter by source or category..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
         </div>
         <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Sort by</Button></DropdownMenuTrigger>
@@ -72,8 +75,8 @@ const TransactionTableControls = ({
                 <DropdownMenuItem onClick={() => onSortChange({ column: 'date', direction: 'ascending' })}>Oldest First</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'descending' })}>Amount: High-Low</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'ascending' })}>Amount: Low-High</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'ascending' })}>Category (A-Z)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'descending' })}>Category (Z-A)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'source', direction: 'ascending' })}>Source (A-Z)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'source', direction: 'descending' })}>Source (Z-A)</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     </div>
@@ -93,7 +96,7 @@ const RecurringTableControls = ({
     <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b">
         <div className="relative w-full md:w-auto">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Filter by title/source..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
+            <Input type="search" placeholder="Filter by title or category..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
         </div>
         <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Sort by</Button></DropdownMenuTrigger>
@@ -123,7 +126,6 @@ export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [filterValue, setFilterValue] = useState('');
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({ column: 'date', direction: 'descending' });
-  const [recurringSortDescriptor, setRecurringSortDescriptor] = useState<RecurringSortDescriptor>({ column: 'title', direction: 'ascending' });
   const [currentPage, setCurrentPage] = useState(1);
   
   const handleEdit = (transaction: Transaction) => {
@@ -177,8 +179,8 @@ export default function TransactionsPage() {
                 return new Date(first.date).getTime() - new Date(second.date).getTime();
             case 'amount':
                 return first.amount - second.amount;
-            case 'category':
-                return first.category.localeCompare(second.category);
+            case 'source':
+                return first.source.localeCompare(second.source);
             default:
                 return 0;
         }
@@ -301,14 +303,7 @@ export default function TransactionsPage() {
                 </Card>
             </TabsContent>
             <TabsContent value="recurring" className="mt-4">
-                <Card>
-                    {isPremium ? (
-                        <>
-                         <RecurringTableControls filterValue={filterValue} onFilterChange={setFilterValue} sortDescriptor={recurringSortDescriptor} onSortChange={setRecurringSortDescriptor} />
-                         <RecurringTransactions filterValue={filterValue} sortDescriptor={recurringSortDescriptor} />
-                        </>
-                    ) : (<div className="p-4"><UpgradeCard title="Automate Your Finances" description="Set up recurring transactions for salaries, bills, and subscriptions with Premium." icon={Repeat}/></div>)}
-                </Card>
+               <RecurringTransactions />
             </TabsContent>
           </Tabs>
         </main>
