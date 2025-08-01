@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
+import { useAppContext } from '@/contexts/app-context';
 import { PlusCircle, Repeat, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { AddRecurringTransactionDialog } from './add-recurring-transaction-dialog';
 import type { RecurringTransaction } from '@/types';
@@ -25,12 +25,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '../ui/badge';
-import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
-export function RecurringTransactions() {
-  const { recurringTransactions, deleteRecurringTransaction, formatCurrency, isPremium } = useAppContext();
+type SortDescriptor = {
+  column: 'title' | 'amount' | 'category' | 'frequency';
+  direction: 'ascending' | 'descending';
+};
+
+type RecurringTransactionsProps = {
+  filterValue: string;
+  sortDescriptor: SortDescriptor;
+};
+
+export function RecurringTransactions({ filterValue, sortDescriptor }: RecurringTransactionsProps) {
+  const { recurringTransactions, deleteRecurringTransaction, formatCurrency, isPremium, FREE_TIER_LIMITS } = useAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<RecurringTransaction | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -60,6 +69,27 @@ export function RecurringTransactions() {
     }
     setIsDialogOpen(open);
   }
+
+  const filteredItems = useMemo(() => {
+    return recurringTransactions.filter(t => 
+        t.title.toLowerCase().includes(filterValue.toLowerCase()) ||
+        t.source.toLowerCase().includes(filterValue.toLowerCase())
+    );
+  }, [recurringTransactions, filterValue]);
+
+  const sortedItems = useMemo(() => {
+    return [...filteredItems].sort((a, b) => {
+        const first = sortDescriptor.direction === 'ascending' ? a : b;
+        const second = sortDescriptor.direction === 'ascending' ? b : a;
+
+        switch(sortDescriptor.column) {
+            case 'amount': return first.amount - second.amount;
+            case 'category': return first.category.localeCompare(second.category);
+            case 'frequency': return first.frequency.localeCompare(second.frequency);
+            default: return first.title.localeCompare(second.title);
+        }
+    });
+  }, [filteredItems, sortDescriptor]);
 
   const canAddRecurring = isPremium || recurringTransactions.length < FREE_TIER_LIMITS.recurringTransactions;
 
@@ -136,17 +166,17 @@ export function RecurringTransactions() {
         )}
       </CardHeader>
       <CardContent>
-        {recurringTransactions.length > 0 ? (
+        {sortedItems.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2">
-            {recurringTransactions.map((transaction) => (
+            {sortedItems.map((transaction) => (
               <RecurringTransactionCard key={transaction.id} transaction={transaction} />
             ))}
           </div>
         ) : (
           <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
             <Repeat className="h-12 w-12 mb-4" />
-            <p className="text-lg font-semibold">No recurring transactions set up yet.</p>
-            <p>Click "Add Recurring" to schedule a regular income or expense.</p>
+            <p className="text-lg font-semibold">No matching recurring transactions found.</p>
+            <p>Try clearing your filters or add a new recurring item.</p>
           </div>
         )}
       </CardContent>

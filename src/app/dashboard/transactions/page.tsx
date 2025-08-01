@@ -38,11 +38,77 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 
 type SortDescriptor = {
-  column: 'date' | 'amount';
+  column: 'date' | 'amount' | 'category';
   direction: 'ascending' | 'descending';
 };
 
+type RecurringSortDescriptor = {
+    column: 'title' | 'amount' | 'category' | 'frequency';
+    direction: 'ascending' | 'descending';
+};
+
 const ITEMS_PER_PAGE = 20;
+
+const TransactionTableControls = ({
+    filterValue,
+    onFilterChange,
+    sortDescriptor,
+    onSortChange,
+}: {
+    filterValue: string;
+    onFilterChange: (value: string) => void;
+    sortDescriptor: SortDescriptor;
+    onSortChange: (descriptor: SortDescriptor) => void;
+}) => (
+    <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b">
+        <div className="relative w-full md:w-auto">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input type="search" placeholder="Filter by source..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
+        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Sort by</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'date', direction: 'descending' })}>Newest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'date', direction: 'ascending' })}>Oldest First</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'descending' })}>Amount: High-Low</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'ascending' })}>Amount: Low-High</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'ascending' })}>Category (A-Z)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'descending' })}>Category (Z-A)</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    </div>
+);
+
+const RecurringTableControls = ({
+    filterValue,
+    onFilterChange,
+    sortDescriptor,
+    onSortChange,
+}: {
+    filterValue: string;
+    onFilterChange: (value: string) => void;
+    sortDescriptor: RecurringSortDescriptor;
+    onSortChange: (descriptor: RecurringSortDescriptor) => void;
+}) => (
+    <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b">
+        <div className="relative w-full md:w-auto">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input type="search" placeholder="Filter by title/source..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
+        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Sort by</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'title', direction: 'ascending' })}>Title (A-Z)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'title', direction: 'descending' })}>Title (Z-A)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'descending' })}>Amount: High-Low</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'ascending' })}>Amount: Low-High</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'ascending' })}>Category (A-Z)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'descending' })}>Category (Z-A)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSortChange({ column: 'frequency', direction: 'ascending' })}>Frequency</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    </div>
+);
 
 export default function TransactionsPage() {
   const { transactions, categories, deleteTransaction, formatCurrency, isPremium } = useAppContext();
@@ -57,6 +123,7 @@ export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [filterValue, setFilterValue] = useState('');
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({ column: 'date', direction: 'descending' });
+  const [recurringSortDescriptor, setRecurringSortDescriptor] = useState<RecurringSortDescriptor>({ column: 'title', direction: 'ascending' });
   const [currentPage, setCurrentPage] = useState(1);
   
   const handleEdit = (transaction: Transaction) => {
@@ -91,7 +158,10 @@ export default function TransactionsPage() {
     }
 
     if (filterValue) {
-      filtered = filtered.filter(t => t.source.toLowerCase().includes(filterValue.toLowerCase()));
+      filtered = filtered.filter(t => 
+          t.source.toLowerCase().includes(filterValue.toLowerCase()) || 
+          t.category.toLowerCase().includes(filterValue.toLowerCase())
+      );
     }
 
     return filtered;
@@ -102,10 +172,15 @@ export default function TransactionsPage() {
         const first = sortDescriptor.direction === 'ascending' ? a : b;
         const second = sortDescriptor.direction === 'ascending' ? b : a;
 
-        if (sortDescriptor.column === 'date') {
-            return new Date(first.date).getTime() - new Date(second.date).getTime();
-        } else {
-            return first.amount - second.amount;
+        switch (sortDescriptor.column) {
+            case 'date':
+                return new Date(first.date).getTime() - new Date(second.date).getTime();
+            case 'amount':
+                return first.amount - second.amount;
+            case 'category':
+                return first.category.localeCompare(second.category);
+            default:
+                return 0;
         }
     });
   }, [filteredTransactions, sortDescriptor]);
@@ -198,38 +273,43 @@ export default function TransactionsPage() {
               <TabsTrigger value="expense">Expenses</TabsTrigger>
               {isPremium ? RecurringTabTrigger : (<TooltipProvider><Tooltip><TooltipTrigger asChild>{RecurringTabTrigger}</TooltipTrigger><TooltipContent><p>Automate your finances with Premium.</p></TooltipContent></Tooltip></TooltipProvider>)}
             </TabsList>
-
+            
             <TabsContent value="all" className="mt-4">
-              <Card>
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b">
-                    <div className="relative w-full md:w-auto">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input type="search" placeholder="Filter by source..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => setFilterValue(e.target.value)} />
+                <Card>
+                    <TransactionTableControls filterValue={filterValue} onFilterChange={setFilterValue} sortDescriptor={sortDescriptor} onSortChange={setSortDescriptor} />
+                    <CardContent className="p-0">{renderTransactionTable(paginatedTransactions)}</CardContent>
+                    <div className="flex items-center justify-between p-4 border-t">
+                        <div className="text-sm text-muted-foreground">Showing <strong>{paginatedTransactions.length}</strong> of <strong>{sortedTransactions.length}</strong> transactions.</div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+                            <span className="text-sm font-medium">Page {currentPage} of {totalPages}</span>
+                            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Sort by</Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSortDescriptor({ column: 'date', direction: 'descending' })}>Newest First</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortDescriptor({ column: 'date', direction: 'ascending' })}>Oldest First</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortDescriptor({ column: 'amount', direction: 'descending' })}>Amount: High-Low</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortDescriptor({ column: 'amount', direction: 'ascending' })}>Amount: Low-High</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <CardContent className="p-0">{renderTransactionTable(paginatedTransactions)}</CardContent>
-                 <div className="flex items-center justify-between p-4 border-t">
-                    <div className="text-sm text-muted-foreground">Showing <strong>{paginatedTransactions.length}</strong> of <strong>{sortedTransactions.length}</strong> transactions.</div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
-                        <span className="text-sm font-medium">Page {currentPage} of {totalPages}</span>
-                        <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
-                    </div>
-                </div>
-              </Card>
+                </Card>
             </TabsContent>
-             <TabsContent value="income" className="mt-4"><Card><CardContent className="p-0">{renderTransactionTable(paginatedTransactions)}</CardContent></Card></TabsContent>
-            <TabsContent value="expense" className="mt-4"><Card><CardContent className="p-0">{renderTransactionTable(paginatedTransactions)}</CardContent></Card></TabsContent>
-            <TabsContent value="recurring" className="mt-4"><Card><CardContent className="p-0">{isPremium ? (<RecurringTransactions />) : (<div className="p-4"><UpgradeCard title="Automate Your Finances" description="Set up recurring transactions for salaries, bills, and subscriptions with Premium." icon={Repeat}/></div>)}</CardContent></Card></TabsContent>
+            <TabsContent value="income" className="mt-4">
+                <Card>
+                    <TransactionTableControls filterValue={filterValue} onFilterChange={setFilterValue} sortDescriptor={sortDescriptor} onSortChange={setSortDescriptor} />
+                    <CardContent className="p-0">{renderTransactionTable(paginatedTransactions)}</CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="expense" className="mt-4">
+                 <Card>
+                    <TransactionTableControls filterValue={filterValue} onFilterChange={setFilterValue} sortDescriptor={sortDescriptor} onSortChange={setSortDescriptor} />
+                    <CardContent className="p-0">{renderTransactionTable(paginatedTransactions)}</CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="recurring" className="mt-4">
+                <Card>
+                    {isPremium ? (
+                        <>
+                         <RecurringTableControls filterValue={filterValue} onFilterChange={setFilterValue} sortDescriptor={recurringSortDescriptor} onSortChange={setRecurringSortDescriptor} />
+                         <RecurringTransactions filterValue={filterValue} sortDescriptor={recurringSortDescriptor} />
+                        </>
+                    ) : (<div className="p-4"><UpgradeCard title="Automate Your Finances" description="Set up recurring transactions for salaries, bills, and subscriptions with Premium." icon={Repeat}/></div>)}
+                </Card>
+            </TabsContent>
           </Tabs>
         </main>
       </div>
