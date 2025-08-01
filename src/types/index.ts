@@ -1,4 +1,5 @@
 
+import type { ParsedBill } from './schemas';
 
 export interface TransactionItem {
   id: string;
@@ -46,6 +47,7 @@ export interface Transaction {
   checklistItemId?: string | null;
   tripId?: string | null;
   tripItemId?: string | null;
+  receiptDetails?: ParsedBill; // New field for rich receipt data
 }
 
 export interface UserProfile {

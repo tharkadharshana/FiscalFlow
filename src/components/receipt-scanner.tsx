@@ -105,6 +105,11 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
     
     setIsLoading(false);
 
+    if (!result) {
+        showNotification({ type: 'error', title: 'Analysis Failed', description: 'The AI did not return a response.' });
+        return;
+    }
+
     if (result && 'error' in result) {
       if (result.error !== 'Limit Reached') showNotification({ type: 'error', title: 'Analysis Failed', description: result.error });
     } else if (result && result.bill) {
@@ -130,16 +135,22 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
     });
     const primaryCategory = Object.keys(categoryCounts).reduce((a, b) => categoryCounts[a] > categoryCounts[b] ? a : b, 'Groceries');
 
+    const transactionItems = parsedBill.lineItems?.map(item => ({
+        id: nanoid(),
+        description: item.description,
+        amount: item.totalPrice,
+    })) || [];
+
     await addTransaction({
         type: 'expense',
         amount: parsedBill.totalAmount,
         source: parsedBill.merchantName || 'Scanned Receipt',
         category: primaryCategory,
         date: parsedBill.transactionDate ? new Date(parsedBill.transactionDate).toISOString() : new Date().toISOString(),
-        items: parsedBill.lineItems?.map(item => ({...item, id: nanoid()})) || [],
-        notes: `Receipt from ${parsedBill.merchantName}. Total: ${formatCurrency(parsedBill.totalAmount)}. Payment: ${parsedBill.paymentMethod || 'N/A'}`,
+        items: transactionItems,
+        notes: `Receipt from ${parsedBill.merchantName}. Payment: ${parsedBill.paymentMethod || 'N/A'}`,
         ocrParsed: true,
-        // We can store the full bill details here in a sub-object if needed in the future
+        receiptDetails: parsedBill,
     });
 
     setIsLoading(false);
