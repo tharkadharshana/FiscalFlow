@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
@@ -44,6 +44,7 @@ import { Textarea } from '../ui/textarea';
 import Image from 'next/image';
 import { Alert } from '../ui/alert';
 import { createChecklistAction, extractTextAction } from '@/lib/actions';
+import { useTranslation } from '@/contexts/translation-context';
 
 const checklistItemSchema = z.object({
   id: z.string(),
@@ -69,6 +70,7 @@ type ChecklistDialogProps = {
 
 export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: ChecklistDialogProps) {
   const { addChecklist, updateChecklist, expenseCategories, showNotification } = useAppContext();
+  const { t } = useTranslation();
   
   const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
   const [activeTab, setActiveTab] = useState('text');
@@ -156,13 +158,13 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
         };
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
-            showNotification({ type: 'error', title: 'Speech Recognition Error', description: event.error });
+            showNotification({ type: 'error', title: t('notifications.speechError'), description: event.error });
             setIsRecording(false);
         };
         recognitionRef.current.onend = () => setIsRecording(false);
       }
     }
-  }, [showNotification]);
+  }, [showNotification, t]);
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) return;
@@ -182,7 +184,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
     setView('loading');
     const result = await extractTextAction({ photoDataUri: finalImageUri });
     if ('error' in result) {
-        showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
+        showNotification({ type: 'error', title: t('notifications.scanFailed'), description: result.error });
         resetToInputView();
     } else {
         handleGenerateChecklist(result.text);
@@ -200,7 +202,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
     });
     
     if ('error' in result) {
-        showNotification({ type: 'error', title: 'AI Error', description: result.error });
+        showNotification({ type: 'error', title: t('notifications.aiError'), description: result.error });
         resetToInputView();
     } else {
         replace(result.items.map(item => ({...item, isCompleted: false})));
@@ -310,33 +312,33 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <DialogDescription>
             {isReviewMode
-            ? "The AI has generated the following checklist. Review and make any necessary changes before saving."
-            : "Manually add a title, icon, and items to create your checklist."
+            ? t('dialogs.addChecklist.reviewDescription')
+            : t('dialogs.addChecklist.manualDescription')
             }
         </DialogDescription>
         <div className="grid grid-cols-3 gap-4">
             <FormField control={form.control} name="title" render={({ field }) => (
-            <FormItem className="col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g. Monthly Bills" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem className="col-span-2"><FormLabel>{t('dialogs.addChecklist.titleLabel')}</FormLabel><FormControl><Input placeholder={t('dialogs.addChecklist.titlePlaceholder')} {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="iconName" render={({ field }) => (
-            <FormItem><FormLabel>Icon</FormLabel><IconPicker field={field} /><FormMessage /></FormItem>
+            <FormItem><FormLabel>{t('dialogs.addChecklist.iconLabel')}</FormLabel><IconPicker field={field} /><FormMessage /></FormItem>
             )} />
         </div>
 
         <div className="space-y-2">
-            <Label>Items</Label>
+            <Label>{t('dialogs.addChecklist.itemsLabel')}</Label>
             <ScrollArea className="h-48 pr-4">
                 <div className="space-y-3">
                     {fields.map((field, index) => (
                         <div key={field.id} className="grid grid-cols-12 gap-2 items-end">
                             <FormField control={form.control} name={`items.${index}.description`} render={({ field }) => (
-                                <FormItem className="col-span-4"><FormLabel className="text-xs">Item</FormLabel><FormControl><Input placeholder="e.g., Rent" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem className="col-span-4"><FormLabel className="text-xs">{t('dialogs.addChecklist.itemLabel')}</FormLabel><FormControl><Input placeholder={t('dialogs.addChecklist.itemPlaceholder')} {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name={`items.${index}.predictedCost`} render={({ field }) => (
-                                <FormItem className="col-span-3"><FormLabel className="text-xs">Cost</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem className="col-span-3"><FormLabel className="text-xs">{t('dialogs.addChecklist.costLabel')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name={`items.${index}.category`} render={({ field }) => (
-                                <FormItem className="col-span-4"><FormLabel className="text-xs">Category</FormLabel>
+                                <FormItem className="col-span-4"><FormLabel className="text-xs">{t('dialogs.addChecklist.categoryLabel')}</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent><SelectContent>
@@ -353,20 +355,20 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
                 </div>
             </ScrollArea>
             <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: 'Groceries' })}>
-                <Plus className="mr-2 h-4 w-4" />Add Item
+                <Plus className="mr-2 h-4 w-4" />{t('dialogs.addChecklist.addItemButton')}
             </Button>
         </div>
         
         <DialogFooter>
-            {isReviewMode && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-            <Button type="submit">{checklistToEdit ? 'Save Changes' : 'Create Checklist'}</Button>
+            {isReviewMode && <Button type="button" variant="ghost" onClick={resetToInputView}>{t('dialogs.buttons.back')}</Button>}
+            <Button type="submit">{checklistToEdit ? t('dialogs.buttons.saveChanges') : t('dialogs.buttons.createChecklist')}</Button>
         </DialogFooter>
         </form>
     </Form>
   );
 
   const renderContent = () => {
-    if (view === 'loading') return <div className="flex flex-col items-center justify-center space-y-4 h-[400px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-muted-foreground">AI is crafting your checklist...</p></div>;
+    if (view === 'loading') return <div className="flex flex-col items-center justify-center space-y-4 h-[400px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-muted-foreground">{t('dialogs.addChecklist.loading')}</p></div>;
     if (view === 'review') return renderReviewForm({ isReviewMode: true });
 
     return (
@@ -378,46 +380,46 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
         }
       }} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto">
-            <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> Text</TabsTrigger>
-            <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> Voice</TabsTrigger>
-            <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> Camera</TabsTrigger>
-            <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
-            <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
+            <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> {t('dialogs.tabs.text')}</TabsTrigger>
+            <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> {t('dialogs.tabs.voice')}</TabsTrigger>
+            <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> {t('dialogs.tabs.camera')}</TabsTrigger>
+            <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> {t('dialogs.tabs.upload')}</TabsTrigger>
+            <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> {t('dialogs.tabs.manual')}</TabsTrigger>
         </TabsList>
         <div className="pt-4">
           <TabsContent value="text">
               <div className="flex flex-col space-y-4">
-                  <DialogDescription>Describe your checklist. The AI will structure it for you.</DialogDescription>
-                  <Textarea placeholder="e.g., Weekly grocery run for milk, bread, and eggs for about $75" value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6}/>
+                  <DialogDescription>{t('dialogs.addChecklist.textDescription')}</DialogDescription>
+                  <Textarea placeholder={t('dialogs.addChecklist.textPlaceholder')} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6}/>
                   <DialogFooter>
-                      <Button onClick={() => handleGenerateChecklist(userQuery)} disabled={!userQuery}><Wand2 className="mr-2 h-4 w-4" /> Generate with AI</Button>
+                      <Button onClick={() => handleGenerateChecklist(userQuery)} disabled={!userQuery}><Wand2 className="mr-2 h-4 w-4" />{t('dialogs.buttons.generateAI')}</Button>
                   </DialogFooter>
               </div>
           </TabsContent>
           <TabsContent value="voice">
               <div className="flex flex-col items-center justify-center space-y-4 min-h-[300px]">
-                <DialogDescription>Press the button and start speaking.</DialogDescription>
+                <DialogDescription>{t('dialogs.addChecklist.voiceDescription')}</DialogDescription>
                 <Button onClick={handleToggleRecording} size="icon" className={`h-20 w-20 rounded-full my-4 ${isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse'}`}>
                     {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                 </Button>
-                <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start"}</p>
+                <p className="text-muted-foreground h-6">{isRecording ? t('dialogs.addChecklist.listening') : t('dialogs.addChecklist.pressToRecord')}</p>
               </div>
           </TabsContent>
            <TabsContent value="camera">
                 <div className="space-y-4">
-                    <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
+                    <DialogDescription>{t('dialogs.addChecklist.cameraDescription')}</DialogDescription>
                     <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
                         <canvas ref={canvasRef} className="hidden" />
-                        {imageUri ? <Image src={imageUri} alt="Checklist preview" fill objectFit="contain" /> : <><video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />{hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" />Camera Access Denied</Alert>}</>}
+                        {imageUri ? <Image src={imageUri} alt="Checklist preview" fill objectFit="contain" /> : <><video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />{hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" />{t('notifications.cameraDenied')}</Alert>}</>}
                         {videoDevices.length > 1 && !imageUri && <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10"><SwitchCamera className="h-5 w-5" /></Button>}
                     </div>
-                    {imageUri ? (<div className="grid grid-cols-2 gap-4"><Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button><Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button></div>) : (<Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>)}
+                    {imageUri ? (<div className="grid grid-cols-2 gap-4"><Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />{t('dialogs.buttons.retake')}</Button><Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />{t('dialogs.buttons.analyze')}</Button></div>) : (<Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />{t('dialogs.buttons.capture')}</Button>)}
                 </div>
             </TabsContent>
             <TabsContent value="upload">
                 <div className="flex flex-col items-center justify-center h-full space-y-4 min-h-[300px]">
-                    <DialogDescription>Upload an image of a document or shopping list.</DialogDescription>
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />Choose File</Button>
+                    <DialogDescription>{t('dialogs.addChecklist.uploadDescription')}</DialogDescription>
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />{t('dialogs.buttons.chooseFile')}</Button>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                 </div>
             </TabsContent>
@@ -433,7 +435,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
       <DialogContent className="sm:max-w-2xl">
         <ScrollArea className="max-h-[90vh] p-6">
             <DialogHeader className="pr-6">
-                <DialogTitle className="font-headline text-2xl">{checklistToEdit ? 'Edit Checklist' : 'New Checklist'}</DialogTitle>
+                <DialogTitle className="font-headline text-2xl">{checklistToEdit ? t('dialogs.addChecklist.editTitle') : t('dialogs.addChecklist.addTitle')}</DialogTitle>
             </DialogHeader>
             {renderContent()}
         </ScrollArea>

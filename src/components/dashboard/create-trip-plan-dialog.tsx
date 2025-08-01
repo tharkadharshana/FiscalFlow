@@ -30,6 +30,7 @@ import { nanoid } from 'nanoid';
 import Image from 'next/image';
 import { logger } from '@/lib/logger';
 import { TripItemSchema } from '@/types/schemas';
+import { useTranslation } from '@/contexts/translation-context';
 
 
 type CreateTripPlanDialogProps = {
@@ -48,6 +49,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdit }: CreateTripPlanDialogProps) {
     const { addTripPlan, updateTripPlan, showNotification } = useAppContext();
+    const { t } = useTranslation();
 
     const [view, setView] = useState<'input' | 'loading' | 'review'>('input');
     const [userQuery, setUserQuery] = useState('');
@@ -134,18 +136,18 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
                     }
                 };
                 recognitionRef.current.onerror = (event: any) => {
-                    if (event.error === 'not-allowed') showNotification({ type: 'error', title: 'Microphone Access Denied' });
-                    else showNotification({ type: 'error', title: 'Speech Recognition Error', description: event.error });
+                    if (event.error === 'not-allowed') showNotification({ type: 'error', title: t('notifications.micDenied') });
+                    else showNotification({ type: 'error', title: t('notifications.speechError'), description: event.error });
                     setIsRecording(false);
                 };
                 recognitionRef.current.onend = () => setIsRecording(false);
             }
         }
-    }, [showNotification]);
+    }, [showNotification, t]);
 
     const handleToggleRecording = () => {
         if (!recognitionRef.current) {
-            showNotification({ type: 'error', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
+            showNotification({ type: 'error', title: t('notifications.notSupported'), description: t('notifications.speechNotSupported') });
             return;
         }
         if (isRecording) {
@@ -245,7 +247,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
         setView('loading');
         const result = await parseDocumentAction({ photoDataUri: finalImageUri });
         if ('error' in result) {
-            showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
+            showNotification({ type: 'error', title: t('notifications.scanFailed'), description: result.error });
             resetToInputView();
         } else {
             handleGeneratePlan(result.text);
@@ -262,7 +264,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
         });
         
         if ('error' in result) {
-            showNotification({ type: 'error', title: 'AI Error', description: result.error });
+            showNotification({ type: 'error', title: t('notifications.aiError'), description: result.error });
             resetToInputView();
         } else {
             form.reset({
@@ -296,17 +298,17 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
         <form onSubmit={form.handleSubmit(handleSavePlan)} className="space-y-4 pt-4">
             <DialogDescription>
               {isReviewMode 
-                ? "The AI has generated the following plan. Review the items and make any necessary changes before saving."
-                : "Manually add a title and items to create your trip plan."
+                ? t('dialogs.addTrip.reviewDescription')
+                : t('dialogs.addTrip.manualDescription')
               }
             </DialogDescription>
             <div className="space-y-2">
-                <Label htmlFor="plan-title">Plan Title</Label>
+                <Label htmlFor="plan-title">{t('dialogs.addTrip.titleLabel')}</Label>
                 <Input id="plan-title" {...form.register('title')} />
                 {form.formState.errors.title && <p className="text-sm text-destructive">{form.formState.errors.title.message}</p>}
             </div>
             <div className="space-y-2">
-                <Label>Plan Items</Label>
+                <Label>{t('dialogs.addTrip.itemsLabel')}</Label>
                 <ScrollArea className="h-48 w-full pr-3">
                     <div className="space-y-3">
                         {fields.map((field, index) => (
@@ -317,11 +319,11 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
                                 {field.isAiSuggested && <Lightbulb className="h-5 w-5 mt-5 text-amber-500 flex-shrink-0"/>}
                                 <div className="flex-1 grid grid-cols-5 gap-x-3 gap-y-1">
                                     <div className="col-span-3">
-                                    <Label className="text-xs text-muted-foreground">Description</Label>
+                                    <Label className="text-xs text-muted-foreground">{t('dialogs.addTrip.itemDescriptionLabel')}</Label>
                                     <Input {...form.register(`items.${index}.description`)} className="h-8"/>
                                     </div>
                                     <div className="col-span-2">
-                                    <Label className="text-xs text-muted-foreground">Predicted Cost ($)</Label>
+                                    <Label className="text-xs text-muted-foreground">{t('dialogs.addTrip.itemCostLabel')}</Label>
                                     <Input {...form.register(`items.${index}.predictedCost`)} type="number" className="h-8"/>
                                     </div>
                                 </div>
@@ -333,33 +335,33 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
                     </div>
                 </ScrollArea>
                  <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => append({ id: nanoid(), description: '', category: 'Uncategorized', predictedCost: 0, actualCost: null, isAiSuggested: false })}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Item
+                    <Plus className="mr-2 h-4 w-4" /> {t('dialogs.addTrip.addItemButton')}
                 </Button>
-                {form.formState.errors.items && <p className="text-sm text-destructive mt-2">There are errors in your plan items.</p>}
+                {form.formState.errors.items && <p className="text-sm text-destructive mt-2">{t('dialogs.addTrip.itemErrors')}</p>}
             </div>
     
             {isReviewMode && !tripToEdit && (
               <Alert>
                 <Sparkles className="h-4 w-4" />
-                <AlertTitle>Want to add more?</AlertTitle>
-                <AlertDescription>You can modify your description below and regenerate the plan.</AlertDescription>
+                <AlertTitle>{t('dialogs.addTrip.addMoreTitle')}</AlertTitle>
+                <AlertDescription>{t('dialogs.addTrip.addMoreDescription')}</AlertDescription>
               </Alert>
             )}
             
             {isReviewMode && !tripToEdit && (
                 <div className="space-y-2">
                     <Textarea 
-                        placeholder="Type here to add more details to your plan..." 
+                        placeholder={t('dialogs.addTrip.addMorePlaceholder')}
                         value={userQuery}
                         onChange={(e) => setUserQuery(e.target.value)}
                     />
-                    <Button variant="secondary" className="w-full" onClick={() => handleGeneratePlan(userQuery)} type="button">Update with AI</Button>
+                    <Button variant="secondary" className="w-full" onClick={() => handleGeneratePlan(userQuery)} type="button">{t('dialogs.buttons.updateAI')}</Button>
                 </div>
             )}
     
             <DialogFooter>
-                {isReviewMode && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-                <Button type="submit" disabled={form.formState.isSubmitting}>Save Plan</Button>
+                {isReviewMode && <Button type="button" variant="ghost" onClick={resetToInputView}>{t('dialogs.buttons.back')}</Button>}
+                <Button type="submit" disabled={form.formState.isSubmitting}>{t('dialogs.buttons.savePlan')}</Button>
             </DialogFooter>
         </form>
     );
@@ -367,7 +369,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
     const renderLoadingView = () => (
         <div className="flex flex-col items-center justify-center space-y-4 h-64">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-muted-foreground">AI is crafting your plan...</p>
+            <p className="text-muted-foreground">{t('dialogs.addTrip.loading')}</p>
         </div>
     );
     
@@ -379,33 +381,33 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
         return (
           <Tabs defaultValue="text" value={activeTab} className="w-full pt-4" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-5 h-auto">
-              <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> Text</TabsTrigger>
-              <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> Voice</TabsTrigger>
-              <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> Camera</TabsTrigger>
-              <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
-              <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
+              <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> {t('dialogs.tabs.text')}</TabsTrigger>
+              <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> {t('dialogs.tabs.voice')}</TabsTrigger>
+              <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> {t('dialogs.tabs.camera')}</TabsTrigger>
+              <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> {t('dialogs.tabs.upload')}</TabsTrigger>
+              <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> {t('dialogs.tabs.manual')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="text" className="pt-4 space-y-4">
-                <DialogDescription>Describe your trip. The AI will structure it into an itemized plan.</DialogDescription>
-                <Textarea placeholder="e.g., A trip to Japan for two weeks..." value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
+                <DialogDescription>{t('dialogs.addTrip.textDescription')}</DialogDescription>
+                <Textarea placeholder={t('dialogs.addTrip.textPlaceholder')} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} />
                 <DialogFooter>
                     <Button onClick={() => handleGeneratePlan(userQuery)} disabled={!userQuery}>
-                        <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
+                        <Wand2 className="mr-2 h-4 w-4" /> {t('dialogs.buttons.generateAI')}
                     </Button>
                 </DialogFooter>
             </TabsContent>
 
             <TabsContent value="voice" className="pt-4 space-y-4 flex flex-col items-center justify-center">
-                <DialogDescription>Start speaking and the AI will transcribe and create your plan.</DialogDescription>
+                <DialogDescription>{t('dialogs.addTrip.voiceDescription')}</DialogDescription>
                 <Button onClick={handleToggleRecording} size="icon" className={cn("h-20 w-20 rounded-full my-4", isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse')}>
                     {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                 </Button>
-                <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
+                <p className="text-muted-foreground h-6">{isRecording ? t('dialogs.addTrip.listening') : t('dialogs.addTrip.pressToRecord')}</p>
             </TabsContent>
 
             <TabsContent value="camera" className="pt-4 space-y-4">
-                <DialogDescription>Position a document in the frame and capture an image to scan it.</DialogDescription>
+                <DialogDescription>{t('dialogs.addTrip.cameraDescription')}</DialogDescription>
                 <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
                     <canvas ref={canvasRef} className="hidden" />
                     {imageUri ? (
@@ -413,7 +415,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
                     ) : (
                         <>
                             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-                            {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle></Alert>}
+                            {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>{t('notifications.cameraDenied')}</AlertTitle></Alert>}
                         </>
                     )}
                      {videoDevices.length > 1 && !imageUri && (
@@ -424,19 +426,19 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
                 </div>
                 {imageUri ? (
                     <div className="grid grid-cols-2 gap-4">
-                        <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
-                        <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
+                        <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />{t('dialogs.buttons.retake')}</Button>
+                        <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />{t('dialogs.buttons.analyze')}</Button>
                     </div>
                 ) : (
-                    <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture Photo</Button>
+                    <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />{t('dialogs.buttons.capture')}</Button>
                 )}
             </TabsContent>
 
             <TabsContent value="upload" className="pt-4 flex flex-col items-center justify-center space-y-4 h-full">
-                <DialogDescription>Upload an image of a document, like a brochure or a quote.</DialogDescription>
+                <DialogDescription>{t('dialogs.addTrip.uploadDescription')}</DialogDescription>
                 <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm">
                     <FileScan className="mr-2 h-4 w-4" />
-                    Choose File
+                    {t('dialogs.buttons.chooseFile')}
                 </Button>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
             </TabsContent>
@@ -454,7 +456,7 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
             <DialogContent className="sm:max-w-xl">
                 <ScrollArea className="max-h-[90vh] p-6">
                     <DialogHeader className="pr-6">
-                        <DialogTitle className="font-headline text-2xl">{tripToEdit ? 'Edit Trip Plan' : 'Create a New Trip Plan'}</DialogTitle>
+                        <DialogTitle className="font-headline text-2xl">{tripToEdit ? t('dialogs.addTrip.editTitle') : t('dialogs.addTrip.addTitle')}</DialogTitle>
                     </DialogHeader>
                     {renderContent()}
                 </ScrollArea>

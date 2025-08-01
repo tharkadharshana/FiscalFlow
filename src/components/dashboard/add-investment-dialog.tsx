@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -43,6 +44,7 @@ import Image from 'next/image';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
+import { useTranslation } from '@/contexts/translation-context';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Asset name is required.'),
@@ -64,6 +66,7 @@ type AddInvestmentDialogProps = {
 
 export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: AddInvestmentDialogProps) {
   const { addInvestment, updateInvestment, showNotification, userProfile } = useAppContext();
+  const { t } = useTranslation();
   const [isCryptoListLoading, setIsCryptoListLoading] = useState(false);
   const [cryptoList, setCryptoList] = useState<CoinGeckoMarketData[]>([]);
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
@@ -184,16 +187,16 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
               <FormControl>
                 <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
                   {isCryptoListLoading && <Loader2 className="h-4 w-4 animate-spin"/>}
-                  {!isCryptoListLoading && (field.value ? cryptoList.find((coin) => coin.id === field.value)?.name : "Select a cryptocurrency")}
+                  {!isCryptoListLoading && (field.value ? cryptoList.find((coin) => coin.id === field.value)?.name : t('dialogs.addInvestment.cryptoPlaceholder'))}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </FormControl>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
               <Command>
-                <CommandInput placeholder="Search coins..." />
+                <CommandInput placeholder={t('dialogs.addInvestment.searchPlaceholder')} />
                 <CommandList>
-                  <CommandEmpty>No cryptocurrency found.</CommandEmpty>
+                  <CommandEmpty>{t('dialogs.addInvestment.searchEmpty')}</CommandEmpty>
                   <CommandGroup>
                     {cryptoList.map((coin) => (
                       <CommandItem
@@ -227,10 +230,10 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
   const StockSelector = (
     <>
         <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Asset Name</FormLabel><FormControl><Input placeholder="e.g. Apple Inc." {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>{t('dialogs.addInvestment.assetNameLabel')}</FormLabel><FormControl><Input placeholder={t('dialogs.addInvestment.assetNamePlaceholder')} {...field} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="symbol" render={({ field }) => (
-            <FormItem><FormLabel>Symbol / Ticker</FormLabel><FormControl><Input placeholder="e.g. AAPL" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>{t('dialogs.addInvestment.symbolLabel')}</FormLabel><FormControl><Input placeholder={t('dialogs.addInvestment.symbolPlaceholder')} {...field} /></FormControl><FormMessage /></FormItem>
         )} />
     </>
   );
@@ -239,9 +242,9 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg p-0 flex flex-col max-h-[90vh]">
         <DialogHeader className="p-6 pb-4">
-          <DialogTitle>{investmentToEdit ? 'Edit' : 'Add'} Investment</DialogTitle>
+          <DialogTitle>{investmentToEdit ? t('dialogs.addInvestment.editTitle') : t('dialogs.addInvestment.addTitle')}</DialogTitle>
           <DialogDescription>
-            Manually add an asset to your portfolio. For crypto, prices update live.
+            {t('dialogs.addInvestment.description')}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="flex-1">
@@ -250,9 +253,9 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     
                     <FormField control={form.control} name="assetType" render={({ field }) => (
-                        <FormItem><FormLabel>Asset Type</FormLabel>
+                        <FormItem><FormLabel>{t('dialogs.addInvestment.assetTypeLabel')}</FormLabel>
                             <Select onValueChange={(value) => { field.onChange(value); form.reset({ ...form.getValues(), name: '', symbol: '', coinGeckoId: undefined }); }} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Select asset type" /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger><SelectValue placeholder={t('dialogs.addInvestment.assetTypePlaceholder')} /></SelectTrigger></FormControl>
                                 <SelectContent><SelectItem value="Stock">Stock</SelectItem><SelectItem value="ETF">ETF</SelectItem><SelectItem value="Crypto">Crypto</SelectItem><SelectItem value="Mutual Fund">Mutual Fund</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
                             </Select><FormMessage />
                         </FormItem>
@@ -263,10 +266,10 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                     </div>
                     
                     <div className="space-y-2">
-                    <Label>Enter by</Label>
+                    <Label>{t('dialogs.addInvestment.entryModeLabel')}</Label>
                     <RadioGroup value={entryMode} onValueChange={(v) => setEntryMode(v as any)} className="flex gap-4">
-                        <div className="flex items-center space-x-2"><RadioGroupItem value="quantity" id="r-quantity" /><Label htmlFor="r-quantity">Quantity</Label></div>
-                        <div className="flex items-center space-x-2"><RadioGroupItem value="totalAmount" id="r-total" /><Label htmlFor="r-total">Total Cost</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="quantity" id="r-quantity" /><Label htmlFor="r-quantity">{t('dialogs.addInvestment.quantity')}</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="totalAmount" id="r-total" /><Label htmlFor="r-total">{t('dialogs.addInvestment.totalCost')}</Label></div>
                     </RadioGroup>
                     </div>
 
@@ -274,7 +277,7 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                         {entryMode === 'quantity' ? (
                             <FormField control={form.control} name="quantity" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Quantity</FormLabel>
+                                    <FormLabel>{t('dialogs.addInvestment.quantity')}</FormLabel>
                                     <FormControl><Input type="number" placeholder="10" {...field} step="any" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -282,7 +285,7 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                         ) : (
                             <FormField control={form.control} name="totalCost" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Total Cost ({userProfile?.currencyPreference})</FormLabel>
+                                    <FormLabel>{t('dialogs.addInvestment.totalCostLabel', { currency: userProfile?.currencyPreference || '$'})}</FormLabel>
                                     <FormControl><Input type="number" placeholder="1000.00" {...field} step="any" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -292,22 +295,22 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
                     
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="purchasePrice" render={({ field }) => (
-                            <FormItem><FormLabel>Avg. Purchase Price</FormLabel><FormControl>
+                            <FormItem><FormLabel>{t('dialogs.addInvestment.avgPurchasePriceLabel')}</FormLabel><FormControl>
                                 <Input type="number" placeholder="150.00" {...field} step="any"/>
                             </FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="currentPrice" render={({ field }) => (
-                            <FormItem><FormLabel>Current Market Price</FormLabel><FormControl>
+                            <FormItem><FormLabel>{t('dialogs.addInvestment.currentPriceLabel')}</FormLabel><FormControl>
                                 <Input type="number" placeholder="175.00" {...field} step="any" readOnly={assetType === 'Crypto'}/>
                             </FormControl><FormMessage /></FormItem>
                         )} />
                     </div>
 
                     <FormField control={form.control} name="purchaseDate" render={({ field }) => (
-                        <FormItem className="flex flex-col"><FormLabel>Purchase Date</FormLabel>
+                        <FormItem className="flex flex-col"><FormLabel>{t('dialogs.addInvestment.purchaseDateLabel')}</FormLabel>
                             <Popover><PopoverTrigger asChild><FormControl>
                                 <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                    {field.value ? (format(field.value, "PPP")) : (<span>Pick a date</span>)}
+                                    {field.value ? (format(field.value, "PPP")) : (<span>{t('dialogs.buttons.pickDate')}</span>)}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                 </Button>
                             </FormControl></PopoverTrigger>
@@ -319,7 +322,7 @@ export function AddInvestmentDialog({ open, onOpenChange, investmentToEdit }: Ad
 
                     <DialogFooter className="pt-4">
                     <Button type="submit" disabled={form.formState.isSubmitting}>
-                        {investmentToEdit ? 'Save Changes' : 'Add Investment'}
+                        {investmentToEdit ? t('dialogs.buttons.saveChanges') : t('dialogs.addInvestment.addInvestmentButton')}
                     </Button>
                     </DialogFooter>
                 </form>

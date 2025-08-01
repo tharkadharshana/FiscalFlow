@@ -36,6 +36,7 @@ import { Label } from '../ui/label';
 import { extractTextAction } from '@/lib/actions';
 import Image from 'next/image';
 import { logger } from '@/lib/logger';
+import { useTranslation } from '@/contexts/translation-context';
 
 // --------- Zod Schemas ---------
 const budgetItemSchema = z.object({
@@ -61,6 +62,7 @@ type FormData = z.infer<typeof formSchema>;
 // --- Helper Component for Checklist Items ---
 const BudgetItemsFieldArray = ({ budgetIndex }: { budgetIndex: number }) => {
     const { control, register } = useFormContext<FormData>();
+    const { t } = useTranslation();
     const { fields, append, remove } = useFieldArray({
       control,
       name: `budgets.${budgetIndex}.items`,
@@ -68,12 +70,12 @@ const BudgetItemsFieldArray = ({ budgetIndex }: { budgetIndex: number }) => {
 
     return (
         <div className="space-y-2 mt-2">
-            <Label className="text-xs text-muted-foreground">Checklist Items (Optional)</Label>
+            <Label className="text-xs text-muted-foreground">{t('dialogs.addBudget.itemsLabel')}</Label>
             <ScrollArea className="h-40 w-full rounded-md border p-2">
                 <div className="space-y-2">
                     {fields.map((item, itemIndex) => (
                         <div key={item.id} className="flex items-center gap-2">
-                            <Input {...register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder="e.g. Milk, Bread" className="h-8"/>
+                            <Input {...register(`budgets.${budgetIndex}.items.${itemIndex}.description`)} placeholder={t('dialogs.addBudget.itemPlaceholder')} className="h-8"/>
                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(itemIndex)}>
                                 <Trash2 className="h-4 w-4 text-muted-foreground" />
                             </Button>
@@ -82,7 +84,7 @@ const BudgetItemsFieldArray = ({ budgetIndex }: { budgetIndex: number }) => {
                 </div>
             </ScrollArea>
             <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({id: nanoid(), description: '', predictedCost: 0})}>
-                <Plus className="mr-2 h-4 w-4" /> Add Item
+                <Plus className="mr-2 h-4 w-4" /> {t('dialogs.addBudget.addItemButton')}
             </Button>
         </div>
     );
@@ -98,6 +100,7 @@ type AddBudgetDialogProps = {
 
 export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetDialogProps) {
   const { userProfile, budgets: existingBudgets, showNotification, addBudget, updateBudget, expenseCategories, createBudgetsWithLimit } = useAppContext();
+  const { t } = useTranslation();
 
   type View = 'input' | 'loading' | 'review';
   const [view, setView] = useState<View>('input');
@@ -179,8 +182,8 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
     if (count > 0) {
       showNotification({
         type: 'success',
-        title: budgetToEdit ? 'Budget Updated' : `${count} Budget(s) Created`,
-        description: budgetToEdit ? `Your budget for ${data.budgets[0].category} has been updated.` : 'Your monthly budgets have been set.',
+        title: budgetToEdit ? t('notifications.budgetUpdated') : t('notifications.budgetsCreated', { count }),
+        description: budgetToEdit ? t('notifications.budgetUpdatedDesc', { category: data.budgets[0].category }) : t('notifications.budgetsCreatedDesc'),
     });
     }
     onOpenChange(false);
@@ -206,16 +209,16 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
         recognitionRef.current.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
             if (event.error === 'not-allowed') {
-                showNotification({ type: 'error', title: 'Microphone Access Denied' });
+                showNotification({ type: 'error', title: t('notifications.micDenied') });
             } else {
-                showNotification({ type: 'error', title: 'Speech Recognition Error', description: event.error });
+                showNotification({ type: 'error', title: t('notifications.speechError'), description: event.error });
             }
             setIsRecording(false);
         };
         recognitionRef.current.onend = () => setIsRecording(false);
       }
     }
-  }, [showNotification]);
+  }, [showNotification, t]);
   
   // Camera logic
   useEffect(() => {
@@ -270,7 +273,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
-        showNotification({ type: 'error', title: 'Not Supported', description: "Speech recognition is not supported in your browser." });
+        showNotification({ type: 'error', title: t('notifications.notSupported'), description: t('notifications.speechNotSupported') });
         return;
     }
     if (isRecording) {
@@ -289,7 +292,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
     setView('loading');
     const result = await extractTextAction({ photoDataUri: finalImageUri });
     if ('error' in result) {
-        showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
+        showNotification({ type: 'error', title: t('notifications.scanFailed'), description: result.error });
         resetToInputView();
     } else {
         handleGenerateBudgets(result.text);
@@ -304,7 +307,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
     const result = await createBudgetsWithLimit(query, existingBudgetCategories);
     
     if (result && 'error' in result) {
-        showNotification({ type: 'error', title: 'AI Error', description: result.error });
+        showNotification({ type: 'error', title: t('notifications.aiError'), description: result.error });
         resetToInputView();
     } else if (result) {
         replace(result.budgets.map(b => ({...b, id: nanoid() })));
@@ -345,8 +348,8 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
         <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="space-y-4">
             <DialogDescription>
                 {isReviewMode
-                    ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
-                    : "Manually add a budget for a category, and optionally add checklist items to it."
+                    ? t('dialogs.addBudget.reviewDescription')
+                    : t('dialogs.addBudget.manualDescription')
                 }
             </DialogDescription>
             <ScrollArea className="h-[400px] pr-4">
@@ -361,11 +364,11 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                                         name={`budgets.${index}.category`}
                                         render={({ field }) => (
                                             <FormItem className="col-span-3">
-                                                <FormLabel className="text-xs text-muted-foreground">Category</FormLabel>
+                                                <FormLabel className="text-xs text-muted-foreground">{t('dialogs.addBudget.categoryLabel')}</FormLabel>
                                                 <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
                                                     <FormControl>
                                                         <SelectTrigger className="h-8">
-                                                            <SelectValue placeholder="Select category" />
+                                                            <SelectValue placeholder={t('dialogs.addBudget.categoryPlaceholder')} />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
@@ -383,7 +386,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                                         name={`budgets.${index}.limit`}
                                         render={({ field }) => (
                                             <FormItem className="col-span-2">
-                                                <FormLabel className="text-xs text-muted-foreground">Monthly Limit ({userProfile?.currencyPreference || '$'})</FormLabel>
+                                                <FormLabel className="text-xs text-muted-foreground">{t('dialogs.addBudget.limitLabel', { currency: userProfile?.currencyPreference || '$' })}</FormLabel>
                                                 <FormControl>
                                                     <Input {...field} type="number" className="h-8" />
                                                 </FormControl>
@@ -405,29 +408,29 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                 {(fields.length === 0 && isReviewMode) && (
                     <Alert>
                         <Lightbulb className="h-4 w-4" />
-                        <AlertTitle>No New Budgets Found</AlertTitle>
+                        <AlertTitle>{t('dialogs.addBudget.noBudgetsFound')}</AlertTitle>
                         <AlertDescription>
-                            The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
+                            {t('dialogs.addBudget.noBudgetsDesc')}
                         </AlertDescription>
                     </Alert>
                 )}
                 {!budgetToEdit && (
                     <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Another Budget
+                        <Plus className="mr-2 h-4 w-4" /> {t('dialogs.addBudget.addAnotherButton')}
                     </Button>
                 )}
                 </div>
             </ScrollArea>
             <DialogFooter>
-                {view === 'review' && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-                <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
+                {view === 'review' && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>{t('dialogs.buttons.back')}</Button>}
+                <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>{t('dialogs.buttons.saveBudgets')}</Button>
             </DialogFooter>
         </form>
     </FormProvider>
   );
 
   const renderContent = () => {
-    if (view === 'loading') return <div className="flex flex-col items-center justify-center space-y-4 h-[400px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-muted-foreground">AI is crafting your budgets...</p></div>;
+    if (view === 'loading') return <div className="flex flex-col items-center justify-center space-y-4 h-[400px]"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="text-muted-foreground">{t('dialogs.addBudget.loading')}</p></div>;
     if (view === 'review') return renderReviewForm({ isReviewMode: true });
 
     // Otherwise, view is 'input', so show the Tabs
@@ -440,36 +443,36 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
         }
       }} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto">
-          <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> AI Text</TabsTrigger>
-          <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> AI Voice</TabsTrigger>
-          <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> Camera</TabsTrigger>
-          <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
-          <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
+          <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> {t('dialogs.tabs.text')}</TabsTrigger>
+          <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> {t('dialogs.tabs.voice')}</TabsTrigger>
+          <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> {t('dialogs.tabs.camera')}</TabsTrigger>
+          <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> {t('dialogs.tabs.upload')}</TabsTrigger>
+          <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> {t('dialogs.tabs.manual')}</TabsTrigger>
         </TabsList>
         <div className="pt-4">
           <TabsContent value="text">
               <div className="flex flex-col space-y-4">
-                  <DialogDescription>Describe your monthly budgets. The AI will structure them for you.</DialogDescription>
-                  <Textarea placeholder={`e.g., Budget ${userProfile?.currencyPreference || '$'}500 for Groceries to buy milk and bread. Also, ${userProfile?.currencyPreference || '$'}150 for transportation...`} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6}/>
+                  <DialogDescription>{t('dialogs.addBudget.textDescription')}</DialogDescription>
+                  <Textarea placeholder={t('dialogs.addBudget.textPlaceholder', { currency: userProfile?.currencyPreference || '$' })} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6}/>
                   <DialogFooter>
                       <Button onClick={() => handleGenerateBudgets(userQuery)} disabled={!userQuery}>
-                          <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
+                          <Wand2 className="mr-2 h-4 w-4" /> {t('dialogs.buttons.generateAI')}
                       </Button>
                   </DialogFooter>
               </div>
           </TabsContent>
           <TabsContent value="voice">
               <div className="h-full flex flex-col items-center justify-center space-y-4 min-h-[300px]">
-                <DialogDescription>Press the button and start speaking to create your budgets.</DialogDescription>
+                <DialogDescription>{t('dialogs.addBudget.voiceDescription')}</DialogDescription>
                 <Button onClick={handleToggleRecording} size="icon" className={`h-20 w-20 rounded-full my-4 ${isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse'}`}>
                     {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                 </Button>
-                <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
+                <p className="text-muted-foreground h-6">{isRecording ? t('dialogs.addBudget.listening') : t('dialogs.addBudget.pressToRecord')}</p>
               </div>
           </TabsContent>
           <TabsContent value="camera">
               <div className="pt-4 space-y-4">
-                <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
+                <DialogDescription>{t('dialogs.addBudget.cameraDescription')}</DialogDescription>
                 <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
                     <canvas ref={canvasRef} className="hidden" />
                     {imageUri ? (
@@ -477,7 +480,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                     ) : (
                         <>
                             <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-                            {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle></Alert>}
+                            {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>{t('notifications.cameraDenied')}</AlertTitle></Alert>}
                         </>
                     )}
                     {videoDevices.length > 1 && !imageUri && (
@@ -488,18 +491,18 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                 </div>
                 {imageUri ? (
                     <div className="grid grid-cols-2 gap-4">
-                        <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
-                        <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
+                        <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />{t('dialogs.buttons.retake')}</Button>
+                        <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />{t('dialogs.buttons.analyze')}</Button>
                     </div>
                 ) : (
-                    <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>
+                    <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />{t('dialogs.buttons.capture')}</Button>
                 )}
               </div>
             </TabsContent>
             <TabsContent value="upload">
                 <div className="flex flex-col items-center justify-center h-full space-y-4 min-h-[300px]">
-                    <DialogDescription>Upload an image of a document or shopping list.</DialogDescription>
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />Choose File</Button>
+                    <DialogDescription>{t('dialogs.addBudget.uploadDescription')}</DialogDescription>
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />{t('dialogs.buttons.chooseFile')}</Button>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                 </div>
             </TabsContent>
@@ -516,7 +519,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
       <DialogContent className="sm:max-w-xl">
         <ScrollArea className="max-h-[90vh] p-6">
             <DialogHeader className="pr-6">
-                <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Add Budgets'}</DialogTitle>
+                <DialogTitle className="font-headline text-2xl">{budgetToEdit ? t('dialogs.addBudget.editTitle') : t('dialogs.addBudget.addTitle')}</DialogTitle>
             </DialogHeader>
             {renderContent()}
         </ScrollArea>
