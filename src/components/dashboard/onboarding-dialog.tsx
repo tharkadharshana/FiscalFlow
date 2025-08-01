@@ -24,6 +24,7 @@ import { onboardingSteps } from '@/data/onboarding-steps';
 import { Checkbox } from '../ui/checkbox';
 import { useState } from 'react';
 import { Label } from '../ui/label';
+import { useTranslation } from '@/contexts/translation-context';
 
 
 type OnboardingDialogProps = {
@@ -33,6 +34,7 @@ type OnboardingDialogProps = {
 
 export function OnboardingDialog({ open, onOpenChange }: OnboardingDialogProps) {
   const { updateUserPreferences } = useAppContext();
+  const { t } = useTranslation();
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const handleClose = async (isOpen: boolean) => {
@@ -48,8 +50,8 @@ export function OnboardingDialog({ open, onOpenChange }: OnboardingDialogProps) 
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-            <DialogTitle className="font-headline text-2xl">Getting Started</DialogTitle>
-            <DialogDescription>A quick guide to FiscalFlow.</DialogDescription>
+            <DialogTitle className="font-headline text-2xl">{t('onboarding.title')}</DialogTitle>
+            <DialogDescription>{t('onboarding.description')}</DialogDescription>
         </DialogHeader>
         <Carousel className="w-full">
             <CarouselContent>
@@ -59,14 +61,14 @@ export function OnboardingDialog({ open, onOpenChange }: OnboardingDialogProps) 
                             <div className="aspect-video w-full relative overflow-hidden rounded-lg">
                                 <Image 
                                     src={step.image} 
-                                    alt={step.title} 
+                                    alt={t(step.titleKey)} 
                                     data-ai-hint={step.aiHint}
                                     fill
                                     className="object-cover"
                                 />
                             </div>
-                            <h3 className="font-semibold text-lg">{step.title}</h3>
-                            <p className="text-muted-foreground">{step.description}</p>
+                            <h3 className="font-semibold text-lg">{t(step.titleKey)}</h3>
+                            <p className="text-muted-foreground">{t(step.descriptionKey)}</p>
                         </div>
                     </CarouselItem>
                 ))}
@@ -77,11 +79,11 @@ export function OnboardingDialog({ open, onOpenChange }: OnboardingDialogProps) 
         <DialogFooter className="sm:justify-between gap-4">
           <div className="flex items-center space-x-2">
             <Checkbox id="dont-show-again" checked={dontShowAgain} onCheckedChange={(checked) => setDontShowAgain(!!checked)} />
-            <Label htmlFor="dont-show-again" className="text-sm text-muted-foreground">Don't show this again</Label>
+            <Label htmlFor="dont-show-again" className="text-sm text-muted-foreground">{t('onboarding.dontShowAgain')}</Label>
           </div>
           <DialogClose asChild>
             <Button type="button">
-              Get Started
+              {t('onboarding.getStarted')}
             </Button>
           </DialogClose>
         </DialogFooter>

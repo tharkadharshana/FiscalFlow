@@ -1,6 +1,49 @@
 
-
 {
+  "header": {
+    "addTransaction": "Add Transaction"
+  },
+  "sidebar": {
+    "upgrade": "Upgrade",
+    "dashboard": "Dashboard",
+    "transactions": "Transactions",
+    "checklists": "Checklists",
+    "budgets": "Budgets & Trips",
+    "savings": "Savings Goals",
+    "investments": "Investments",
+    "reports": "Reports",
+    "tax": "Tax Center",
+    "calendar": "Calendar",
+    "settings": "Settings",
+    "help": "Help & Support",
+    "logout": "Log Out",
+    "premiumBadge": "Premium"
+  },
+  "dashboard": {
+    "title": "Dashboard"
+  },
+  "onboarding": {
+    "title": "Getting Started",
+    "description": "A quick guide to FiscalFlow.",
+    "dontShowAgain": "Don't show this again",
+    "getStarted": "Get Started",
+    "step1": {
+      "title": "Welcome to FiscalFlow!",
+      "description": "Let's take a quick tour to get you started on your financial journey."
+    },
+    "step2": {
+      "title": "Log Your First Transaction",
+      "description": "Click the 'Add Transaction' button in the header to log your income and expenses. Keeping a record is the first step to financial clarity."
+    },
+    "step3": {
+      "title": "Set Your Budgets",
+      "description": "Head to the 'Budgets' page to set monthly spending limits for different categories. We'll warn you when you're getting close!"
+    },
+    "step4": {
+      "title": "Unlock AI Superpowers",
+      "description": "Upgrade to Premium to scan receipts, get smart insights, and use our AI Financial Planner to build detailed plans for your biggest goals."
+    }
+  },
   "login": {
     "title": "Welcome Back",
     "description": "Enter your credentials to access your account.",

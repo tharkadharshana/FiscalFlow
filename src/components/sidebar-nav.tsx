@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -36,24 +35,26 @@ import {
 import { useAppContext } from '@/contexts/app-context';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { useTranslation } from '@/contexts/translation-context';
 
 const menuItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/transactions', label: 'Transactions', icon: Wallet },
-  { href: '/dashboard/checklists', label: 'Checklists', icon: CheckSquare },
-  { href: '/dashboard/budgets', label: 'Budgets & Trips', icon: Target },
-  { href: '/dashboard/savings', label: 'Savings Goals', icon: PiggyBank, premium: true },
-  { href: '/dashboard/investments', label: 'Investments', icon: Briefcase, premium: true },
-  { href: '/dashboard/reports', label: 'Reports', icon: FileText, premium: true },
-  { href: '/dashboard/tax', label: 'Tax Center', icon: Landmark, premium: true },
-  { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard', labelKey: 'sidebar.dashboard', icon: LayoutDashboard },
+  { href: '/dashboard/transactions', labelKey: 'sidebar.transactions', icon: Wallet },
+  { href: '/dashboard/checklists', labelKey: 'sidebar.checklists', icon: CheckSquare },
+  { href: '/dashboard/budgets', labelKey: 'sidebar.budgets', icon: Target },
+  { href: '/dashboard/savings', labelKey: 'sidebar.savings', icon: PiggyBank, premium: true },
+  { href: '/dashboard/investments', labelKey: 'sidebar.investments', icon: Briefcase, premium: true },
+  { href: '/dashboard/reports', labelKey: 'sidebar.reports', icon: FileText, premium: true },
+  { href: '/dashboard/tax', labelKey: 'sidebar.tax', icon: Landmark, premium: true },
+  { href: '/dashboard/calendar', labelKey: 'sidebar.calendar', icon: CalendarDays },
+  { href: '/dashboard/settings', labelKey: 'sidebar.settings', icon: Settings },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
   const { user, logout, isPremium } = useAppContext();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleLogout = async () => {
     await logout();
@@ -76,7 +77,7 @@ export function SidebarNav() {
             <Button asChild className="w-full justify-start text-base font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90">
               <Link href="/dashboard/upgrade">
                 <Sparkles className="mr-2 h-5 w-5" />
-                <span>Upgrade</span>
+                <span>{t('sidebar.upgrade')}</span>
               </Link>
             </Button>
           </div>
@@ -90,12 +91,12 @@ export function SidebarNav() {
                 <SidebarMenuButton
                   asChild
                   isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
-                  tooltip={{ children: item.label }}
+                  tooltip={{ children: t(item.labelKey) }}
                   disabled={isItemPremium && !isPremium}
                 >
                   <Link href={item.href}>
                     <item.icon />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                      {(isItemPremium && !isPremium) && (
                         <Sparkles className="ml-auto h-4 w-4 text-amber-500" />
                      )}
@@ -110,17 +111,17 @@ export function SidebarNav() {
       <SidebarFooter className="p-2">
          <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip={{children: 'Help & Support'}}>
+                <SidebarMenuButton asChild tooltip={{children: t('sidebar.help')}}>
                   <a href="mailto:support@fiscalflow.app">
                     <CircleHelp />
-                    <span>Help & Support</span>
+                    <span>{t('sidebar.help')}</span>
                   </a>
                 </SidebarMenuButton>
             </SidebarMenuItem>
              <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout} tooltip={{children: 'Log Out'}}>
+                <SidebarMenuButton onClick={handleLogout} tooltip={{children: t('sidebar.logout')}}>
                     <LogOut />
-                    <span>Log Out</span>
+                    <span>{t('sidebar.logout')}</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>
@@ -134,7 +135,7 @@ export function SidebarNav() {
             <div className="flex items-center gap-2">
                 <p className="truncate font-semibold">{user?.displayName || 'User'}</p>
                 {isPremium && (
-                    <Badge className="bg-amber-500 text-white px-1.5 py-0 text-xs">Premium</Badge>
+                    <Badge className="bg-amber-500 text-white px-1.5 py-0 text-xs">{t('sidebar.premiumBadge')}</Badge>
                 )}
             </div>
             <p className="truncate text-xs text-muted-foreground">{user?.email || 'user@email.com'}</p>

@@ -10,6 +10,7 @@ import { NotificationPopover } from '../notifications/notification-popover';
 import { useAppContext } from '@/contexts/app-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { logger } from '@/lib/logger';
+import { useTranslation } from '@/contexts/translation-context';
 
 type HeaderProps = {
   title: string;
@@ -17,6 +18,7 @@ type HeaderProps = {
 
 export function Header({ title }: HeaderProps) {
   const { isPremium } = useAppContext();
+  const { t } = useTranslation();
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState(false);
 
@@ -71,7 +73,7 @@ export function Header({ title }: HeaderProps) {
           <NotificationPopover />
           <Button onClick={handleAddTransactionClick} className="gap-1">
             <PlusCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Transaction</span>
+            <span className="hidden sm:inline">{t('header.addTransaction')}</span>
           </Button>
         </div>
       </header>

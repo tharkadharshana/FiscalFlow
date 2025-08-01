@@ -15,9 +15,11 @@ import { ChecklistSummary } from '@/components/dashboard/checklist-summary';
 import { SavingsGoalsSummary } from '@/components/dashboard/savings-goals-summary';
 import { BudgetStatusSummary } from '@/components/dashboard/budget-status-summary';
 import { IncomeExpenseSummary } from '@/components/dashboard/income-expense-summary';
+import { useTranslation } from '@/contexts/translation-context';
 
 export default function DashboardPage() {
   const { userProfile, updateUserPreferences } = useAppContext();
+  const { t } = useTranslation();
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-1 flex-col">
-        <Header title="Dashboard" />
+        <Header title={t('dashboard.title')} />
         <main className="flex-1 space-y-4 p-4 md:p-6">
           {/* Main Summary Cards */}
           <SummaryCards />
