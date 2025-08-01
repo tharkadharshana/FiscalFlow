@@ -49,7 +49,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
   
   const defaultTab = transactionToEdit?.type || (itemToConvert ? 'expense' : 'expense');
   
-  const isEditing = !!transactionToEdit;
+  const isEditingOrConverting = !!transactionToEdit || !!itemToConvert;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,16 +62,16 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
         </DialogHeader>
         <ScrollArea className="pr-2">
             <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className={cn("grid w-full", (isEditing || itemToConvert) ? "grid-cols-2" : "grid-cols-4")}>
-                  <TabsTrigger value="expense" disabled={!!itemToConvert}>
+              <TabsList className={cn("grid w-full", isEditingOrConverting ? "grid-cols-2" : "grid-cols-4")}>
+                  <TabsTrigger value="expense" disabled={transactionToEdit?.type === 'income'}>
                     <MinusCircle className="mr-2 h-4 w-4" />
                     Expense
                   </TabsTrigger>
-                  <TabsTrigger value="income" disabled={!!itemToConvert}>
+                  <TabsTrigger value="income" disabled={transactionToEdit?.type === 'expense' || !!itemToConvert}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Income
                   </TabsTrigger>
-                  {!(isEditing || itemToConvert) && (
+                  {!isEditingOrConverting && (
                     <>
                     {canScanReceipt ? ScanReceiptTab : (
                       <TooltipProvider>
@@ -102,7 +102,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
               <TabsContent value="income" className="pt-4">
                   <IncomeEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} />
               </TabsContent>
-              {!(isEditing || itemToConvert) && (
+              {!isEditingOrConverting && (
                 <>
                 <TabsContent value="scan" className="pt-4">
                     <ReceiptScanner onTransactionsAdded={() => onOpenChange(false)} />

@@ -305,7 +305,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Trip Item</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                                 <FormControl>
                                     <SelectTrigger disabled={!selectedTripId}>
                                         <SelectValue placeholder="Select a trip item" />
@@ -314,7 +314,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                                 <SelectContent>
                                     {selectedTripItems.map((item) => (
                                         <SelectItem key={item.id} value={item.id}>
-                                            {item.description} (Predicted: ${item.predictedCost})
+                                            {item.description} (Predicted: {formatCurrency(item.predictedCost)})
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
