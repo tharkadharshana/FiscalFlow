@@ -101,7 +101,7 @@ interface AppContextType {
   checklistTemplates: ChecklistTemplate[];
   createTemplateFromChecklist: (checklist: Checklist) => Promise<void>;
   deleteChecklistTemplate: (templateId: string) => Promise<void>;
-  formatCurrency: (amount: number) => string;
+  formatCurrency: (amount: number, options?: Intl.NumberFormatOptions) => string;
   notifications: Notification[];
   showNotification: (payload: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void;
   markAllNotificationsAsRead: () => Promise<void>;
@@ -423,10 +423,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
   const formatCurrency = useMemo(() => {
-    return (amount: number) => {
+    return (amount: number, options?: Intl.NumberFormatOptions) => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: userProfile?.currencyPreference || 'USD',
+            ...options,
         }).format(amount);
     }
   }, [userProfile?.currencyPreference]);

@@ -88,10 +88,14 @@ export default function CalendarPage() {
                   const dailyTotal = dailyTransactions?.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
 
                   return (
-                    <div className="flex flex-col items-start justify-start p-1 w-full h-16">
-                      <div>{format(date, 'd')}</div>
+                    <div className="flex flex-col items-start justify-between p-1 w-full h-16">
+                      <div className="font-medium">{format(date, 'd')}</div>
                       {dailyTotal > 0 && (
-                        <div className="text-xs text-red-500 mt-1 truncate">-{formatCurrency(dailyTotal)}</div>
+                        <div className="text-xs text-destructive truncate w-full self-end text-right">-{formatCurrency(dailyTotal, {
+                            notation: 'compact',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 1,
+                        })}</div>
                       )}
                     </div>
                   );
