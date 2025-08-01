@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Header } from '@/components/dashboard/header';
@@ -13,6 +12,9 @@ import { useAppContext } from '@/contexts/app-context';
 import { useState, useEffect } from 'react';
 import { OnboardingDialog } from '@/components/dashboard/onboarding-dialog';
 import { ChecklistSummary } from '@/components/dashboard/checklist-summary';
+import { SavingsGoalsSummary } from '@/components/dashboard/savings-goals-summary';
+import { BudgetStatusSummary } from '@/components/dashboard/budget-status-summary';
+import { IncomeExpenseSummary } from '@/components/dashboard/income-expense-summary';
 
 export default function DashboardPage() {
   const { userProfile, updateUserPreferences } = useAppContext();
@@ -32,19 +34,22 @@ export default function DashboardPage() {
       <div className="flex flex-1 flex-col">
         <Header title="Dashboard" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
+          {/* Main Summary Cards */}
           <SummaryCards />
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-             <SpendChart />
-             <TopCategories />
+
+          {/* Core Financial Health */}
+          <div className="space-y-6">
+            <IncomeExpenseSummary />
+            <SpendChart />
+            <TopCategories />
+            <BudgetStatusSummary />
+            <SavingsGoalsSummary />
+            <PortfolioOverview />
+            <ChecklistSummary />
+            <SmartInsights />
+            <RecentTransactions />
           </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-             <RecentTransactions />
-             <div className="space-y-6">
-                <PortfolioOverview />
-                <ChecklistSummary />
-                <SmartInsights />
-             </div>
-          </div>
+
         </main>
       </div>
       <OnboardingDialog open={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} />
