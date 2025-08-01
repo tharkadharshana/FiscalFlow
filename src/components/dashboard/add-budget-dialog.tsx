@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, MicOff, Loader2, Wand2, Keyboard, Plus, Trash2, Lightbulb } from 'lucide-react';
+import { Mic, MicOff, Loader2, Wand2, Keyboard, Plus, Trash2, Lightbulb, Camera, Upload, RotateCcw, SwitchCamera, FileScan } from 'lucide-react';
 import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Budget } from '@/types';
@@ -32,6 +32,8 @@ import {
 import { nanoid } from 'nanoid';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Label } from '../ui/label';
+import { parseDocumentAction } from '@/lib/actions';
+import Image from 'next/image';
 
 // --------- Zod Schemas ---------
 const budgetItemSchema = z.object({
@@ -100,8 +102,19 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   const [activeTab, setActiveTab] = useState('text');
   const [userQuery, setUserQuery] = useState('');
   
+  // Input states
   const [isRecording, setIsRecording] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
+  
+  // Refs
   const recognitionRef = useRef<any>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -116,7 +129,12 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   const resetToInputView = () => {
     setView('input');
     setUserQuery('');
+    setImageUri(null);
     if (isRecording) recognitionRef.current?.stop();
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+    }
     form.reset({ budgets: [] });
   }
 
@@ -135,6 +153,11 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
             resetToInputView();
             setActiveTab('text');
         }
+    } else {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+    }
     }
   }, [open, budgetToEdit, replace]);
   
@@ -191,6 +214,36 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
       }
     }
   }, [showNotification]);
+  
+  useEffect(() => {
+    if (activeTab !== 'camera' || view !== 'input') {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        return;
+    }
+
+    const startCamera = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+        setVideoDevices(cameras);
+        if (cameras.length === 0) throw new Error("No camera found");
+        const deviceId = selectedDeviceId || cameras.find(d => d.label.toLowerCase().includes('back'))?.deviceId || cameras[0].deviceId;
+        if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setSelectedDeviceId(deviceId);
+        setHasCameraPermission(true);
+      } catch (error) {
+        setHasCameraPermission(false);
+      }
+    };
+    startCamera();
+    return () => { if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop()); };
+  }, [activeTab, view, selectedDeviceId]);
 
   const handleToggleRecording = () => {
     if (!recognitionRef.current) {
@@ -203,6 +256,20 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
       setUserQuery('');
       recognitionRef.current.start();
       setIsRecording(true);
+    }
+  };
+  
+  const handleAnalyze = async (dataUri?: string) => {
+    const finalImageUri = dataUri || imageUri;
+    if (!finalImageUri) return;
+
+    setView('loading');
+    const result = await parseDocumentAction({ photoDataUri: finalImageUri });
+    if ('error' in result) {
+        showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
+        resetToInputView();
+    } else {
+        handleGenerateBudgets(result.text);
     }
   };
 
@@ -221,6 +288,33 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
         setView('review');
         setActiveTab('manual');
     }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => handleAnalyze(e.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleCapture = () => {
+    if (videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d')?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        setImageUri(canvas.toDataURL('image/jpeg'));
+    }
+  };
+
+  const handleSwitchCamera = () => {
+    if (videoDevices.length < 2) return;
+    const currentIndex = videoDevices.findIndex(d => d.deviceId === selectedDeviceId);
+    const nextIndex = (currentIndex + 1) % videoDevices.length;
+    setSelectedDeviceId(videoDevices[nextIndex].deviceId);
   };
   
   const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
@@ -326,9 +420,11 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
             setView('review'); // Switch to review view for manual entry
         }
       }} className="w-full h-full flex flex-col">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
+        <TabsList className="grid w-full grid-cols-5 h-auto">
           <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> AI Text</TabsTrigger>
           <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> AI Voice</TabsTrigger>
+          <TabsTrigger value="camera" className="flex-col h-14"><Camera className="mb-1" /> Camera</TabsTrigger>
+          <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
           <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
         </TabsList>
         <div className="pt-4 flex-1 min-h-0">
@@ -350,6 +446,22 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                 </Button>
                 <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
           </TabsContent>
+          <TabsContent value="camera" className="pt-4 space-y-4">
+                <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
+                <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
+                    <canvas ref={canvasRef} className="hidden" />
+                    {imageUri ? <Image src={imageUri} alt="Budget preview" fill objectFit="contain" /> : <><video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />{hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" />Camera Access Denied</Alert>}</>}
+                    {videoDevices.length > 1 && !imageUri && <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10"><SwitchCamera className="h-5 w-5" /></Button>}
+                </div>
+                {imageUri ? (<div className="grid grid-cols-2 gap-4"><Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button><Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button></div>) : (<Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>)}
+            </TabsContent>
+            <TabsContent value="upload" className="pt-4 h-full">
+                <div className="flex flex-col items-center justify-center h-full space-y-4">
+                    <DialogDescription>Upload an image of a document or shopping list.</DialogDescription>
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />Choose File</Button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,application/pdf" />
+                </div>
+            </TabsContent>
           <TabsContent value="manual" className="h-full">
               {renderReviewForm({ isReviewMode: false })}
           </TabsContent>

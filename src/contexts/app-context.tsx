@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
@@ -440,7 +439,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
         const batch = writeBatch(db);
-        const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, ...restOfTransaction } = transaction;
+        const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, receiptDetails, ...restOfTransaction } = transaction;
         const finalAmount = items && items.length > 0 ? items.reduce((sum, item) => sum + item.amount, 0) : transaction.amount;
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         batch.set(newTransactionRef, {
@@ -448,6 +447,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             createdAt: serverTimestamp(), userId: user.uid, isTaxDeductible: isTaxDeductible || false,
             checklistId: checklistId || null, checklistItemId: checklistItemId || null,
             tripId: tripId || null, tripItemId: tripItemId || null,
+            receiptDetails: receiptDetails || null,
         });
 
         // Handle Roundup Goal
@@ -974,7 +974,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     };
     const result = await analyzeTaxesAction(fullInput);
 
-    if (!('error' in result) && !isPremium) {
+    if (result && !('error' in result) && !isPremium) {
         const currentMonth = new Date().toISOString().slice(0, 7);
         const monthlyReports = userProfile.subscription.monthlyTaxReports;
         const newCount = (!monthlyReports || monthlyReports.month !== currentMonth) ? 1 : monthlyReports.count + 1;
@@ -1012,7 +1012,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
 
     const result = await generateInsightsAction(input);
 
-    if (!('error' in result) && !isPremium) {
+    if (result && !('error' in result) && !isPremium) {
         const currentMonth = new Date().toISOString().slice(0, 7);
         const monthlyInsights = userProfile.subscription.monthlyInsights;
         const newCount = (!monthlyInsights || monthlyInsights.month !== currentMonth) ? 1 : (monthlyInsights.count || 0) + 1;
