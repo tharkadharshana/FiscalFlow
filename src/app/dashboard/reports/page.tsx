@@ -23,12 +23,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import type { Transaction } from '@/types';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Tooltip, TooltipProvider, TooltipContent } from '@/components/ui/tooltip';
 
 
@@ -214,6 +213,13 @@ export default function ReportsPage() {
         Generate Report
     </Button>
   );
+  
+  const chartConfig = {
+    total: {
+      label: "Total",
+      color: "hsl(var(--chart-1))",
+    },
+  };
 
   return (
     <div className="flex flex-1 flex-col">
@@ -394,32 +400,34 @@ export default function ReportsPage() {
                         <div>
                         <h3 className="font-headline text-lg font-semibold mb-4">Expense Breakdown by Category</h3>
                         <div className="h-[350px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <RechartsBarChart
-                              data={generatedReport.chartData}
-                              layout="vertical"
-                              margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
-                            >
-                              <XAxis type="number" hide />
-                              <YAxis
-                                dataKey="name"
-                                type="category"
-                                tickLine={false}
-                                axisLine={false}
-                                stroke="hsl(var(--muted-foreground))"
-                                tick={{ fontSize: 12 }}
-                                width={100}
-                              />
-                              <ChartTooltip
-                                cursor={false}
-                                content={<ChartTooltipContent
-                                  formatter={(value) => formatCurrency(value as number)}
-                                  indicator="dot"
-                                />}
-                              />
-                              <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                            </RechartsBarChart>
-                          </ResponsiveContainer>
+                          <ChartContainer config={chartConfig} className="w-full h-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RechartsBarChart
+                                data={generatedReport.chartData}
+                                layout="vertical"
+                                margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
+                                >
+                                <XAxis type="number" hide />
+                                <YAxis
+                                    dataKey="name"
+                                    type="category"
+                                    tickLine={false}
+                                    axisLine={false}
+                                    stroke="hsl(var(--muted-foreground))"
+                                    tick={{ fontSize: 12 }}
+                                    width={100}
+                                />
+                                <ChartTooltip
+                                    cursor={false}
+                                    content={<ChartTooltipContent
+                                    formatter={(value) => formatCurrency(value as number)}
+                                    indicator="dot"
+                                    />}
+                                />
+                                <Bar dataKey="total" fill="var(--color-total)" radius={[0, 4, 4, 0]} />
+                                </RechartsBarChart>
+                            </ResponsiveContainer>
+                          </ChartContainer>
                         </div>
                         </div>
                     )}
