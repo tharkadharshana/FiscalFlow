@@ -12,9 +12,9 @@ import { useAppContext } from '@/contexts/app-context';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import type { Transaction, RecurringTransaction } from '@/types';
+import type { Transaction } from '@/types';
 import { RecurringTransactions } from '@/components/dashboard/recurring-transactions';
-import { Repeat, MoreVertical, Pencil, Trash2, Sparkles, ChevronDown, ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Repeat, MoreVertical, Pencil, Trash2, Sparkles, ArrowUpDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { AddTransactionDialog } from '@/components/add-transaction-dialog';
+import { TransactionDetailDialog } from '@/components/dashboard/transaction-detail-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,21 +34,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
-import { AddRecurringTransactionDialog } from '@/components/add-recurring-transaction-dialog';
-
 
 type SortDescriptor = {
   column: 'date' | 'amount' | 'source';
   direction: 'ascending' | 'descending';
-};
-
-type RecurringSortDescriptor = {
-    column: 'title' | 'amount' | 'category' | 'frequency';
-    direction: 'ascending' | 'descending';
 };
 
 const ITEMS_PER_PAGE = 20;
@@ -82,44 +74,15 @@ const TransactionTableControls = ({
     </div>
 );
 
-const RecurringTableControls = ({
-    filterValue,
-    onFilterChange,
-    sortDescriptor,
-    onSortChange,
-}: {
-    filterValue: string;
-    onFilterChange: (value: string) => void;
-    sortDescriptor: RecurringSortDescriptor;
-    onSortChange: (descriptor: RecurringSortDescriptor) => void;
-}) => (
-    <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b">
-        <div className="relative w-full md:w-auto">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Filter by title or category..." className="pl-8 sm:w-[300px]" value={filterValue} onChange={(e) => onFilterChange(e.target.value)} />
-        </div>
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline"><ArrowUpDown className="mr-2 h-4 w-4" />Sort by</Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'title', direction: 'ascending' })}>Title (A-Z)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'title', direction: 'descending' })}>Title (Z-A)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'descending' })}>Amount: High-Low</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'amount', direction: 'ascending' })}>Amount: Low-High</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'ascending' })}>Category (A-Z)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'category', direction: 'descending' })}>Category (Z-A)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onSortChange({ column: 'frequency', direction: 'ascending' })}>Frequency</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    </div>
-);
-
 export default function TransactionsPage() {
   const { transactions, categories, deleteTransaction, formatCurrency, isPremium } = useAppContext();
 
   // State for Dialogs
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
+  const [transactionToView, setTransactionToView] = useState<Transaction | null>(null);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
 
   // State for Table Controls
@@ -131,6 +94,11 @@ export default function TransactionsPage() {
   const handleEdit = (transaction: Transaction) => {
     setTransactionToEdit(transaction);
     setIsEditDialogOpen(true);
+  };
+  
+  const handleViewDetails = (transaction: Transaction) => {
+    setTransactionToView(transaction);
+    setIsDetailDialogOpen(true);
   };
 
   const handleDelete = (transaction: Transaction) => {
@@ -197,12 +165,9 @@ export default function TransactionsPage() {
 
   const TransactionRow = ({ transaction }: { transaction: Transaction }) => {
     const Icon = categories[transaction.category] || categories['Food'];
-    const hasItems = transaction.items && transaction.items.length > 0;
-
+    
     return (
-      <Collapsible asChild>
-        <>
-        <TableRow>
+        <TableRow onClick={() => handleViewDetails(transaction)} className="cursor-pointer">
           <TableCell>
             <div className="flex items-center gap-4">
               <Avatar className="hidden h-9 w-9 sm:flex">
@@ -210,14 +175,10 @@ export default function TransactionsPage() {
                   <Icon className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
-              <div className="grid gap-1">
+              <div className="grid gap-1 overflow-hidden">
                 <p className="font-medium truncate">{transaction.source}</p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {hasItems ? (
-                      <Badge variant="secondary">{transaction.items!.length} items</Badge>
-                  ) : (
-                    <p className="hidden text-sm text-muted-foreground md:block">{transaction.notes || 'No notes'}</p>
-                  )}
+                  <p className="hidden text-sm text-muted-foreground md:block">{transaction.notes || 'No notes'}</p>
                 </div>
               </div>
             </div>
@@ -229,30 +190,16 @@ export default function TransactionsPage() {
               <p className={cn('font-bold text-lg', transaction.type === 'income' ? 'text-green-600' : 'text-slate-800')}>
                 {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
               </p>
-              {hasItems && (
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:bg-accent"><ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" /></Button>
-                </CollapsibleTrigger>
-              )}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleEdit(transaction)}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDelete(transaction)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleEdit(transaction)}}><Pencil className="mr-2 h-4 w-4" /> Edit</DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleDelete(transaction)}} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Delete</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </TableCell>
         </TableRow>
-        {hasItems && (
-            <CollapsibleContent asChild>
-                <TableRow><TableCell colSpan={4} className="p-0"><div className="p-4 bg-muted/50"><h4 className="font-semibold mb-2 ml-4">Itemized Details</h4><ul className="space-y-1 pl-8">
-                    {transaction.items!.map(item => (<li key={item.id} className="flex justify-between text-sm text-muted-foreground"><span>- {item.description}</span><span className="font-mono">{formatCurrency(item.amount)}</span></li>))}
-                </ul></div></TableCell></TableRow>
-            </CollapsibleContent>
-        )}
-        </>
-      </Collapsible>
     );
   };
 
@@ -309,6 +256,7 @@ export default function TransactionsPage() {
         </main>
       </div>
       <AddTransactionDialog open={isEditDialogOpen} onOpenChange={handleDialogClose} transactionToEdit={transactionToEdit} />
+      <TransactionDetailDialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen} transaction={transactionToView} />
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete this transaction from your records.</AlertDialogDescription></AlertDialogHeader>
@@ -318,5 +266,3 @@ export default function TransactionsPage() {
     </>
   );
 }
-
-    
