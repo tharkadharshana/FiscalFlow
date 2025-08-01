@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -133,7 +132,7 @@ export default function SettingsPage() {
                   {canAddCategory ? AddCategoryButton : (
                     <TooltipProvider>
                         <Tooltip>
-                            <TooltipTrigger asChild>{AddCategoryButton}</TooltipTrigger>
+                            <TooltipTrigger asChild><div>{AddCategoryButton}</div></TooltipTrigger>
                             <TooltipContent>
                                 <p>{t('settings.categories.limitTooltip')}</p>
                             </TooltipContent>
@@ -195,7 +194,7 @@ export default function SettingsPage() {
   if (loading && !userProfile) {
     return (
         <div className="flex flex-1 flex-col">
-            <Header title="Settings" />
+            <Header title={t('settings.pageTitle')} />
             <div className="flex flex-1 items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
@@ -206,7 +205,7 @@ export default function SettingsPage() {
   if (!userProfile) {
     return (
         <div className="flex flex-1 flex-col">
-            <Header title="Settings" />
+            <Header title={t('settings.pageTitle')} />
             <div className="flex flex-1 items-center justify-center text-center p-4">
                 <div>
                     <p className="text-lg font-semibold text-destructive">{t('settings.errors.profileLoadFailed')}</p>
