@@ -52,7 +52,7 @@ const formSchema = z.object({
   }).optional(),
 });
 
-type ManualEntryFormProps = {
+type ManualExpenseFormProps = {
   onFormSubmit: () => void;
   transactionToEdit?: Transaction | null;
   itemToConvert?: { checklistId: string; item: ChecklistItem } | null;
@@ -70,13 +70,13 @@ const defaultValues = {
   checklistId: undefined,
   checklistItemId: undefined,
   receiptDetails: {
-    paymentMethod: 'Cash',
+    paymentMethod: 'Card',
     receiptNumber: '',
   }
 };
 
-export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip, formatCurrency } = useAppContext();
+export function ManualExpenseForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualExpenseFormProps) {
+  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -85,17 +85,13 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
   
   useEffect(() => {
     if (transactionToEdit) {
-      // Sanitize null values from Firestore to undefined for the form
       const sanitizedTransaction = {
         ...transactionToEdit,
         tripId: transactionToEdit.tripId ?? undefined,
         tripItemId: transactionToEdit.tripItemId ?? undefined,
         checklistId: transactionToEdit.checklistId ?? undefined,
         checklistItemId: transactionToEdit.checklistItemId ?? undefined,
-        receiptDetails: {
-            paymentMethod: transactionToEdit.receiptDetails?.paymentMethod || 'Cash',
-            receiptNumber: transactionToEdit.receiptDetails?.receiptNumber || '',
-        }
+        receiptDetails: transactionToEdit.receiptDetails ?? defaultValues.receiptDetails,
       };
 
       form.reset({
@@ -282,38 +278,40 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
 
         <div className="grid grid-cols-2 gap-4">
             <FormField
-                control={form.control}
-                name="receiptDetails.paymentMethod"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Payment Method</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select a method" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            <SelectItem value="Cash">Cash</SelectItem>
-                            <SelectItem value="Credit Card">Credit Card</SelectItem>
-                            <SelectItem value="Debit Card">Debit Card</SelectItem>
-                            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                            <SelectItem value="PayPal">PayPal</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
+            control={form.control}
+            name="receiptDetails.paymentMethod"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Payment Method</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a method" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="Card">Card</SelectItem>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
             />
-             <FormField
-                control={form.control}
-                name="receiptDetails.receiptNumber"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Invoice/Ref #</FormLabel>
-                    <FormControl><Input placeholder="INV-123" {...field} /></FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
+            <FormField
+            control={form.control}
+            name="receiptDetails.receiptNumber"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Receipt/Ref #</FormLabel>
+                <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
             />
         </div>
         
@@ -331,7 +329,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                       form.setValue('tripItemId', undefined);
                     }} 
                     value={field.value ?? 'none'}
-                    disabled={!!activeTrip && !transactionToEdit}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -359,7 +356,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Trip Item</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger disabled={!selectedTripId}>
                                         <SelectValue placeholder="Select a trip item" />
@@ -368,7 +365,7 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                                 <SelectContent>
                                     {selectedTripItems.map((item) => (
                                         <SelectItem key={item.id} value={item.id}>
-                                            {item.description} (Predicted: {formatCurrency(item.predictedCost)})
+                                            {item.description} (Predicted: ${item.predictedCost})
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

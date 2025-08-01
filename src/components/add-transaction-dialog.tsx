@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -10,16 +9,17 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ManualEntryForm } from './manual-entry-form';
 import { ReceiptScanner } from './receipt-scanner';
 import { ScanLine, MinusCircle, PlusCircle, Sparkles, FileText } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
-import { IncomeEntryForm } from './income-entry-form';
 import type { Transaction, ChecklistItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { useAppContext } from '@/contexts/app-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { StatementImporter } from './statement-importer';
+import { ManualExpenseForm } from './manual-expense-form';
+import { ManualIncomeForm } from './manual-income-form';
+
 
 type AddTransactionDialogProps = {
   open: boolean;
@@ -53,7 +53,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] flex h-full max-h-[90svh] flex-col">
+      <DialogContent className="sm:max-w-[520px] flex h-full max-h-[90vh] flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{transactionToEdit ? 'Edit' : (itemToConvert ? 'Confirm Transaction' : 'Add Transaction')}</DialogTitle>
           <DialogDescription>
@@ -97,10 +97,10 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
                   )}
               </TabsList>
               <TabsContent value="expense" className="pt-4">
-                  <ManualEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} itemToConvert={itemToConvert} />
+                  <ManualExpenseForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} itemToConvert={itemToConvert} />
               </TabsContent>
               <TabsContent value="income" className="pt-4">
-                  <IncomeEntryForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} />
+                  <ManualIncomeForm onFormSubmit={() => onOpenChange(false)} transactionToEdit={transactionToEdit} />
               </TabsContent>
               {!isEditingOrConverting && (
                 <>
