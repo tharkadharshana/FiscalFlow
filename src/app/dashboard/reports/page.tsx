@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import type { Transaction } from '@/types';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -349,7 +349,7 @@ export default function ReportsPage() {
                         Export CSV
                     </Button>
                     <Button variant="outline" className="w-full" disabled={!generatedReport} onClick={handleExportPDF}>
-                        <FileDown className="mr-2 h-4 w-4" />
+                        <FileText className="mr-2 h-4 w-4" />
                         Export PDF
                     </Button>
                 </div>
@@ -394,27 +394,39 @@ export default function ReportsPage() {
                         <div>
                         <h3 className="font-headline text-lg font-semibold mb-4">Expense Breakdown by Category</h3>
                         <div className="h-[350px]">
-                            <ChartContainer config={{total: { label: "Total", color: "hsl(var(--chart-1))" }}}>
-                                <RechartsBarChart data={generatedReport.chartData} layout="vertical" margin={{ left: 20 }}>
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={120} stroke="hsl(var(--muted-foreground))"/>
-                                    <RechartsTooltip 
-                                        cursor={false} 
-                                        content={<ChartTooltipContent
-                                            formatter={(value) => formatCurrency(value as number)}
-                                            indicator='dot'
-                                        />} 
-                                    />
-                                    <Bar dataKey="total" fill="hsl(var(--chart-1))" radius={4} />
-                                </RechartsBarChart>
-                            </ChartContainer>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsBarChart
+                              data={generatedReport.chartData}
+                              layout="vertical"
+                              margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
+                            >
+                              <XAxis type="number" hide />
+                              <YAxis
+                                dataKey="name"
+                                type="category"
+                                tickLine={false}
+                                axisLine={false}
+                                stroke="hsl(var(--muted-foreground))"
+                                tick={{ fontSize: 12 }}
+                                width={100}
+                              />
+                              <ChartTooltip
+                                cursor={false}
+                                content={<ChartTooltipContent
+                                  formatter={(value) => formatCurrency(value as number)}
+                                  indicator="dot"
+                                />}
+                              />
+                              <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                            </RechartsBarChart>
+                          </ResponsiveContainer>
                         </div>
                         </div>
                     )}
                 </CardContent>
             </Card>
         ) : (
-          <div className="text-center text-muted-foreground py-16">
+          <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
             <BarChart2 className="mx-auto h-12 w-12 mb-4" />
             <p className="text-lg font-semibold">No report generated yet.</p>
             <p>Use the controls above to generate a new report.</p>
