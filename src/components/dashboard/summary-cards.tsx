@@ -3,7 +3,7 @@
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/app-context';
-import { DollarSign, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useMemo } from 'react';
 
 export function SummaryCards() {
@@ -32,33 +32,39 @@ export function SummaryCards() {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Income</CardTitle>
-          <TrendingUp className="h-4 w-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(totalIncome)}</div>
-          <p className="text-xs text-muted-foreground">This cycle</p>
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className="flex-1 space-y-1">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Income</CardTitle>
+            <p className="text-xl md:text-2xl font-bold">{formatCurrency(totalIncome)}</p>
+            <p className="text-xs text-muted-foreground">This cycle</p>
+          </div>
+          <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/50">
+             <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+          </div>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-          <TrendingDown className="h-4 w-4 text-red-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
-          <p className="text-xs text-muted-foreground">This cycle</p>
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className="flex-1 space-y-1">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
+            <p className="text-xl md:text-2xl font-bold">{formatCurrency(totalExpenses)}</p>
+            <p className="text-xs text-muted-foreground">This cycle</p>
+          </div>
+          <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/50">
+             <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+          </div>
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
-          <Wallet className="h-4 w-4 text-blue-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(netWorth)}</div>
-          <p className="text-xs text-muted-foreground">Cash + Investments</p>
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className="flex-1 space-y-1">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Net Worth</CardTitle>
+            <p className="text-xl md:text-2xl font-bold">{formatCurrency(netWorth)}</p>
+            <p className="text-xs text-muted-foreground">Cash + Investments</p>
+          </div>
+          <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/50">
+             <Wallet className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          </div>
         </CardContent>
       </Card>
     </div>
