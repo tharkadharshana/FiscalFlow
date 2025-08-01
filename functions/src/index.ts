@@ -79,44 +79,58 @@ export const logMessage = functions.https.onRequest((req, res) => {
 export const updateBudgetOnTransactionChange = functions.firestore
   .document("/users/{userId}/transactions/{transactionId}")
   .onWrite(async (change, context) => {
-    const { userId } = context.params;
+    const { userId, transactionId } = context.params;
 
+    // Get the transaction data before and after the change
     const transactionBefore = change.before.exists ? change.before.data() : null;
     const transactionAfter = change.after.exists ? change.after.data() : null;
     
-    // If new transaction is linked to a trip, do not update monthly budget.
-    // If old transaction was linked, it's already been handled, so we can exit.
-    if (transactionAfter?.tripId || transactionBefore?.tripId) {
-        functions.logger.info(`Transaction ${context.params.transactionId} is linked to a trip. Skipping monthly budget update.`);
-        return null;
+    // Determine the change in amount for the relevant budgets
+    let amountChange = 0;
+    
+    // Case 1: A new transaction is created
+    if (!transactionBefore && transactionAfter) {
+        if (transactionAfter.type === 'expense' && !transactionAfter.tripId) {
+            const date = (transactionAfter.date as Timestamp).toDate();
+            const month = date.toISOString().slice(0, 7);
+            await updateBudget(userId, transactionAfter.category, transactionAfter.amount, month);
+        }
+    } 
+    // Case 2: A transaction is deleted
+    else if (transactionBefore && !transactionAfter) {
+        if (transactionBefore.type === 'expense' && !transactionBefore.tripId) {
+            const date = (transactionBefore.date as Timestamp).toDate();
+            const month = date.toISOString().slice(0, 7);
+            await updateBudget(userId, transactionBefore.category, -transactionBefore.amount, month);
+        }
     }
+    // Case 3: A transaction is updated
+    else if (transactionBefore && transactionAfter) {
+        const oldAmount = (transactionBefore.type === 'expense' && !transactionBefore.tripId) ? transactionBefore.amount : 0;
+        const newAmount = (transactionAfter.type === 'expense' && !transactionAfter.tripId) ? transactionAfter.amount : 0;
 
-    // Step 1: Revert the old transaction amount if it was an expense
-    if (transactionBefore && transactionBefore.type === 'expense') {
-        const amountBefore = transactionBefore.amount;
-        const categoryBefore = transactionBefore.category;
-        
-        // Timezone-safe month calculation
-        const dateBefore = (transactionBefore.date as Timestamp).toDate();
-        const userTimeBefore = new Date(dateBefore.getTime() - (dateBefore.getTimezoneOffset() * 60000));
-        const monthBefore = userTimeBefore.toISOString().slice(0, 7);
+        const oldDate = (transactionBefore.date as Timestamp).toDate();
+        const oldMonth = oldDate.toISOString().slice(0, 7);
+        const newDate = (transactionAfter.date as Timestamp).toDate();
+        const newMonth = newDate.toISOString().slice(0, 7);
 
-        await updateBudget(userId, categoryBefore, -amountBefore, monthBefore);
+        // If category and month are the same, just apply the difference
+        if (transactionBefore.category === transactionAfter.category && oldMonth === newMonth) {
+            const difference = newAmount - oldAmount;
+            if (difference !== 0) {
+                await updateBudget(userId, transactionAfter.category, difference, newMonth);
+            }
+        } else {
+            // If category or month changed, treat as a move: subtract old and add new
+            if (oldAmount > 0) {
+                await updateBudget(userId, transactionBefore.category, -oldAmount, oldMonth);
+            }
+            if (newAmount > 0) {
+                await updateBudget(userId, transactionAfter.category, newAmount, newMonth);
+            }
+        }
     }
-
-    // Step 2: Apply the new transaction amount if it is an expense
-    if (transactionAfter && transactionAfter.type === 'expense') {
-        const amountAfter = transactionAfter.amount;
-        const categoryAfter = transactionAfter.category;
-
-        // Timezone-safe month calculation
-        const dateAfter = (transactionAfter.date as Timestamp).toDate();
-        const userTimeAfter = new Date(dateAfter.getTime() - (dateAfter.getTimezoneOffset() * 60000));
-        const monthAfter = userTimeAfter.toISOString().slice(0, 7);
-
-        await updateBudget(userId, categoryAfter, amountAfter, monthAfter);
-    }
-
+    
     return null;
   });
 
