@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -305,65 +306,63 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
   }
 
   const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
-    <div className="pt-4 h-full flex flex-col">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col h-full">
-          <DialogDescription>
-              {isReviewMode
-                ? "The AI has generated the following checklist. Review and make any necessary changes before saving."
-                : "Manually add a title, icon, and items to create your checklist."
-              }
-            </DialogDescription>
-            <div className="grid grid-cols-3 gap-4">
-              <FormField control={form.control} name="title" render={({ field }) => (
-                <FormItem className="col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g. Monthly Bills" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-               <FormField control={form.control} name="iconName" render={({ field }) => (
-                <FormItem><FormLabel>Icon</FormLabel><IconPicker field={field} /><FormMessage /></FormItem>
-              )} />
-            </div>
+    <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <DialogDescription>
+            {isReviewMode
+            ? "The AI has generated the following checklist. Review and make any necessary changes before saving."
+            : "Manually add a title, icon, and items to create your checklist."
+            }
+        </DialogDescription>
+        <div className="grid grid-cols-3 gap-4">
+            <FormField control={form.control} name="title" render={({ field }) => (
+            <FormItem className="col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g. Monthly Bills" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="iconName" render={({ field }) => (
+            <FormItem><FormLabel>Icon</FormLabel><IconPicker field={field} /><FormMessage /></FormItem>
+            )} />
+        </div>
 
-            <div className="space-y-2 flex-1 min-h-0">
-                <Label>Items</Label>
-                <ScrollArea className="h-full pr-4">
-                    <div className="space-y-3">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className="grid grid-cols-12 gap-2 items-end">
-                                <FormField control={form.control} name={`items.${index}.description`} render={({ field }) => (
-                                    <FormItem className="col-span-4"><FormLabel className="text-xs">Item</FormLabel><FormControl><Input placeholder="e.g., Rent" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={form.control} name={`items.${index}.predictedCost`} render={({ field }) => (
-                                    <FormItem className="col-span-3"><FormLabel className="text-xs">Cost</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={form.control} name={`items.${index}.category`} render={({ field }) => (
-                                    <FormItem className="col-span-4"><FormLabel className="text-xs">Category</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent><SelectContent>
-                                                {expenseCategories.map(cat => (
-                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                                ))}
-                                            </SelectContent></SelectContent>
-                                        </Select>
-                                    <FormMessage /></FormItem>
-                                )} />
-                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                        ))}
-                    </div>
-                </ScrollArea>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: 'Groceries' })}>
-                    <Plus className="mr-2 h-4 w-4" />Add Item
-                </Button>
-            </div>
-            
-            <DialogFooter>
-              {isReviewMode && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-              <Button type="submit">{checklistToEdit ? 'Save Changes' : 'Create Checklist'}</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-    </div>
+        <div className="space-y-2">
+            <Label>Items</Label>
+            <ScrollArea className="h-48 pr-4">
+                <div className="space-y-3">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="grid grid-cols-12 gap-2 items-end">
+                            <FormField control={form.control} name={`items.${index}.description`} render={({ field }) => (
+                                <FormItem className="col-span-4"><FormLabel className="text-xs">Item</FormLabel><FormControl><Input placeholder="e.g., Rent" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name={`items.${index}.predictedCost`} render={({ field }) => (
+                                <FormItem className="col-span-3"><FormLabel className="text-xs">Cost</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name={`items.${index}.category`} render={({ field }) => (
+                                <FormItem className="col-span-4"><FormLabel className="text-xs">Category</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent><SelectContent>
+                                            {expenseCategories.map(cat => (
+                                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                            ))}
+                                        </SelectContent></SelectContent>
+                                    </Select>
+                                <FormMessage /></FormItem>
+                            )} />
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
+            <Button type="button" variant="outline" size="sm" onClick={() => append({ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: 'Groceries' })}>
+                <Plus className="mr-2 h-4 w-4" />Add Item
+            </Button>
+        </div>
+        
+        <DialogFooter>
+            {isReviewMode && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
+            <Button type="submit">{checklistToEdit ? 'Save Changes' : 'Create Checklist'}</Button>
+        </DialogFooter>
+        </form>
+    </Form>
   );
 
   const renderContent = () => {
@@ -377,7 +376,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
             replace([{ id: nanoid(), description: '', isCompleted: false, predictedCost: 0, category: 'Groceries' }]);
             setView('review');
         }
-      }} className="w-full h-full flex flex-col">
+      }} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto">
             <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> Text</TabsTrigger>
             <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> Voice</TabsTrigger>
@@ -385,40 +384,44 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
             <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
             <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
         </TabsList>
-        <div className="pt-4 flex-1 min-h-0">
-          <TabsContent value="text" className="h-full">
-              <div className="h-full flex flex-col space-y-4">
+        <div className="pt-4">
+          <TabsContent value="text">
+              <div className="flex flex-col space-y-4">
                   <DialogDescription>Describe your checklist. The AI will structure it for you.</DialogDescription>
-                  <Textarea placeholder="e.g., Weekly grocery run for milk, bread, and eggs for about $75" value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} className="flex-1"/>
+                  <Textarea placeholder="e.g., Weekly grocery run for milk, bread, and eggs for about $75" value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6}/>
                   <DialogFooter>
                       <Button onClick={() => handleGenerateChecklist(userQuery)} disabled={!userQuery}><Wand2 className="mr-2 h-4 w-4" /> Generate with AI</Button>
                   </DialogFooter>
               </div>
           </TabsContent>
-          <TabsContent value="voice" className="h-full flex flex-col items-center justify-center space-y-4">
-              <DialogDescription>Press the button and start speaking.</DialogDescription>
+          <TabsContent value="voice">
+              <div className="flex flex-col items-center justify-center space-y-4 min-h-[300px]">
+                <DialogDescription>Press the button and start speaking.</DialogDescription>
                 <Button onClick={handleToggleRecording} size="icon" className={`h-20 w-20 rounded-full my-4 ${isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse'}`}>
                     {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                 </Button>
                 <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start"}</p>
+              </div>
           </TabsContent>
-           <TabsContent value="camera" className="pt-4 space-y-4">
-                <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
-                <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
-                    <canvas ref={canvasRef} className="hidden" />
-                    {imageUri ? <Image src={imageUri} alt="Checklist preview" fill objectFit="contain" /> : <><video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />{hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" />Camera Access Denied</Alert>}</>}
-                    {videoDevices.length > 1 && !imageUri && <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10"><SwitchCamera className="h-5 w-5" /></Button>}
+           <TabsContent value="camera">
+                <div className="space-y-4">
+                    <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
+                    <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
+                        <canvas ref={canvasRef} className="hidden" />
+                        {imageUri ? <Image src={imageUri} alt="Checklist preview" fill objectFit="contain" /> : <><video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />{hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" />Camera Access Denied</Alert>}</>}
+                        {videoDevices.length > 1 && !imageUri && <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10"><SwitchCamera className="h-5 w-5" /></Button>}
+                    </div>
+                    {imageUri ? (<div className="grid grid-cols-2 gap-4"><Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button><Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button></div>) : (<Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>)}
                 </div>
-                {imageUri ? (<div className="grid grid-cols-2 gap-4"><Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button><Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button></div>) : (<Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>)}
             </TabsContent>
-            <TabsContent value="upload" className="pt-4 h-full">
-                <div className="flex flex-col items-center justify-center h-full space-y-4">
+            <TabsContent value="upload">
+                <div className="flex flex-col items-center justify-center h-full space-y-4 min-h-[300px]">
                     <DialogDescription>Upload an image of a document or shopping list.</DialogDescription>
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />Choose File</Button>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,application/pdf" />
                 </div>
             </TabsContent>
-          <TabsContent value="manual" className="h-full">{renderReviewForm({ isReviewMode: false })}</TabsContent>
+          <TabsContent value="manual">{renderReviewForm({ isReviewMode: false })}</TabsContent>
         </div>
       </Tabs>
     );
@@ -427,16 +430,14 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 flex flex-col h-[90vh]">
-        <DialogHeader className="p-6 pb-4">
-            <DialogTitle className="font-headline text-2xl">{checklistToEdit ? 'Edit Checklist' : 'New Checklist'}</DialogTitle>
-        </DialogHeader>
-        <div className="px-6 pb-6 flex-1 min-h-0">
+      <DialogContent className="sm:max-w-2xl">
+        <ScrollArea className="max-h-[90vh] p-6">
+            <DialogHeader className="pr-6">
+                <DialogTitle className="font-headline text-2xl">{checklistToEdit ? 'Edit Checklist' : 'New Checklist'}</DialogTitle>
+            </DialogHeader>
             {renderContent()}
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
 }
-
-    

@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 import { nanoid } from 'nanoid';
 import Image from 'next/image';
 import { logger } from '@/lib/logger';
-import { CreateTripPlanInputSchema, CreateTripPlanOutputSchema, TripItemSchema } from '@/types/schemas';
+import { TripItemSchema } from '@/types/schemas';
 
 
 type CreateTripPlanDialogProps = {
@@ -452,8 +452,8 @@ export function CreateTripPlanDialog({ open, onOpenChange, tripToEdit: tripToEdi
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl">
-                <ScrollArea className="max-h-[90vh] pr-6">
-                    <DialogHeader>
+                <ScrollArea className="max-h-[90vh] p-6">
+                    <DialogHeader className="pr-6">
                         <DialogTitle className="font-headline text-2xl">{tripToEdit ? 'Edit Trip Plan' : 'Create a New Trip Plan'}</DialogTitle>
                     </DialogHeader>
                     {renderContent()}

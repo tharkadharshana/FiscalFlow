@@ -341,93 +341,89 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
   };
   
   const renderReviewForm = ({ isReviewMode }: { isReviewMode: boolean }) => (
-    <div className="pt-4 h-full flex flex-col">
-        <FormProvider {...form}>
-            <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="flex flex-col h-full">
-                <DialogDescription>
-                    {isReviewMode
-                        ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
-                        : "Manually add a budget for a category, and optionally add checklist items to it."
-                    }
-                </DialogDescription>
-                <div className="flex-1 min-h-0 py-4">
-                    <ScrollArea className="h-full pr-4">
-                        <div className="space-y-3 pb-4">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
-                                <div className="flex items-start gap-2">
-                                    <div className="flex-1 space-y-2">
-                                        <div className="grid grid-cols-5 gap-x-3">
-                                            <FormField
-                                                control={form.control}
-                                                name={`budgets.${index}.category`}
-                                                render={({ field }) => (
-                                                    <FormItem className="col-span-3">
-                                                        <FormLabel className="text-xs text-muted-foreground">Category</FormLabel>
-                                                        <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
-                                                            <FormControl>
-                                                                <SelectTrigger className="h-8">
-                                                                    <SelectValue placeholder="Select category" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                {expenseCategories.map(cat => (
-                                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name={`budgets.${index}.limit`}
-                                                render={({ field }) => (
-                                                    <FormItem className="col-span-2">
-                                                        <FormLabel className="text-xs text-muted-foreground">Monthly Limit ({userProfile?.currencyPreference || '$'})</FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} type="number" className="h-8" />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <BudgetItemsFieldArray budgetIndex={index} />
-                                    </div>
-                                    {!budgetToEdit && (
-                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(index)}>
-                                            <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                                        </Button>
-                                    )}
+    <FormProvider {...form}>
+        <form onSubmit={form.handleSubmit(handleSaveBudgets)} className="space-y-4">
+            <DialogDescription>
+                {isReviewMode
+                    ? "The AI has generated the following budgets. Review them and make any necessary changes before saving."
+                    : "Manually add a budget for a category, and optionally add checklist items to it."
+                }
+            </DialogDescription>
+            <ScrollArea className="h-[400px] pr-4">
+                <div className="space-y-3 pb-4">
+                {fields.map((field, index) => (
+                    <div key={field.id} className="flex flex-col gap-2 rounded-md border p-3">
+                        <div className="flex items-start gap-2">
+                            <div className="flex-1 space-y-2">
+                                <div className="grid grid-cols-5 gap-x-3">
+                                    <FormField
+                                        control={form.control}
+                                        name={`budgets.${index}.category`}
+                                        render={({ field }) => (
+                                            <FormItem className="col-span-3">
+                                                <FormLabel className="text-xs text-muted-foreground">Category</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value} disabled={!!budgetToEdit}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="h-8">
+                                                            <SelectValue placeholder="Select category" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {expenseCategories.map(cat => (
+                                                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`budgets.${index}.limit`}
+                                        render={({ field }) => (
+                                            <FormItem className="col-span-2">
+                                                <FormLabel className="text-xs text-muted-foreground">Monthly Limit ({userProfile?.currencyPreference || '$'})</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} type="number" className="h-8" />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </div>
+                                <BudgetItemsFieldArray budgetIndex={index} />
                             </div>
-                        ))}
-                        {(fields.length === 0 && isReviewMode) && (
-                            <Alert>
-                                <Lightbulb className="h-4 w-4" />
-                                <AlertTitle>No New Budgets Found</AlertTitle>
-                                <AlertDescription>
-                                    The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        {!budgetToEdit && (
-                            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
-                                <Plus className="mr-2 h-4 w-4" /> Add Another Budget
-                            </Button>
-                        )}
+                            {!budgetToEdit && (
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => remove(index)}>
+                                    <Trash2 className="h-4 w-4 text-muted-foreground"/>
+                                </Button>
+                            )}
                         </div>
-                    </ScrollArea>
+                    </div>
+                ))}
+                {(fields.length === 0 && isReviewMode) && (
+                    <Alert>
+                        <Lightbulb className="h-4 w-4" />
+                        <AlertTitle>No New Budgets Found</AlertTitle>
+                        <AlertDescription>
+                            The AI didn't find any new budgets to create from your request. This could be because they already exist. You can still add one manually.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {!budgetToEdit && (
+                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => append({ id: nanoid(), category: '', limit: 0, items: [] })}>
+                        <Plus className="mr-2 h-4 w-4" /> Add Another Budget
+                    </Button>
+                )}
                 </div>
-                <DialogFooter>
-                    {view === 'review' && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
-                    <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
-                </DialogFooter>
-            </form>
-        </FormProvider>
-    </div>
+            </ScrollArea>
+            <DialogFooter>
+                {view === 'review' && !budgetToEdit && <Button type="button" variant="ghost" onClick={resetToInputView}>Back</Button>}
+                <Button type="submit" disabled={form.formState.isSubmitting || fields.length === 0}>Save Budgets</Button>
+            </DialogFooter>
+        </form>
+    </FormProvider>
   );
 
   const renderContent = () => {
@@ -442,7 +438,7 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
             replace([{ id: nanoid(), category: '', limit: 0, items: [] }]);
             setView('review'); // Switch to review view for manual entry
         }
-      }} className="w-full h-full flex flex-col">
+      }} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto">
           <TabsTrigger value="text" className="flex-col h-14"><Keyboard className="mb-1" /> AI Text</TabsTrigger>
           <TabsTrigger value="voice" className="flex-col h-14"><Mic className="mb-1" /> AI Voice</TabsTrigger>
@@ -450,11 +446,11 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
           <TabsTrigger value="upload" className="flex-col h-14"><Upload className="mb-1" /> Upload</TabsTrigger>
           <TabsTrigger value="manual" className="flex-col h-14"><Plus className="mb-1" /> Manual</TabsTrigger>
         </TabsList>
-        <div className="pt-4 flex-1 min-h-0">
-          <TabsContent value="text" className="h-full">
-              <div className="h-full flex flex-col space-y-4">
+        <div className="pt-4">
+          <TabsContent value="text">
+              <div className="flex flex-col space-y-4">
                   <DialogDescription>Describe your monthly budgets. The AI will structure them for you.</DialogDescription>
-                  <Textarea placeholder={`e.g., Budget ${userProfile?.currencyPreference || '$'}500 for Groceries to buy milk and bread. Also, ${userProfile?.currencyPreference || '$'}150 for transportation...`} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6} className="flex-1"/>
+                  <Textarea placeholder={`e.g., Budget ${userProfile?.currencyPreference || '$'}500 for Groceries to buy milk and bread. Also, ${userProfile?.currencyPreference || '$'}150 for transportation...`} value={userQuery} onChange={(e) => setUserQuery(e.target.value)} rows={6}/>
                   <DialogFooter>
                       <Button onClick={() => handleGenerateBudgets(userQuery)} disabled={!userQuery}>
                           <Wand2 className="mr-2 h-4 w-4" /> Generate with AI
@@ -462,48 +458,52 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
                   </DialogFooter>
               </div>
           </TabsContent>
-          <TabsContent value="voice" className="h-full flex flex-col items-center justify-center space-y-4">
-              <DialogDescription>Press the button and start speaking to create your budgets.</DialogDescription>
+          <TabsContent value="voice">
+              <div className="h-full flex flex-col items-center justify-center space-y-4 min-h-[300px]">
+                <DialogDescription>Press the button and start speaking to create your budgets.</DialogDescription>
                 <Button onClick={handleToggleRecording} size="icon" className={`h-20 w-20 rounded-full my-4 ${isRecording && 'bg-destructive hover:bg-destructive/90 animate-pulse'}`}>
                     {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                 </Button>
                 <p className="text-muted-foreground h-6">{isRecording ? "Listening..." : "Press to start recording"}</p>
-          </TabsContent>
-          <TabsContent value="camera" className="pt-4 space-y-4">
-              <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
-              <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
-                  <canvas ref={canvasRef} className="hidden" />
-                  {imageUri ? (
-                      <Image src={imageUri} alt="Budget preview" fill style={{ objectFit: 'contain' }} />
-                  ) : (
-                      <>
-                          <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-                          {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle></Alert>}
-                      </>
-                  )}
-                  {videoDevices.length > 1 && !imageUri && (
-                      <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50">
-                          <SwitchCamera className="h-5 w-5" />
-                      </Button>
-                  )}
               </div>
-              {imageUri ? (
-                  <div className="grid grid-cols-2 gap-4">
-                      <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
-                      <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
-                  </div>
-              ) : (
-                  <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>
-              )}
+          </TabsContent>
+          <TabsContent value="camera">
+              <div className="pt-4 space-y-4">
+                <DialogDescription>Position a document or list in the frame and capture an image to scan it.</DialogDescription>
+                <div className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden rounded-lg">
+                    <canvas ref={canvasRef} className="hidden" />
+                    {imageUri ? (
+                        <Image src={imageUri} alt="Budget preview" fill style={{ objectFit: 'contain' }} />
+                    ) : (
+                        <>
+                            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                            {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle></Alert>}
+                        </>
+                    )}
+                    {videoDevices.length > 1 && !imageUri && (
+                        <Button type="button" onClick={handleSwitchCamera} variant="outline" size="icon" className="absolute bottom-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50">
+                            <SwitchCamera className="h-5 w-5" />
+                        </Button>
+                    )}
+                </div>
+                {imageUri ? (
+                    <div className="grid grid-cols-2 gap-4">
+                        <Button onClick={() => setImageUri(null)} variant="outline"><RotateCcw className="mr-2 h-4 w-4" />Retake</Button>
+                        <Button onClick={() => handleAnalyze()}><Wand2 className="mr-2 h-4 w-4" />Analyze</Button>
+                    </div>
+                ) : (
+                    <Button onClick={handleCapture} disabled={hasCameraPermission === false} className="w-full"><Camera className="mr-2 h-4 w-4" />Capture</Button>
+                )}
+              </div>
             </TabsContent>
-            <TabsContent value="upload" className="pt-4 h-full">
-                <div className="flex flex-col items-center justify-center h-full space-y-4">
+            <TabsContent value="upload">
+                <div className="flex flex-col items-center justify-center h-full space-y-4 min-h-[300px]">
                     <DialogDescription>Upload an image of a document or shopping list.</DialogDescription>
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />Choose File</Button>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,application/pdf" />
                 </div>
             </TabsContent>
-          <TabsContent value="manual" className="h-full">
+          <TabsContent value="manual">
               {renderReviewForm({ isReviewMode: false })}
           </TabsContent>
         </div>
@@ -513,13 +513,13 @@ export function AddBudgetDialog({ open, onOpenChange, budgetToEdit }: AddBudgetD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 flex flex-col h-[90vh]">
-        <DialogHeader className="p-6 pb-4">
-            <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Add Budgets'}</DialogTitle>
-        </DialogHeader>
-        <div className="px-6 pb-6 flex-1 min-h-0">
+      <DialogContent className="sm:max-w-xl">
+        <ScrollArea className="max-h-[90vh] p-6">
+            <DialogHeader className="pr-6">
+                <DialogTitle className="font-headline text-2xl">{budgetToEdit ? 'Edit Budget' : 'Add Budgets'}</DialogTitle>
+            </DialogHeader>
             {renderContent()}
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
