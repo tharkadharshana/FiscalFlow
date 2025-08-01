@@ -14,7 +14,7 @@ import type { Checklist, ChecklistItem, ChecklistTemplate } from '@/types';
 import { ChecklistCard } from '@/components/dashboard/checklist-card';
 import { ChecklistTemplateCard } from '@/components/dashboard/checklist-template-card';
 import { ChecklistDialog } from '@/components/dashboard/checklist-dialog';
-import { AddTransactionDialog } from '../add-transaction-dialog';
+import { AddTransactionDialog } from '@/components/add-transaction-dialog';
 
 export default function ChecklistsPage() {
   const { checklists, deleteChecklist, createTemplateFromChecklist, checklistTemplates, deleteChecklistTemplate } = useAppContext();
