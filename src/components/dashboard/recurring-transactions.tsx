@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/app-context';
 import { PlusCircle, Repeat, MoreVertical, Pencil, Trash2, Search, ArrowUpDown } from 'lucide-react';
-import { AddRecurringTransactionDialog } from './add-recurring-transaction-dialog';
+import { AddRecurringTransactionDialog } from '../add-recurring-transaction-dialog';
 import type { RecurringTransaction } from '@/types';
 import {
   DropdownMenu,
@@ -184,7 +184,7 @@ export function RecurringTransactions() {
             sortDescriptor={sortDescriptor}
             onSortChange={setSortDescriptor}
         />
-        <CardHeader className="flex flex-row items-center justify-between pt-0">
+        <CardHeader className="flex flex-row items-center justify-between pt-4">
             <div>
             <CardTitle>Recurring Transactions</CardTitle>
             <CardDescription>

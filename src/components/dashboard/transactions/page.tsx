@@ -171,7 +171,7 @@ export default function TransactionsPage() {
                   <Icon className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
-              <div className="grid gap-1">
+              <div className="grid gap-1 overflow-hidden">
                 <p className="font-medium truncate">{transaction.source}</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   {hasItems ? (
