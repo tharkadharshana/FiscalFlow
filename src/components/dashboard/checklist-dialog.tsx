@@ -43,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
 import Image from 'next/image';
 import { Alert } from '../ui/alert';
-import { createChecklistAction, parseDocumentAction } from '@/lib/actions';
+import { createChecklistAction, extractTextAction } from '@/lib/actions';
 
 const checklistItemSchema = z.object({
   id: z.string(),
@@ -180,7 +180,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
     if (!finalImageUri) return;
 
     setView('loading');
-    const result = await parseDocumentAction({ photoDataUri: finalImageUri });
+    const result = await extractTextAction({ photoDataUri: finalImageUri });
     if ('error' in result) {
         showNotification({ type: 'error', title: 'Document Scan Failed', description: result.error });
         resetToInputView();
@@ -418,7 +418,7 @@ export function ChecklistDialog({ open, onOpenChange, checklistToEdit }: Checkli
                 <div className="flex flex-col items-center justify-center h-full space-y-4 min-h-[300px]">
                     <DialogDescription>Upload an image of a document or shopping list.</DialogDescription>
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full max-w-sm"><FileScan className="mr-2 h-4 w-4" />Choose File</Button>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,application/pdf" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                 </div>
             </TabsContent>
           <TabsContent value="manual">{renderReviewForm({ isReviewMode: false })}</TabsContent>

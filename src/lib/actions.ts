@@ -1,3 +1,4 @@
+
 // src/lib/actions.ts
 'use server';
 
@@ -10,6 +11,7 @@ import { analyzeTaxes } from '@/ai/flows/analyze-taxes-flow';
 import { createSavingsGoal } from '@/ai/flows/create-savings-goal-flow';
 import { parseBankStatement } from '@/ai/flows/parse-bank-statement-flow';
 import { createChecklist } from '@/ai/flows/create-checklist-flow';
+import { extractText } from '@/ai/flows/extract-text-flow';
 
 import type {
     AnalyzeTaxesInput,
@@ -34,6 +36,7 @@ import type {
 
 import { logger } from './logger';
 import type { CoinGeckoMarketData } from '@/types';
+import { ExtractTextInput, ExtractTextOutput } from '@/ai/flows/extract-text-flow';
 
 // Result types for actions, wrapping the output schema type or an error object.
 type SuggestionResult = ParseReceiptOutput | { error: string };
@@ -42,7 +45,7 @@ type TripPlanResult = CreateTripPlanOutput | { error: string };
 type MonthlyBudgetsResult = CreateMonthlyBudgetsOutput | { error: string };
 type AssistantResult = VoiceAction | { error: string };
 type TaxAnalysisResult = AnalyzeTaxesOutput | { error: string };
-type ParseDocumentResult = { text: string } | { error: string };
+type ExtractTextResult = ExtractTextOutput | { error: string };
 type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 type BankStatementParseResult = ParseBankStatementOutput | { error: string };
@@ -96,22 +99,22 @@ export async function getCoinGeckoMarketData(
 }
 
 
-export async function parseDocumentAction(
-  input: ParseReceiptInput
-): Promise<ParseDocumentResult> {
-  try {
-    const result = await parseReceipt(input);
-    if (!result) {
-        throw new Error('The AI action returned an undefined result.');
+export async function extractTextAction(
+    input: ExtractTextInput
+  ): Promise<ExtractTextResult> {
+    try {
+      const result = await extractText(input);
+      if (!result) {
+          throw new Error('The AI action returned an undefined result.');
+      }
+      if (result.text) {
+        return { text: result.text };
+      }
+      return { error: 'Could not extract any text from the document.' };
+    } catch (error) {
+      return handleAIError(error, 'Failed to analyze document.');
     }
-    if (result.rawText) {
-      return { text: result.rawText };
-    }
-    return { error: 'Could not extract any text from the document.' };
-  } catch (error) {
-    return handleAIError(error, 'Failed to analyze document.');
   }
-}
 
 export async function parseReceiptAction(
   input: ParseReceiptInput
