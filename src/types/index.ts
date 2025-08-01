@@ -42,7 +42,6 @@ export interface Transaction {
   paymentMethod?: string;
   invoiceNumber?: string;
   isTaxDeductible?: boolean;
-  carbonFootprint?: number; // in kg CO2e
   checklistId?: string | null;
   checklistItemId?: string | null;
   tripId?: string | null;

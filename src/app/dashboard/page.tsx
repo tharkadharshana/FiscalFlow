@@ -12,7 +12,6 @@ import { PortfolioOverview } from '@/components/dashboard/portfolio-overview';
 import { useAppContext } from '@/contexts/app-context';
 import { useState, useEffect } from 'react';
 import { OnboardingDialog } from '@/components/dashboard/onboarding-dialog';
-import { CarbonFootprintCard } from '@/components/dashboard/carbon-footprint-card';
 import { ChecklistSummary } from '@/components/dashboard/checklist-summary';
 
 export default function DashboardPage() {
@@ -43,7 +42,6 @@ export default function DashboardPage() {
              <div className="space-y-6">
                 <PortfolioOverview />
                 <ChecklistSummary />
-                <CarbonFootprintCard />
                 <SmartInsights />
              </div>
           </div>

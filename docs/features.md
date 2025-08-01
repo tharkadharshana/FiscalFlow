@@ -47,11 +47,10 @@ Taxes are complex. FiscalFlow makes them simple.
     *   Value Added Tax (VAT)
     *   Stamp Duty
 
-### 🌍 6. Global & Eco-Friendly Features
+### 🌍 6. Global Features
 
 *   **🗣️ Global Voice Assistant:** Tap the microphone icon anywhere in the app and use your voice to log transactions or create budgets. Just say, "Add a $5 coffee at Starbucks" and let the AI do the rest.
 *   **Multi-Currency Support:** In settings, choose your preferred currency (USD, EUR, LKR, etc.), and all financial data in the app will be displayed accordingly.
-*   **Carbon Footprint Tracker:** See the estimated environmental impact of your spending. Each transaction is assigned a CO₂e (Carbon Dioxide Equivalent) estimate, helping you make more eco-conscious decisions.
 
 ### ⚙️ 7. Powerful Customization & Reports
 Make FiscalFlow truly yours.

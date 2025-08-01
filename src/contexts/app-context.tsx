@@ -28,7 +28,6 @@ import {
   limit,
   deleteField,
 } from 'firebase/firestore';
-import { estimateCarbonFootprint } from '@/lib/carbon';
 import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction, createTripPlanAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
@@ -443,12 +442,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const batch = writeBatch(db);
         const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, ...restOfTransaction } = transaction;
         const finalAmount = items && items.length > 0 ? items.reduce((sum, item) => sum + item.amount, 0) : transaction.amount;
-        const carbonFootprint = estimateCarbonFootprint({ ...transaction, amount: finalAmount });
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         batch.set(newTransactionRef, {
             ...restOfTransaction, amount: finalAmount, items: items || [], date: Timestamp.fromDate(new Date(date)),
             createdAt: serverTimestamp(), userId: user.uid, isTaxDeductible: isTaxDeductible || false,
-            carbonFootprint, checklistId: checklistId || null, checklistItemId: checklistItemId || null,
+            checklistId: checklistId || null, checklistItemId: checklistItemId || null,
             tripId: tripId || null, tripItemId: tripItemId || null,
         });
 
@@ -510,9 +508,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
     try {
         const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
-        const carbonFootprint = estimateCarbonFootprint({ ...transactions.find(t => t.id === transactionId)!, ...updatedData } as Omit<Transaction, 'id' | 'icon'>);
         
-        const finalUpdateData: any = { ...updatedData, carbonFootprint };
+        const finalUpdateData: any = { ...updatedData };
         
         // Convert date string/object back to Timestamp for Firestore
         if (finalUpdateData.date && !(finalUpdateData.date instanceof Timestamp)) {

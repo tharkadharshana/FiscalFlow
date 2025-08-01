@@ -58,7 +58,6 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-TRX-003 | Edit Transaction | Verify an existing transaction can be edited. | 1. On the Transactions page, click the three-dots menu on a transaction and select "Edit". 2. Change a value (e.g., amount). 3. Save. | The transaction is updated in the list with the new value. | |
 | FF-TRX-004 | Delete Transaction | Verify a transaction can be deleted. | 1. On the Transactions page, click the three-dots menu on a transaction and select "Delete". 2. Confirm deletion. | The transaction is removed from the list. | |
 | FF-TRX-005 | Recurring Transactions | Verify the full lifecycle of a recurring transaction. | 1. Navigate to the recurring transactions tab. 2. Add a new recurring expense (e.g., monthly). 3. Edit the recurring item. 4. Delete the item. | All CRUD operations work as expected. A success notification appears for each action. | |
-| FF-TRX-006 | Carbon Footprint Badge | Verify carbon footprint is shown on the transactions page. | 1. Add an expense in the "Transport" category. 2. Navigate to the Transactions page. | The transaction row for the new expense displays a green badge with the estimated CO₂e value. | |
 
 ### 2.5. Savings Goals & Gamification
 
@@ -87,4 +86,3 @@ This document outlines the test cases for the FiscalFlow application to ensure a
 | FF-SET-003 | Custom Categories | Verify adding and deleting a custom category. | 1. Go to Settings > Manage Categories. 2. Add a new category named "My Test Category". 3. Verify it appears in the list. 4. Go to add a new transaction and verify "My Test Category" is in the category dropdown. 5. Go back to Settings and delete the category. | The category is successfully added and removed. The dropdown in the transaction form updates accordingly. | |
 
 ---
-
