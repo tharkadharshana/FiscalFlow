@@ -39,10 +39,12 @@ const formSchema = z.object({
   source: z.string().min(2, 'Source must be at least 2 characters.'),
   category: z.string({ required_error: 'Please select a category.' }),
   date: z.date({ required_error: 'Please select a date.' }),
-  paymentMethod: z.string().optional(),
-  invoiceNumber: z.string().optional(),
   notes: z.string().optional(),
   isTaxDeductible: z.boolean().optional(),
+  receiptDetails: z.object({
+    paymentMethod: z.string().optional(),
+    receiptNumber: z.string().optional(),
+  }).optional(),
 });
 
 type IncomeEntryFormProps = {
@@ -55,10 +57,12 @@ const defaultValues = {
   source: '',
   notes: '',
   date: new Date(),
-  paymentMethod: '',
-  invoiceNumber: '',
   category: '',
   isTaxDeductible: false,
+  receiptDetails: {
+    paymentMethod: 'Bank Transfer',
+    receiptNumber: '',
+  }
 };
 
 export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntryFormProps) {
@@ -76,9 +80,11 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
         category: transactionToEdit.category,
         date: parseISO(transactionToEdit.date),
         notes: transactionToEdit.notes || '',
-        paymentMethod: transactionToEdit.paymentMethod || '',
-        invoiceNumber: transactionToEdit.invoiceNumber || '',
         isTaxDeductible: transactionToEdit.isTaxDeductible || false,
+        receiptDetails: {
+            paymentMethod: transactionToEdit.receiptDetails?.paymentMethod || 'Bank Transfer',
+            receiptNumber: transactionToEdit.receiptDetails?.receiptNumber || '',
+        }
       });
     } else {
       form.reset(defaultValues);
@@ -86,10 +92,15 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
   }, [transactionToEdit, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const data = {
+    const data: Omit<Transaction, 'id' | 'icon'> = {
       ...values,
       type: 'income',
       date: values.date.toISOString(),
+      receiptDetails: {
+          ...values.receiptDetails,
+          totalAmount: values.amount,
+          merchantName: values.source, // For income, source is the merchant/payer
+      }
     };
 
     if (transactionToEdit) {
@@ -225,7 +236,7 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
         <div className="grid grid-cols-2 gap-4">
             <FormField
             control={form.control}
-            name="paymentMethod"
+            name="receiptDetails.paymentMethod"
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Payment Method</FormLabel>
@@ -250,7 +261,7 @@ export function IncomeEntryForm({ onFormSubmit, transactionToEdit }: IncomeEntry
             />
             <FormField
             control={form.control}
-            name="invoiceNumber"
+            name="receiptDetails.receiptNumber"
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>Invoice/Ref #</FormLabel>

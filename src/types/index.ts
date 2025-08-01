@@ -35,18 +35,13 @@ export interface Transaction {
   notes?: string;
   items?: TransactionItem[];
   icon: React.ComponentType<{ className?: string }>;
-  imageURL?: string;
-  tags?: string[];
-  ocrParsed?: boolean;
   isRecurring?: boolean;
-  paymentMethod?: string;
-  invoiceNumber?: string;
   isTaxDeductible?: boolean;
   checklistId?: string | null;
   checklistItemId?: string | null;
   tripId?: string | null;
   tripItemId?: string | null;
-  receiptDetails?: ParsedBill; // New field for rich receipt data
+  receiptDetails?: Partial<ParsedBill>; // Rich data from OCR or manual entry
 }
 
 export interface UserProfile {

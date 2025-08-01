@@ -46,6 +46,10 @@ const formSchema = z.object({
   isTaxDeductible: z.boolean().optional(),
   checklistId: z.string().optional(),
   checklistItemId: z.string().optional(),
+  receiptDetails: z.object({
+    paymentMethod: z.string().optional(),
+    receiptNumber: z.string().optional(),
+  }).optional(),
 });
 
 type ManualEntryFormProps = {
@@ -65,10 +69,14 @@ const defaultValues = {
   isTaxDeductible: false,
   checklistId: undefined,
   checklistItemId: undefined,
+  receiptDetails: {
+    paymentMethod: 'Cash',
+    receiptNumber: '',
+  }
 };
 
 export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
+  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip, formatCurrency } = useAppContext();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -84,6 +92,10 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         tripItemId: transactionToEdit.tripItemId ?? undefined,
         checklistId: transactionToEdit.checklistId ?? undefined,
         checklistItemId: transactionToEdit.checklistItemId ?? undefined,
+        receiptDetails: {
+            paymentMethod: transactionToEdit.receiptDetails?.paymentMethod || 'Cash',
+            receiptNumber: transactionToEdit.receiptDetails?.receiptNumber || '',
+        }
       };
 
       form.reset({
@@ -121,6 +133,11 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
         ...values,
         type: 'expense',
         date: values.date.toISOString(),
+        receiptDetails: {
+            ...values.receiptDetails,
+            totalAmount: values.amount,
+            merchantName: values.source,
+        }
     };
     
     if (transactionToEdit) {
@@ -262,6 +279,43 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
             </FormItem>
           )}
         />
+
+        <div className="grid grid-cols-2 gap-4">
+            <FormField
+                control={form.control}
+                name="receiptDetails.paymentMethod"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Payment Method</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select a method" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="Cash">Cash</SelectItem>
+                            <SelectItem value="Credit Card">Credit Card</SelectItem>
+                            <SelectItem value="Debit Card">Debit Card</SelectItem>
+                            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                            <SelectItem value="PayPal">PayPal</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+             <FormField
+                control={form.control}
+                name="receiptDetails.receiptNumber"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Invoice/Ref #</FormLabel>
+                    <FormControl><Input placeholder="INV-123" {...field} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </div>
         
         <div className="space-y-4 rounded-md border p-4">
             <h3 className="text-sm font-medium text-muted-foreground">Link to Trip (Optional)</h3>

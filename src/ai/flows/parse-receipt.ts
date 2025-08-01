@@ -44,7 +44,7 @@ const prompt = ai.definePrompt({
 6.  **Extract Payment and Currency:**
     -   Identify the 'paymentMethod' (e.g., "Cash", "Credit Card", "Visa ****1234").
     -   Identify the 'currency' code (e.g., USD, EUR, GBP).
-7.  **Final Output:** Structure all the extracted information into a single JSON object that perfectly matches the 'ParseReceiptOutput' schema. If a field is not present on the receipt, omit it from the JSON.
+7.  **Final Output:** Structure all the extracted information into a single JSON object that perfectly matches the 'ParseReceiptOutput' schema. If a field is not present on the receipt, omit it from the JSON. If you cannot find any receipt-like information, return an empty 'bill' object.
 
 Receipt Image: {{media url=photoDataUri}}`,
 });

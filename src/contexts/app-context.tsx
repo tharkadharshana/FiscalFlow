@@ -440,25 +440,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
         const batch = writeBatch(db);
-        const { date, isTaxDeductible, items, checklistId, checklistItemId, tripId, tripItemId, receiptDetails, ...restOfTransaction } = transaction;
-        const finalAmount = items && items.length > 0 ? items.reduce((sum, item) => sum + item.amount, 0) : transaction.amount;
+        const { date, ...restOfTransaction } = transaction;
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
+        
         batch.set(newTransactionRef, {
-            ...restOfTransaction, amount: finalAmount, items: items || [], date: Timestamp.fromDate(new Date(date)),
-            createdAt: serverTimestamp(), userId: user.uid, isTaxDeductible: isTaxDeductible || false,
-            checklistId: checklistId || null, checklistItemId: checklistItemId || null,
-            tripId: tripId || null, tripItemId: tripItemId || null,
-            receiptDetails: receiptDetails || null,
+            ...restOfTransaction,
+            date: Timestamp.fromDate(new Date(date)),
+            createdAt: serverTimestamp(),
+            userId: user.uid,
         });
 
         // Handle Roundup Goal
-        if (transaction.type === 'expense' && !Number.isInteger(finalAmount)) {
+        if (transaction.type === 'expense' && !Number.isInteger(transaction.amount)) {
             const roundupGoalQuery = query(collection(db, 'users', user.uid, 'savingsGoals'), where('isRoundupGoal', '==', true), limit(1));
             const roundupGoalSnap = await getDocs(roundupGoalQuery);
             if (!roundupGoalSnap.empty) {
                 const goalDoc = roundupGoalSnap.docs[0];
                 const goal = goalDoc.data() as SavingsGoal;
-                const roundupAmount = Math.ceil(finalAmount) - finalAmount;
+                const roundupAmount = Math.ceil(transaction.amount) - transaction.amount;
                 if (roundupAmount > 0) {
                     const newCurrentAmount = (goal.currentAmount || 0) + roundupAmount;
                     const newBadges = calculateNewBadges(goal, newCurrentAmount);
@@ -467,30 +466,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
         }
         // Handle Checklist Update
-        if (checklistId && checklistItemId) {
-            const checklistRef = doc(db, 'users', user.uid, 'checklists', checklistId);
-            const checklistSnap = await getDocs(query(collection(db, 'users', user.uid, 'checklists'), where('__name__', '==', checklistId), limit(1)));
+        if (transaction.checklistId && transaction.checklistItemId) {
+            const checklistRef = doc(db, 'users', user.uid, 'checklists', transaction.checklistId);
+            const checklistSnap = await getDocs(query(collection(db, 'users', user.uid, 'checklists'), where('__name__', '==', transaction.checklistId), limit(1)));
             if (!checklistSnap.empty) {
                 const checklistData = checklistSnap.docs[0].data() as Checklist;
-                const updatedItems = checklistData.items.map(item => item.id === checklistItemId ? { ...item, isCompleted: true } : item);
+                const updatedItems = checklistData.items.map(item => item.id === transaction.checklistItemId ? { ...item, isCompleted: true } : item);
                 batch.update(checklistRef, { items: updatedItems });
             }
         }
         // Handle Trip Plan Update
-        if (tripId) {
-            const tripRef = doc(db, 'users', user.uid, 'tripPlans', tripId);
-            const tripSnap = await getDocs(query(collection(db, 'users', user.uid, 'tripPlans'), where('__name__', '==', tripId), limit(1)));
+        if (transaction.tripId) {
+            const tripRef = doc(db, 'users', user.uid, 'tripPlans', transaction.tripId);
+            const tripSnap = await getDocs(query(collection(db, 'users', user.uid, 'tripPlans'), where('__name__', '==', transaction.tripId), limit(1)));
             if (!tripSnap.empty) {
                 const tripData = tripSnap.docs[0].data() as TripPlan;
                 let newTotalActualCost = tripData.totalActualCost || 0;
-                if (transaction.type === 'expense') newTotalActualCost += finalAmount;
-                else if (transaction.type === 'income') newTotalActualCost -= finalAmount;
+                if (transaction.type === 'expense') newTotalActualCost += transaction.amount;
+                else if (transaction.type === 'income') newTotalActualCost -= transaction.amount;
                 
                 const updates: any = { totalActualCost: newTotalActualCost };
-                if (tripItemId) {
-                    updates.items = tripData.items.map(item => item.id === tripItemId ? { ...item, actualCost: finalAmount } : item);
+                if (transaction.tripItemId) {
+                    updates.items = tripData.items.map(item => item.id === transaction.tripItemId ? { ...item, actualCost: transaction.amount } : item);
                 } else if (transaction.type === 'expense') {
-                    updates.items = arrayUnion({ id: nanoid(), description: transaction.source, category: transaction.category, predictedCost: 0, actualCost: finalAmount, isAiSuggested: false });
+                    updates.items = arrayUnion({ id: nanoid(), description: transaction.source, category: transaction.category, predictedCost: 0, actualCost: transaction.amount, isAiSuggested: false });
                 }
                 batch.update(tripRef, updates);
             }
@@ -516,13 +515,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (finalUpdateData.date && !(finalUpdateData.date instanceof Timestamp)) {
             finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
         }
-
-        // Ensure optional fields are either set or deleted correctly
-        finalUpdateData.tripId = finalUpdateData.tripId === undefined ? null : finalUpdateData.tripId;
-        finalUpdateData.tripItemId = finalUpdateData.tripItemId === undefined ? null : finalUpdateData.tripItemId;
-        finalUpdateData.checklistId = finalUpdateData.checklistId === undefined ? null : finalUpdateData.checklistId;
-        finalUpdateData.checklistItemId = finalUpdateData.checklistItemId === undefined ? null : finalUpdateData.checklistItemId;
-
 
         await updateDoc(txRef, finalUpdateData);
         showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
