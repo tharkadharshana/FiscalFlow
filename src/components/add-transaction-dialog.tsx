@@ -53,7 +53,7 @@ export function AddTransactionDialog({ open, onOpenChange, transactionToEdit, it
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] flex h-full max-h-[90vh] flex-col">
+      <DialogContent className="sm:max-w-[520px] flex h-full max-h-[90svh] flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">{transactionToEdit ? 'Edit' : (itemToConvert ? 'Confirm Transaction' : 'Add Transaction')}</DialogTitle>
           <DialogDescription>
