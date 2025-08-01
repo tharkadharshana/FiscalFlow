@@ -9,15 +9,15 @@ import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 import { format, subDays, eachDayOfInterval, parse } from 'date-fns';
 
 export function SpendChart() {
-  const { transactions, formatCurrency } = useAppContext();
+  const { transactionsForCurrentCycle, formatCurrency } = useAppContext();
 
   const chartData = useMemo(() => {
     const endDate = new Date();
     const startDate = subDays(endDate, 29);
     const dateInterval = eachDayOfInterval({ start: startDate, end: endDate });
 
-    const dailyExpenses = transactions
-      .filter((t) => t.type === 'expense' && new Date(t.date) >= startDate)
+    const dailyExpenses = transactionsForCurrentCycle
+      .filter((t) => t.type === 'expense')
       .reduce((acc, t) => {
         const day = format(new Date(t.date), 'yyyy-MM-dd');
         if (!acc[day]) {
@@ -35,7 +35,7 @@ export function SpendChart() {
         total: dailyExpenses[formattedDateKey] || 0,
       };
     });
-  }, [transactions]);
+  }, [transactionsForCurrentCycle]);
   
   const chartConfig = {
     total: {
@@ -56,14 +56,13 @@ export function SpendChart() {
   };
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>Spending Trend</CardTitle>
         <CardDescription>Your spending over the last 30 days.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ChartContainer config={chartConfig}>
+      <CardContent className="flex-1">
+          <ChartContainer config={chartConfig} className="h-full w-full">
             <AreaChart
               accessibilityLayer
               data={chartData}
@@ -91,7 +90,6 @@ export function SpendChart() {
               />
             </AreaChart>
           </ChartContainer>
-        </div>
       </CardContent>
     </Card>
   );

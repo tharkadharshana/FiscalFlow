@@ -49,4 +49,3 @@ export function IncomeExpenseSummary() {
     </Card>
   );
 }
-

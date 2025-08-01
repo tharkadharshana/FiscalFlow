@@ -65,7 +65,7 @@ export function TopCategories() {
                     <Icon className="h-4 w-4 text-muted-foreground" />
                     <span>{category.name}</span>
                   </div>
-                <span>{formatCurrency(category.amount)}</span>
+                <span className="font-mono">{formatCurrency(category.amount)}</span>
               </div>
               <Progress value={category.percentage} />
             </div>

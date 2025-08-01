@@ -33,14 +33,16 @@ export default function DashboardPage() {
     <>
       <div className="flex flex-1 flex-col">
         <Header title="Dashboard" />
-        <main className="flex-1 space-y-6 p-4 md:p-6">
+        <main className="flex-1 space-y-4 p-4 md:p-6">
           {/* Main Summary Cards */}
           <SummaryCards />
 
           {/* Core Financial Health */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             <IncomeExpenseSummary />
-            <SpendChart />
+            <div className="h-[350px]">
+              <SpendChart />
+            </div>
             <TopCategories />
             <BudgetStatusSummary />
             <SavingsGoalsSummary />
