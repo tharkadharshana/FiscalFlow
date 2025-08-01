@@ -1,0 +1,33 @@
+{
+  "login": {
+    "title": "Welcome Back",
+    "description": "Enter your credentials to access your account.",
+    "button": "Log In",
+    "forgotPassword": "Forgot password?",
+    "signupPrompt": "Don't have an account?"
+  },
+  "signup": {
+    "title": "Create an Account",
+    "description": "Enter your details to create a new account.",
+    "button": "Sign Up",
+    "nameLabel": "Full Name",
+    "countryLabel": "Country",
+    "loginPrompt": "Already have an account?",
+    "successTitle": "Account Created",
+    "successDesc": "A verification email has been sent. Please check your inbox."
+  },
+  "passwordReset": {
+    "title": "Reset Your Password",
+    "description": "Enter your email and we'll send you a link.",
+    "button": "Send Reset Link",
+    "backToLoginPrompt": "Remembered your password?",
+    "emailSentTitle": "Password Reset Email Sent",
+    "emailSentDesc": "Please check your inbox for instructions to reset your password."
+  },
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "orContinueWith": "Or continue with",
+  "footer": {
+    "legal": "By continuing, you agree to our <a href='/terms' class='underline hover:text-primary'>Terms of Service</a> and <a href='/privacy' class='underline hover:text-primary'>Privacy Policy</a>."
+  }
+}

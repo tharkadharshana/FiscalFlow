@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster"
 import { AppProvider } from "@/contexts/app-context";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
+import { TranslationProvider } from "@/contexts/translation-context";
 
 export const metadata: Metadata = {
   title: "FiscalFlow",
@@ -26,9 +27,11 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AppProvider>
-          {children}
-          <Toaster />
-          <CookieConsentBanner />
+          <TranslationProvider>
+            {children}
+            <Toaster />
+            <CookieConsentBanner />
+          </TranslationProvider>
         </AppProvider>
       </body>
     </html>

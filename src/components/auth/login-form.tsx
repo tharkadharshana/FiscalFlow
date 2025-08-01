@@ -29,10 +29,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { countries } from '@/data/countries';
 import { logger } from '@/lib/logger';
 import { FREE_TIER_LIMITS } from '@/contexts/app-context';
+import { useTranslation } from '@/contexts/translation-context';
 
 export function LoginForm() {
   const router = useRouter();
   const { showNotification } = useAppContext();
+  const { t } = useTranslation();
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -103,8 +105,8 @@ export function LoginForm() {
       await sendPasswordResetEmail(auth, email);
       showNotification({
         type: 'success',
-        title: 'Password Reset Email Sent',
-        description: 'Please check your inbox for instructions to reset your password.',
+        title: t('passwordReset.emailSentTitle'),
+        description: t('passwordReset.emailSentDesc'),
       });
       logger.info('Password reset email sent successfully', { email });
       setAuthMode('login');
@@ -153,8 +155,8 @@ export function LoginForm() {
         logger.info('Signup successful, verification email sent', { userId: userCredential.user.uid });
         showNotification({
           type: 'success',
-          title: 'Account Created',
-          description: 'A verification email has been sent. Please check your inbox.',
+          title: t('signup.successTitle'),
+          description: t('signup.successDesc'),
         });
         router.push('/dashboard');
       } catch (error: any) {
@@ -202,11 +204,11 @@ export function LoginForm() {
   const renderHeader = () => {
     switch (authMode) {
       case 'login':
-        return { title: 'Welcome Back', description: 'Enter your credentials to access your account.' };
+        return { title: t('login.title'), description: t('login.description') };
       case 'signup':
-        return { title: 'Create an Account', description: 'Enter your details to create a new account.' };
+        return { title: t('signup.title'), description: t('signup.description') };
       case 'reset':
-        return { title: 'Reset Your Password', description: "Enter your email and we'll send you a link." };
+        return { title: t('passwordReset.title'), description: t('passwordReset.description') };
       default:
         return { title: '', description: '' };
     }
@@ -225,7 +227,7 @@ export function LoginForm() {
           {authMode === 'reset' ? (
             <form onSubmit={handlePasswordReset} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t('emailLabel')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -237,16 +239,16 @@ export function LoginForm() {
                 </div>
                 <Button type="submit" className="w-full font-bold" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send Reset Link
+                  {t('passwordReset.button')}
                 </Button>
                 <div className="mt-6 text-center text-sm">
-                  Remembered your password?{' '}
+                  {t('passwordReset.backToLoginPrompt')}{' '}
                   <button
                       onClick={() => setAuthMode('login')}
                       className="font-bold text-primary hover:underline"
                       type="button"
                   >
-                      Log in
+                      {t('login.title')}
                   </button>
                 </div>
             </form>
@@ -255,7 +257,7 @@ export function LoginForm() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {authMode === 'signup' && (
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name">{t('signup.nameLabel')}</Label>
                     <Input
                       id="name"
                       placeholder="John Doe"
@@ -266,7 +268,7 @@ export function LoginForm() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t('emailLabel')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -278,10 +280,10 @@ export function LoginForm() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">{t('passwordLabel')}</Label>
                     {authMode === 'login' && (
                       <button type="button" onClick={() => setAuthMode('reset')} className="text-sm font-medium text-primary hover:underline">
-                        Forgot password?
+                        {t('login.forgotPassword')}
                       </button>
                     )}
                   </div>
@@ -295,7 +297,7 @@ export function LoginForm() {
                 </div>
                  {authMode === 'signup' && (
                   <div className="space-y-2">
-                    <Label htmlFor="country">Country</Label>
+                    <Label htmlFor="country">{t('signup.countryLabel')}</Label>
                     <Select onValueChange={setCountry} defaultValue={country}>
                         <SelectTrigger id="country">
                             <SelectValue placeholder="Select your country" />
@@ -312,7 +314,7 @@ export function LoginForm() {
                 )}
                 <Button type="submit" className="w-full font-bold" disabled={isLoading || isGoogleLoading || isAppleLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {authMode === 'login' ? 'Log In' : 'Sign Up'}
+                  {authMode === 'login' ? t('login.button') : t('signup.button')}
                 </Button>
               </form>
               <div className="relative my-6">
@@ -320,7 +322,7 @@ export function LoginForm() {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                  <span className="bg-card px-2 text-muted-foreground">{t('orContinueWith')}</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -334,12 +336,12 @@ export function LoginForm() {
                 </Button>
               </div>
               <div className="mt-6 text-center text-sm">
-                {authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+                {authMode === 'login' ? t('login.signupPrompt') : t('signup.loginPrompt')}{' '}
                 <button
                   onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
                   className="font-bold text-primary hover:underline"
                 >
-                  {authMode === 'login' ? 'Sign up' : 'Log in'}
+                  {authMode === 'login' ? t('signup.title') : t('login.title')}
                 </button>
               </div>
               </>
@@ -347,15 +349,7 @@ export function LoginForm() {
         </CardContent>
       </Card>
       <footer className="mt-8 text-center text-sm text-muted-foreground">
-        By continuing, you agree to our{' '}
-        <Link href="/terms" className="underline hover:text-primary">
-          Terms of Service
-        </Link>{' '}
-        and{' '}
-        <Link href="/privacy" className="underline hover:text-primary">
-          Privacy Policy
-        </Link>
-        .
+        <p dangerouslySetInnerHTML={{ __html: t('footer.legal') }} />
       </footer>
     </>
   );

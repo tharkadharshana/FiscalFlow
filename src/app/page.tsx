@@ -12,9 +12,6 @@ export default function Home() {
           <h1 className="font-headline text-4xl font-bold text-primary">
             FiscalFlow
           </h1>
-          <p className="text-muted-foreground">
-            Your financial journey starts here.
-          </p>
         </div>
         <LoginForm />
       </div>
