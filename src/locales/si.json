@@ -1,3 +1,4 @@
+
 {
   "login": {
     "title": " නැවත සාදරයෙන් පිළිගනිමු",
@@ -29,5 +30,83 @@
   "orContinueWith": "නැතහොත් සමඟ ඉදිරියට යන්න",
   "footer": {
     "legal": "ඉදිරියට යාමෙන්, ඔබ අපගේ <a href='/terms' class='underline hover:text-primary'>සේවා නියම</a> සහ <a href='/privacy' class='underline hover:text-primary'>රහස්‍යතා ප්‍රතිපත්තියට</a> එකඟ වේ."
+  },
+  "settings": {
+    "pageTitle": "සැකසුම්",
+    "saveButton": "වෙනස්කම් සුරකින්න",
+    "errors": {
+      "profileLoadFailed": "පරිශීලක පැතිකඩ පූරණය කළ නොහැකි විය.",
+      "profileLoadDesc": "ඔබගේ සැකසුම් ලබා ගැනීමේදී ගැටලුවක් ඇති විය. කරුණාකර ඉවත් වී නැවත පුරනය වීමට උත්සාහ කරන්න."
+    },
+    "profile": {
+      "title": "පැතිකඩ",
+      "description": "ඔබගේ පොදු පැතිකඩ තොරතුරු කළමනාකරණය කරන්න.",
+      "uploadButton": "පින්තූරය උඩුගත කරන්න",
+      "comingSoon": "මෙම විශේෂාංගය ඉක්මනින් පැමිණේ!",
+      "nameLabel": "දර්ශණ නාමය",
+      "namePlaceholder": "ඔබගේ නම"
+    },
+    "subscription": {
+      "title": "දායකත්වය",
+      "description": "ඔබගේ වත්මන් දායකත්ව සැලැස්ම කළමනාකරණය කරන්න.",
+      "premium": {
+        "title": "ඔබ Premium සාමාජිකයෙක්!",
+        "validUntil": "ඔබගේ සැලසුම {{date}} දක්වා වලංගු වේ.",
+        "allFeatures": "ඔබට සියලු විශේෂාංග වෙත ප්‍රවේශය ඇත.",
+        "manageButton": "දායකත්වය කළමනාකරණය කරන්න"
+      },
+      "free": {
+        "title": "ඔබ දැනට නොමිලේ සැලැස්මේ සිටී.",
+        "upgradeButton": "Premium වෙත උසස් කරන්න"
+      }
+    },
+    "integrations": {
+      "title": "ඒකාබද්ධ කිරීම්",
+      "description": "ඔබගේ මූල්‍ය ලුහුබැඳීම ස්වයංක්‍රීය කිරීමට වෙනත් සේවාවන් සම්බන්ධ කරන්න.",
+      "gmailDesc": "බිල්පත් සහ රිසිට්පත් ස්වයංක්‍රීයව ආයාත කරන්න."
+    },
+    "preferences": {
+      "title": "විකල්ප",
+      "description": "ඔබගේ කැමැත්තට යෙදුම අභිරුචිකරණය කරන්න.",
+      "countryLabel": "රට / කලාපය",
+      "countryPlaceholder": "ඔබේ රට තෝරන්න",
+      "countryDesc": "AI විසින් භාවිතා කරන බදු නීති තීරණය කරයි.",
+      "currencyLabel": "මුදල් ඒකකය",
+      "currencyPlaceholder": "මුදල් ඒකකයක් තෝරන්න",
+      "currencyDesc": "ඔබගේ යෙදුම සඳහා දර්ශන මුදල් ඒකකය.",
+      "languageLabel": "භාෂාව",
+      "languagePlaceholder": "භාෂාවක් තෝරන්න",
+      "languageDesc": "යෙදුම සඳහා ඔබ කැමති භාෂාව සකසන්න.",
+      "cycleStartLabel": "මූල්‍ය චක්‍රය ආරම්භ වන දිනය",
+      "cycleStartDesc": "ඔබගේ වැටුප් දිනය හෝ ඔබගේ මූල්‍ය මාසය ආරම්භ වන දිනය සකසන්න.",
+      "darkModeLabel": "අඳුරු ප්‍රකාරය",
+      "darkModeDesc": "සම්පූර්ණ යෙදුම සඳහා අඳුරු තේමාව සබල හෝ අබල කරන්න.",
+      "onboardingLabel": "පුරනය වීමේදී \"ආරම්භ කිරීම\" පෙන්වන්න",
+      "onboardingDesc": "ඔබ පුරනය වන සෑම අවස්ථාවකම මාර්ගෝපදේශ සංවාදය පෙන්වන්න."
+    },
+    "categories": {
+      "title": "ප්‍රවර්ග කළමනාකරණය කරන්න",
+      "description": "වියදම් සහ ආදායම් සඳහා ඔබේම අභිරුචි ප්‍රවර්ග එක් කරන්න.",
+      "customLabel": "අභිරුචි ප්‍රවර්ග",
+      "noCustom": "තවමත් අභිරුචි ප්‍රවර්ග එකතු කර නැත.",
+      "placeholder": "නව ප්‍රවර්ග නාමය...",
+      "addButton": "එක් කරන්න",
+      "limitTooltip": "අසීමිත ප්‍රවර්ග සඳහා Premium වෙත උසස් කරන්න.",
+      "defaultLabel": "පෙරනිමි ප්‍රවර්ග"
+    },
+    "notifications": {
+      "title": "දැනුම්දීම්",
+      "description": "ඔබට දැනුම්දීම් ලැබෙන ආකාරය කළමනාකරණය කරන්න.",
+      "budgetLabel": "අයවැය ඇඟවීම්",
+      "budgetDesc": "ඔබ අයවැය සීමාවකට yakın olduğunda uyarılar alın.",
+      "recurringLabel": "පුනරාවර්තන ගෙවීම්",
+      "recurringDesc": "ඉදිරි පුනරාවර්තන ගෙවීම් සඳහා මතක් කිරීම් ලබා ගන්න."
+    },
+    "legal": {
+      "title": "නීතිමය සහ උදව්",
+      "description": "අපගේ ප්‍රතිපත්ති බලන්න සහ සහාය ලබා ගන්න.",
+      "termsLink": "සේවා කොන්දේසි",
+      "privacyLink": "රහස්‍යතා ප්‍රතිපත්තිය"
+    }
   }
 }

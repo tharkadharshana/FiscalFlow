@@ -24,6 +24,7 @@ import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { countries } from '@/data/countries';
 import { GmailConnect } from '@/components/dashboard/settings/gmail-connect';
+import { useTranslation } from '@/contexts/translation-context';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
@@ -41,6 +42,7 @@ const settingsSchema = z.object({
 
 export default function SettingsPage() {
   const { userProfile, updateUserPreferences, loading, addCustomCategory, deleteCustomCategory, showNotification, isPremium } = useAppContext();
+  const { t } = useTranslation();
   const [newCategory, setNewCategory] = useState('');
 
   const form = useForm<z.infer<typeof settingsSchema>>({
@@ -94,18 +96,18 @@ export default function SettingsPage() {
   const canAddCategory = isPremium || (userProfile?.customCategories?.length || 0) < FREE_TIER_LIMITS.customCategories;
 
   const AddCategoryButton = (
-    <Button type="button" onClick={handleAddCategory} disabled={!canAddCategory}>Add</Button>
+    <Button type="button" onClick={handleAddCategory} disabled={!canAddCategory}>{t('settings.categories.addButton')}</Button>
   );
   
   const CustomCategoryUI = (
       <Card>
           <CardHeader>
-              <CardTitle>Manage Categories</CardTitle>
-              <CardDescription>Add or remove your own custom categories for expenses and income.</CardDescription>
+              <CardTitle>{t('settings.categories.title')}</CardTitle>
+              <CardDescription>{t('settings.categories.description')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
               <div>
-                  <Label className="text-xs text-muted-foreground">Custom Categories</Label>
+                  <Label className="text-xs text-muted-foreground">{t('settings.categories.customLabel')}</Label>
                   <div className="flex flex-wrap gap-2 pt-2">
                   {userProfile?.customCategories && userProfile.customCategories.length > 0 ? (
                       userProfile.customCategories.map(cat => (
@@ -117,13 +119,13 @@ export default function SettingsPage() {
                           </Badge>
                       ))
                   ) : (
-                      <p className="text-sm text-muted-foreground">No custom categories added yet.</p>
+                      <p className="text-sm text-muted-foreground">{t('settings.categories.noCustom')}</p>
                   )}
                   </div>
               </div>
               <div className="flex gap-2">
                   <Input 
-                      placeholder="New category name..."
+                      placeholder={t('settings.categories.placeholder')}
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value)}
                       disabled={!canAddCategory}
@@ -133,14 +135,14 @@ export default function SettingsPage() {
                         <Tooltip>
                             <TooltipTrigger asChild>{AddCategoryButton}</TooltipTrigger>
                             <TooltipContent>
-                                <p>Upgrade to Premium for unlimited categories.</p>
+                                <p>{t('settings.categories.limitTooltip')}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                   )}
               </div>
               <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Default Categories</Label>
+                  <Label className="text-xs text-muted-foreground">{t('settings.categories.defaultLabel')}</Label>
                   <div className="flex flex-wrap gap-2 text-muted-foreground">
                       {[...defaultExpenseCategories, ...defaultIncomeCategories].map(cat => (
                           <Badge key={cat} variant="outline">{cat}</Badge>
@@ -154,8 +156,8 @@ export default function SettingsPage() {
   const SubscriptionCard = (
     <Card>
         <CardHeader>
-            <CardTitle>Subscription</CardTitle>
-            <CardDescription>Manage your current subscription plan.</CardDescription>
+            <CardTitle>{t('settings.subscription.title')}</CardTitle>
+            <CardDescription>{t('settings.subscription.description')}</CardDescription>
         </CardHeader>
         <CardContent>
             {isPremium ? (
@@ -163,25 +165,25 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
                         <Star className="h-8 w-8 text-amber-500" />
                         <div>
-                            <p className="font-semibold">You are a Premium member!</p>
+                            <p className="font-semibold">{t('settings.subscription.premium.title')}</p>
                             <p className="text-sm text-muted-foreground">
                                 {userProfile?.subscription?.expiryDate 
-                                    ? `Your plan is valid until ${new Date(userProfile.subscription.expiryDate).toLocaleDateString()}.`
-                                    : 'You have access to all features.'}
+                                    ? t('settings.subscription.premium.validUntil', { date: new Date(userProfile.subscription.expiryDate).toLocaleDateString() })
+                                    : t('settings.subscription.premium.allFeatures')}
                             </p>
                         </div>
                     </div>
                     <Button asChild variant="outline" className="w-full">
-                        <Link href="/dashboard/upgrade">Manage Subscription</Link>
+                        <Link href="/dashboard/upgrade">{t('settings.subscription.premium.manageButton')}</Link>
                     </Button>
                 </div>
             ) : (
                 <div className="space-y-4">
-                    <p className="text-muted-foreground">You are currently on the Free plan.</p>
+                    <p className="text-muted-foreground">{t('settings.subscription.free.title')}</p>
                     <Button asChild className="w-full bg-gradient-to-r from-primary to-blue-600 text-white hover:opacity-90">
                         <Link href="/dashboard/upgrade">
                             <Sparkles className="mr-2 h-4 w-4" />
-                            Upgrade to Premium
+                            {t('settings.subscription.free.upgradeButton')}
                         </Link>
                     </Button>
                 </div>
@@ -207,8 +209,8 @@ export default function SettingsPage() {
             <Header title="Settings" />
             <div className="flex flex-1 items-center justify-center text-center p-4">
                 <div>
-                    <p className="text-lg font-semibold text-destructive">Could not load user profile.</p>
-                    <p className="text-muted-foreground">There was an issue fetching your settings. Please try logging out and back in.</p>
+                    <p className="text-lg font-semibold text-destructive">{t('settings.errors.profileLoadFailed')}</p>
+                    <p className="text-muted-foreground">{t('settings.errors.profileLoadDesc')}</p>
                 </div>
             </div>
       </div>
@@ -219,13 +221,13 @@ export default function SettingsPage() {
     <TooltipProvider>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col">
-        <Header title="Settings" />
+        <Header title={t('settings.pageTitle')} />
         <main className="flex-1 space-y-6 p-4 md:p-6">
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Profile</CardTitle>
-                <CardDescription>Manage your public profile information.</CardDescription>
+                <CardTitle>{t('settings.profile.title')}</CardTitle>
+                <CardDescription>{t('settings.profile.description')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                  <div className="flex items-center gap-4">
@@ -235,10 +237,10 @@ export default function SettingsPage() {
                     </Avatar>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="outline" type="button" disabled>Upload Picture</Button>
+                        <Button variant="outline" type="button" disabled>{t('settings.profile.uploadButton')}</Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>This feature is coming soon!</p>
+                        <p>{t('settings.profile.comingSoon')}</p>
                       </TooltipContent>
                     </Tooltip>
                 </div>
@@ -247,9 +249,9 @@ export default function SettingsPage() {
                   name="displayName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Display Name</FormLabel>
+                      <FormLabel>{t('settings.profile.nameLabel')}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Your Name" {...field} />
+                        <Input placeholder={t('settings.profile.namePlaceholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -262,8 +264,8 @@ export default function SettingsPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Integrations</CardTitle>
-                    <CardDescription>Connect other services to automate your financial tracking.</CardDescription>
+                    <CardTitle>{t('settings.integrations.title')}</CardTitle>
+                    <CardDescription>{t('settings.integrations.description')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -271,7 +273,7 @@ export default function SettingsPage() {
                             <Mail className="h-6 w-6 text-muted-foreground" />
                             <div>
                                 <h3 className="font-semibold">Gmail</h3>
-                                <p className="text-sm text-muted-foreground">Automatically import bills & receipts.</p>
+                                <p className="text-sm text-muted-foreground">{t('settings.integrations.gmailDesc')}</p>
                             </div>
                         </div>
                         <GmailConnect />
@@ -281,8 +283,8 @@ export default function SettingsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Preferences</CardTitle>
-                <CardDescription>Customize the application to your liking.</CardDescription>
+                <CardTitle>{t('settings.preferences.title')}</CardTitle>
+                <CardDescription>{t('settings.preferences.description')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                  <div className="grid grid-cols-2 gap-4">
@@ -291,11 +293,11 @@ export default function SettingsPage() {
                     name="countryCode"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Country / Region</FormLabel>
+                            <FormLabel>{t('settings.preferences.countryLabel')}</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select your country"/>
+                                        <SelectValue placeholder={t('settings.preferences.countryPlaceholder')}/>
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -306,7 +308,7 @@ export default function SettingsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <FormDescription>Determines tax rules used by the AI.</FormDescription>
+                            <FormDescription>{t('settings.preferences.countryDesc')}</FormDescription>
                         </FormItem>
                     )}
                     />
@@ -315,11 +317,11 @@ export default function SettingsPage() {
                     name="currencyPreference"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Currency</FormLabel>
+                        <FormLabel>{t('settings.preferences.currencyLabel')}</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select a currency" />
+                                <SelectValue placeholder={t('settings.preferences.currencyPlaceholder')} />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -331,7 +333,7 @@ export default function SettingsPage() {
                             <SelectItem value="INR">INR - Indian Rupee</SelectItem>
                             </SelectContent>
                         </Select>
-                        <FormDescription>The display currency for your app.</FormDescription>
+                        <FormDescription>{t('settings.preferences.currencyDesc')}</FormDescription>
                         </FormItem>
                     )}
                     />
@@ -341,11 +343,11 @@ export default function SettingsPage() {
                   name="languagePreference"
                   render={({ field }) => (
                       <FormItem>
-                      <FormLabel>Language</FormLabel>
+                      <FormLabel>{t('settings.preferences.languageLabel')}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                           <SelectTrigger>
-                              <SelectValue placeholder="Select a language" />
+                              <SelectValue placeholder={t('settings.preferences.languagePlaceholder')} />
                           </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -354,7 +356,7 @@ export default function SettingsPage() {
                               <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
                           </SelectContent>
                       </Select>
-                      <FormDescription>Set your preferred language for the app.</FormDescription>
+                      <FormDescription>{t('settings.preferences.languageDesc')}</FormDescription>
                       </FormItem>
                   )}
                   />
@@ -363,11 +365,9 @@ export default function SettingsPage() {
                   name="financialCycleStartDay"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Financial Cycle Start Day</FormLabel>
+                      <FormLabel>{t('settings.preferences.cycleStartLabel')}</FormLabel>
                       <Input type="number" min="1" max="31" {...field} />
-                      <FormDescription>
-                        Set your payday or the day your financial month starts. This will adjust all dashboard and budget calculations.
-                      </FormDescription>
+                      <FormDescription>{t('settings.preferences.cycleStartDesc')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -378,8 +378,8 @@ export default function SettingsPage() {
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                            <FormLabel className="text-base">Dark Mode</FormLabel>
-                            <FormDescription>Enable or disable the dark theme for the entire app.</FormDescription>
+                            <FormLabel className="text-base">{t('settings.preferences.darkModeLabel')}</FormLabel>
+                            <FormDescription>{t('settings.preferences.darkModeDesc')}</FormDescription>
                         </div>
                         <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -393,8 +393,8 @@ export default function SettingsPage() {
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                            <FormLabel className="text-base">Show "Getting Started" on Login</FormLabel>
-                            <FormDescription>Display the guide dialog every time you log in.</FormDescription>
+                            <FormLabel className="text-base">{t('settings.preferences.onboardingLabel')}</FormLabel>
+                            <FormDescription>{t('settings.preferences.onboardingDesc')}</FormDescription>
                         </div>
                         <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -409,8 +409,8 @@ export default function SettingsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Notifications</CardTitle>
-                <CardDescription>Manage how you receive notifications.</CardDescription>
+                <CardTitle>{t('settings.notifications.title')}</CardTitle>
+                <CardDescription>{t('settings.notifications.description')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -419,8 +419,8 @@ export default function SettingsPage() {
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                            <FormLabel className="text-base">Budget Alerts</FormLabel>
-                            <FormDescription>Receive alerts when you're nearing a budget limit.</FormDescription>
+                            <FormLabel className="text-base">{t('settings.notifications.budgetLabel')}</FormLabel>
+                            <FormDescription>{t('settings.notifications.budgetDesc')}</FormDescription>
                         </div>
                         <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -434,8 +434,8 @@ export default function SettingsPage() {
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                            <FormLabel className="text-base">Recurring Payments</FormLabel>
-                            <FormDescription>Get reminders for upcoming recurring payments.</FormDescription>
+                            <FormLabel className="text-base">{t('settings.notifications.recurringLabel')}</FormLabel>
+                            <FormDescription>{t('settings.notifications.recurringDesc')}</FormDescription>
                         </div>
                         <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -448,15 +448,15 @@ export default function SettingsPage() {
             
             <Card>
               <CardHeader>
-                <CardTitle>Legal & Help</CardTitle>
-                <CardDescription>View our policies and get support.</CardDescription>
+                <CardTitle>{t('settings.legal.title')}</CardTitle>
+                <CardDescription>{t('settings.legal.description')}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-start gap-4">
                 <Button asChild variant="link" className="p-0 h-auto">
-                    <Link href="/terms">Terms of Service</Link>
+                    <Link href="/terms">{t('settings.legal.termsLink')}</Link>
                 </Button>
                 <Button asChild variant="link" className="p-0 h-auto">
-                    <Link href="/privacy">Privacy Policy</Link>
+                    <Link href="/privacy">{t('settings.legal.privacyLink')}</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -464,7 +464,7 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <Button type="submit" disabled={form.formState.isSubmitting || !form.formState.isDirty}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
+                {t('settings.saveButton')}
               </Button>
             </div>
           </div>

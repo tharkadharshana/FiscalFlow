@@ -1,3 +1,4 @@
+
 {
   "login": {
     "title": "Welcome Back",
@@ -29,5 +30,83 @@
   "orContinueWith": "Or continue with",
   "footer": {
     "legal": "By continuing, you agree to our <a href='/terms' class='underline hover:text-primary'>Terms of Service</a> and <a href='/privacy' class='underline hover:text-primary'>Privacy Policy</a>."
+  },
+  "settings": {
+    "pageTitle": "Settings",
+    "saveButton": "Save Changes",
+    "errors": {
+      "profileLoadFailed": "Could not load user profile.",
+      "profileLoadDesc": "There was an issue fetching your settings. Please try logging out and back in."
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Manage your public profile information.",
+      "uploadButton": "Upload Picture",
+      "comingSoon": "This feature is coming soon!",
+      "nameLabel": "Display Name",
+      "namePlaceholder": "Your Name"
+    },
+    "subscription": {
+      "title": "Subscription",
+      "description": "Manage your current subscription plan.",
+      "premium": {
+        "title": "You are a Premium member!",
+        "validUntil": "Your plan is valid until {{date}}.",
+        "allFeatures": "You have access to all features.",
+        "manageButton": "Manage Subscription"
+      },
+      "free": {
+        "title": "You are currently on the Free plan.",
+        "upgradeButton": "Upgrade to Premium"
+      }
+    },
+    "integrations": {
+      "title": "Integrations",
+      "description": "Connect other services to automate your financial tracking.",
+      "gmailDesc": "Automatically import bills & receipts."
+    },
+    "preferences": {
+      "title": "Preferences",
+      "description": "Customize the application to your liking.",
+      "countryLabel": "Country / Region",
+      "countryPlaceholder": "Select your country",
+      "countryDesc": "Determines tax rules used by the AI.",
+      "currencyLabel": "Currency",
+      "currencyPlaceholder": "Select a currency",
+      "currencyDesc": "The display currency for your app.",
+      "languageLabel": "Language",
+      "languagePlaceholder": "Select a language",
+      "languageDesc": "Set your preferred language for the app.",
+      "cycleStartLabel": "Financial Cycle Start Day",
+      "cycleStartDesc": "Set your payday or the day your financial month starts. This will adjust all dashboard and budget calculations.",
+      "darkModeLabel": "Dark Mode",
+      "darkModeDesc": "Enable or disable the dark theme for the entire app.",
+      "onboardingLabel": "Show \"Getting Started\" on Login",
+      "onboardingDesc": "Display the guide dialog every time you log in."
+    },
+    "categories": {
+      "title": "Manage Categories",
+      "description": "Add or remove your own custom categories for expenses and income.",
+      "customLabel": "Custom Categories",
+      "noCustom": "No custom categories added yet.",
+      "placeholder": "New category name...",
+      "addButton": "Add",
+      "limitTooltip": "Upgrade to Premium for unlimited categories.",
+      "defaultLabel": "Default Categories"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Manage how you receive notifications.",
+      "budgetLabel": "Budget Alerts",
+      "budgetDesc": "Receive alerts when you're nearing a budget limit.",
+      "recurringLabel": "Recurring Payments",
+      "recurringDesc": "Get reminders for upcoming recurring payments."
+    },
+    "legal": {
+      "title": "Legal & Help",
+      "description": "View our policies and get support.",
+      "termsLink": "Terms of Service",
+      "privacyLink": "Privacy Policy"
+    }
   }
 }
