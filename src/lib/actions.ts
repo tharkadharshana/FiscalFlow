@@ -1,5 +1,3 @@
-
-
 // src/lib/actions.ts
 'use server';
 
@@ -50,6 +48,18 @@ type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 type BankStatementParseResult = ParseBankStatementOutput | { error: string };
 type ChecklistResult = CreateChecklistOutput | { error: string };
 
+// --- Helper for handling AI errors ---
+function handleAIError(error: any, defaultMessage: string): { error: string } {
+    logger.error(defaultMessage, error as Error, { error });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('model is overloaded')) {
+        return { error: 'The AI model is temporarily busy. Please try again in a few moments.' };
+    }
+    
+    return { error: errorMessage };
+}
+
 
 // ------------------------------
 // ACTION FUNCTIONS
@@ -91,14 +101,15 @@ export async function parseDocumentAction(
 ): Promise<ParseDocumentResult> {
   try {
     const result = await parseReceipt(input);
+    if (!result) {
+        throw new Error('The AI action returned an undefined result.');
+    }
     if (result.rawText) {
       return { text: result.rawText };
     }
     return { error: 'Could not extract any text from the document.' };
   } catch (error) {
-    console.error('Error in parseDocumentAction:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to analyze document.';
-    return { error: errorMessage };
+    return handleAIError(error, 'Failed to analyze document.');
   }
 }
 
@@ -111,11 +122,12 @@ export async function parseReceiptAction(
   
   try {
     const result = await parseReceipt(input);
+    if (!result) {
+        throw new Error('The AI action returned an undefined result.');
+    }
     return result;
   } catch (error) {
-    console.error('Error in parseReceiptAction:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to analyze receipt. Please try again.';
-    return { error: errorMessage };
+    return handleAIError(error, 'Failed to analyze receipt.');
   }
 }
 
@@ -126,8 +138,7 @@ export async function generateInsightsAction(
         const result = await generateInsights(input);
         return result;
     } catch (error) {
-        console.error('Error in generateInsightsAction:', error);
-        return { error: 'Failed to generate insights. Please try again later.' };
+        return handleAIError(error, 'Failed to generate insights.');
     }
 }
 
@@ -138,8 +149,7 @@ export async function createTripPlanAction(
         const result = await createTripPlan(payload);
         return result;
     } catch (error) {
-        console.error('Error in createTripPlanAction:', error);
-        return { error: 'Failed to generate trip plan. Please try again later.' };
+        return handleAIError(error, 'Failed to generate trip plan.');
     }
 }
 
@@ -150,8 +160,7 @@ export async function createChecklistAction(
       const result = await createChecklist(payload);
       return result;
   } catch (error) {
-      console.error('Error in createChecklistAction:', error);
-      return { error: 'Failed to generate checklist. Please try again later.' };
+      return handleAIError(error, 'Failed to generate checklist.');
   }
 }
 
@@ -162,8 +171,7 @@ export async function createMonthlyBudgetsAction(
         const result = await createMonthlyBudgets(payload);
         return result;
     } catch (error) {
-        console.error('Error in createMonthlyBudgetsAction:', error);
-        return { error: 'Failed to generate budgets. Please try again later.' };
+        return handleAIError(error, 'Failed to generate budgets.');
     }
 }
 
@@ -174,8 +182,8 @@ export async function assistantAction(
         const result = await assistantActionFlow(input);
         return result;
     } catch (error) {
-        console.error('Error in assistantAction:', error);
-        return { action: 'unknown', reason: 'An unexpected error occurred while processing your command.' };
+        const handledError = handleAIError(error, 'Error processing voice command.');
+        return { action: 'unknown', reason: handledError.error };
     }
 }
 
@@ -186,8 +194,7 @@ export async function analyzeTaxesAction(
         const result = await analyzeTaxes(payload);
         return result;
     } catch (error) {
-        console.error('Error in analyzeTaxesAction:', error);
-        return { error: 'Failed to analyze taxes. Please try again later.' };
+        return handleAIError(error, 'Failed to analyze taxes.');
     }
 }
 
@@ -198,8 +205,7 @@ export async function createSavingsGoalAction(
         const result = await createSavingsGoal(payload);
         return result;
     } catch (error) {
-        console.error('Error in createSavingsGoalAction:', error);
-        return { error: 'Failed to generate savings goal. Please try again later.' };
+        return handleAIError(error, 'Failed to generate savings goal.');
     }
 }
 
@@ -214,8 +220,6 @@ export async function parseBankStatementAction(
         const result = await parseBankStatement(payload);
         return result;
     } catch (error) {
-        logger.error('Error in parseBankStatementAction:', error as Error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to parse bank statement. The document may be too complex or in an unsupported format.';
-        return { error: errorMessage };
+        return handleAIError(error, 'Failed to parse bank statement.');
     }
 }
