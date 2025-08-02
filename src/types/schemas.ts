@@ -1,4 +1,5 @@
 
+
 // src/types/schemas.ts
 
 /**
@@ -30,6 +31,7 @@ export const TransactionItemSchema = z.object({
 });
 export type TransactionItem = z.infer<typeof TransactionItemSchema>;
 
+// This schema defines the data passed between client and server. It must not contain non-serializable types.
 export const TransactionSchema = z.object({
   id: z.string(),
   type: z.enum(['income', 'expense']),

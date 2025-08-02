@@ -31,7 +31,7 @@ import { estimateCarbonFootprint } from '@/lib/carbon';
 import { createChecklistAction, createMonthlyBudgetsAction, generateInsightsAction, parseReceiptAction, analyzeTaxesAction, createSavingsGoalAction, parseDocumentAction, parseBankStatementAction, createTripPlanAction } from '@/lib/actions';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
-import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput, AnalyzeTaxesOutput, CreateSavingsGoalOutput, CreateChecklistOutput, CreateMonthlyBudgetsOutput, CreateTripPlanOutput, ParsedReceiptTransaction } from '@/types/schemas';
+import type { AnalyzeTaxesInput, GenerateInsightsInput, GenerateInsightsOutput, ParseReceiptInput, ParseReceiptOutput, AnalyzeTaxesOutput, CreateSavingsGoalOutput, CreateChecklistOutput, CreateMonthlyBudgetsOutput, CreateTripPlanOutput, ParsedReceiptTransaction, TaxSettings } from '@/types/schemas';
 
 
 export const FREE_TIER_LIMITS = {
@@ -109,7 +109,7 @@ interface AppContextType {
   upgradeToPremium: (plan: 'monthly' | 'yearly') => Promise<void>;
   downgradeFromPremium: () => Promise<void>;
   canRunTaxAnalysis: boolean;
-  analyzeTaxesWithLimit: (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'investments' | 'savingsGoals'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
+  analyzeTaxesWithLimit: (input: Pick<AnalyzeTaxesInput, 'transactions'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
   canGenerateReport: boolean;
   generateReportWithLimit: () => Promise<boolean>;
   canGenerateInsights: boolean;
@@ -119,6 +119,8 @@ interface AppContextType {
   createChecklistWithLimit: (userQuery: string) => Promise<CreateChecklistOutput | { error: string } | undefined>;
   createBudgetsWithLimit: (userQuery: string, existingCategories: string[]) => Promise<CreateMonthlyBudgetsOutput | { error: string } | undefined>;
   createSavingsGoalWithLimit: (userQuery: string) => Promise<CreateSavingsGoalOutput | { error: string } | undefined>;
+  taxRules: TaxSettings | null;
+  updateTaxRules: (countryCode: string, newRules: TaxSettings) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -136,6 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
+  const [taxRules, setTaxRules] = useState<TaxSettings | null>(null);
   const { toast } = useToast();
   
   const activeTrip = useMemo(() => {
@@ -389,6 +392,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setNotifications([]);
     }
   }, [user]);
+  
+    // Fetch tax rules based on user's country
+    useEffect(() => {
+        if (user && userProfile?.countryCode) {
+            const countryCode = userProfile.countryCode;
+            const taxRulesRef = doc(db, 'taxRules', countryCode);
+            const unsubscribe = onSnapshot(taxRulesRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    setTaxRules(docSnap.data() as TaxSettings);
+                } else {
+                    logger.warn(`No tax rules found for country ${countryCode}.`);
+                    setTaxRules(null); // Or set to a default
+                }
+            }, (error) => {
+                logger.error(`Error fetching tax rules for ${countryCode}`, error);
+            });
+            return () => unsubscribe();
+        }
+    }, [user, userProfile?.countryCode]);
 
   const transactionsForCurrentCycle = useMemo(() => {
     if (!userProfile) return [];
@@ -679,7 +701,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         logger.info('Recurring transaction deleted', { transactionId });
     } catch (error) {
         logger.error('Error deleting recurring transaction', error as Error, { transactionId });
-        showNotification({ type: 'error', title: 'Error deleting recurring item', description: '' });
+        showNotification({ type: 'error', title: 'Error updating recurring item', description: '' });
     }
   };
 
@@ -913,6 +935,19 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
       showNotification({ type: 'error', title: 'Error saving settings', description: '' });
     }
   };
+  
+    const updateTaxRules = async (countryCode: string, newRules: TaxSettings) => {
+        if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
+        try {
+            await updateDoc(doc(db, 'taxRules', countryCode), newRules);
+            showNotification({ type: 'success', title: 'Tax Logic Updated', description: `The tax rules for ${countryCode} have been saved.` });
+            logger.info('Tax rules updated', { countryCode });
+        } catch (error) {
+            logger.error(`Error updating tax rules for ${countryCode}`, error as Error);
+            showNotification({ type: 'error', title: 'Error Saving Rules', description: '' });
+        }
+    };
+
 
   const upgradeToPremium = async (plan: 'monthly' | 'yearly') => {
     if (!user) { showNotification({ type: 'error', title: 'Not authenticated', description: '' }); return; }
@@ -987,9 +1022,9 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     }
   }
 
-  const analyzeTaxesWithLimit = async (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'investments' | 'savingsGoals'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
-    if (!user || !userProfile || !userProfile.countryCode) { 
-      const errorMsg = 'Country code is not set in user profile.';
+  const analyzeTaxesWithLimit = async (input: Pick<AnalyzeTaxesInput, 'transactions'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
+    if (!user || !userProfile || !userProfile.countryCode || !taxRules) { 
+      const errorMsg = 'Tax rules or country code not loaded for user.';
       showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
       return { error: errorMsg };
     }
@@ -998,12 +1033,17 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         showNotification({ type: 'error', title: 'Limit Reached', description: 'You have used your free tax analysis for this month.' });
         return { error: 'Limit Reached' };
     }
+    
+    // Sanitize transactions: remove non-serializable 'icon' property.
+    const sanitizedTransactions = input.transactions.map(tx => {
+        const { icon, ...rest } = tx as any; // Cast to any to access icon
+        return rest;
+    });
 
     const fullInput: AnalyzeTaxesInput = {
-      ...input,
+      transactions: sanitizedTransactions,
+      taxRules: taxRules,
       countryCode: userProfile.countryCode,
-      investments: investments.map(i => ({ name: i.name, assetType: i.assetType, marketValue: i.quantity * i.currentPrice })),
-      savingsGoals: savingsGoals.map(s => ({ title: s.title, currentAmount: s.currentAmount })),
     };
     const result = await analyzeTaxesAction(fullInput);
 
@@ -1196,7 +1236,8 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         canGenerateReport, generateReportWithLimit,
         canGenerateInsights, generateInsightsWithLimit,
         canScanReceipt, scanReceiptWithLimit,
-        createChecklistWithLimit, createBudgetsWithLimit, createSavingsGoalWithLimit
+        createChecklistWithLimit, createBudgetsWithLimit, createSavingsGoalWithLimit,
+        taxRules, updateTaxRules,
       }}
     >
       {children}
@@ -1211,3 +1252,4 @@ export function useAppContext() {
   }
   return context;
 }
+
