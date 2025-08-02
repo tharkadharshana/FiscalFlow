@@ -396,26 +396,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
   
+    // This is an "upsert" that will create the document if it's missing.
     const seedDefaultTaxRules = async () => {
-        const taxRulesRef = doc(db, 'taxRules', 'LK');
-        try {
-            const docSnap = await getDoc(taxRulesRef);
-            if (!docSnap.exists()) {
-                logger.info('Default tax rules (LK) not found. Seeding database...');
-                await setDoc(taxRulesRef, sriLankaTaxRules);
-                logger.info('Successfully seeded default tax rules.');
-            }
-        } catch (error) {
-            logger.error('Error seeding default tax rules', error as Error);
-        }
+      const taxRulesRef = doc(db, 'taxRules', 'LK');
+      try {
+          logger.info('Ensuring default tax rules (LK) exist...');
+          await setDoc(taxRulesRef, sriLankaTaxRules, { merge: true });
+      } catch (error) {
+          logger.error('CRITICAL: Could not seed default tax rules.', error as Error);
+      }
     };
 
     // Fetch tax rules based on user's country
     useEffect(() => {
-        if (user && userProfile?.countryCode) {
-            const fetchAndSetRules = async () => {
+        const initializeAndFetchRules = async () => {
+            if (user && userProfile?.countryCode) {
+                // Ensure the default rules exist before trying to fetch anything.
                 await seedDefaultTaxRules();
-                
+
                 const countryCode = userProfile.countryCode || 'LK';
                 const taxRulesRef = doc(db, 'taxRules', countryCode);
 
@@ -444,10 +442,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 });
 
                 return () => unsubscribe();
-            };
+            }
+        };
 
-            fetchAndSetRules();
-        }
+        initializeAndFetchRules();
     }, [user, userProfile?.countryCode]);
 
   const transactionsForCurrentCycle = useMemo(() => {
@@ -1061,21 +1059,11 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
   }
 
   const analyzeTaxesWithLimit = async (input: Pick<AnalyzeTaxesInput, 'transactions'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
-    for (let i = 0; i < 5; i++) { // Retry up to 5 times
-        if (user && userProfile?.countryCode && taxRules) {
-            // If all data is ready, proceed.
-            break;
-        }
-        if (i === 4) { // If it's the last attempt and data is still not ready
-            const errorMsg = 'Tax rules or country code not loaded for user.';
-            showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
-            return { error: errorMsg };
-        }
-        // Wait for 300ms before retrying
-        await new Promise(resolve => setTimeout(resolve, 300));
+    if (!user || !userProfile || !taxRules) { 
+        const errorMsg = 'Tax rules or country code not loaded for user.';
+        showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
+        return { error: errorMsg };
     }
-
-    if (!user || !userProfile || !taxRules) { return; } // Should not happen due to the loop above, but for type safety
 
     if (!canRunTaxAnalysis) {
         showNotification({ type: 'error', title: 'Limit Reached', description: 'You have used your free tax analysis for this month.' });
@@ -1090,7 +1078,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     const fullInput: AnalyzeTaxesInput = {
       transactions: sanitizedTransactions,
       taxRules: taxRules,
-      countryCode: userProfile.countryCode!,
+      countryCode: userProfile.countryCode,
     };
     const result = await analyzeTaxesAction(fullInput);
 
