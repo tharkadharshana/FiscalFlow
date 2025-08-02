@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +25,7 @@ import Image from 'next/image';
 import { nanoid } from 'nanoid';
 import { ScrollArea } from './ui/scroll-area';
 import { Checkbox } from './ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
 
 type ParsedTxWithId = ParsedReceiptTransaction & { id: string, include: boolean };
 
@@ -35,6 +35,7 @@ type ReceiptScannerProps = {
 
 export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
   const { addTransaction, showNotification, scanReceiptWithLimit, expenseCategories, formatCurrency } = useAppContext();
+  const { toast } = useToast();
   
   // Component state
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -55,51 +56,46 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
   
   const totalAmount = useMemo(() => parsedTxs.filter(tx => tx.include).reduce((sum, tx) => sum + (tx.totalAmount || 0), 0), [parsedTxs]);
 
-  // Get list of cameras on mount
+  // Get list of cameras on mount and handle permissions
   useEffect(() => {
-    const getDevices = async () => {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true }); // Prompt for permission first
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(device => device.kind === 'videoinput');
-        setVideoDevices(cameras);
-
-        if (cameras.length > 0) {
-          const backCamera = cameras.find(device => device.label.toLowerCase().includes('back'));
-          setSelectedDeviceId(backCamera ? backCamera.deviceId : cameras[0].deviceId);
-        } else {
-            setHasCameraPermission(false);
+    const getStream = async (deviceId?: string) => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
         }
-      } catch (error) {
-        console.error('Error enumerating devices:', error);
-        setHasCameraPermission(false);
-      }
-    };
-    getDevices();
-    
-    return () => {
-      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    };
-  }, []);
-
-  // Start stream when a device is selected
-  useEffect(() => {
-    if (!selectedDeviceId) return;
-    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-
-    const getStream = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: selectedDeviceId } } });
+            const constraints: MediaStreamConstraints = { video: deviceId ? { deviceId: { exact: deviceId } } : true };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             streamRef.current = stream;
             setHasCameraPermission(true);
-            if (videoRef.current) videoRef.current.srcObject = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cameras = devices.filter(device => device.kind === 'videoinput');
+            setVideoDevices(cameras);
+            if (cameras.length > 0 && !deviceId) {
+                const backCamera = cameras.find(device => device.label.toLowerCase().includes('back'));
+                setSelectedDeviceId(backCamera ? backCamera.deviceId : cameras[0].deviceId);
+            }
         } catch (error) {
             console.error('Error accessing camera:', error);
             setHasCameraPermission(false);
+            if ((error as Error).name === 'NotAllowedError') {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings to use this app.',
+                });
+            }
         }
     };
-    getStream();
-  }, [selectedDeviceId]);
+    getStream(selectedDeviceId);
+
+    return () => {
+      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    };
+  }, [selectedDeviceId, toast]);
+
 
   const handleAnalyze = async () => {
     if (!imageUri) return;
@@ -156,6 +152,26 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
     setView('capture');
   }
 
+    const handleCapture = () => {
+        if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d')?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+            setImageUri(canvas.toDataURL('image/jpeg'));
+        }
+    };
+    
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => setImageUri(ev.target?.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+
   const renderCaptureView = () => (
     <div className="space-y-4">
         <Card className="relative aspect-video flex items-center justify-center bg-muted/50 overflow-hidden">
@@ -167,7 +183,11 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
             )}
             <canvas ref={canvasRef} className="hidden" />
             {imageUri ? <Image src={imageUri} alt="Receipt preview" fill objectFit="contain" />
-            : (<><video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />{hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle><AlertDescription>Please enable camera permissions.</AlertDescription></Alert>}</>)}
+            : (<>
+                <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+                {hasCameraPermission === false && <Alert variant="destructive" className="absolute w-11/12"><Camera className="h-4 w-4" /><AlertTitle>Camera Access Denied</AlertTitle><AlertDescription>Please enable camera permissions.</AlertDescription></Alert>}
+              </>
+            )}
             {videoDevices.length > 1 && !imageUri && <Button type="button" onClick={() => {if (videoDevices.length < 2) return; const currentIndex = videoDevices.findIndex(d => d.deviceId === selectedDeviceId); const nextIndex = (currentIndex + 1) % videoDevices.length; setSelectedDeviceId(videoDevices[nextIndex].deviceId);}} variant="outline" size="icon" className="absolute bottom-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white border-white/50"><SwitchCamera className="h-5 w-5" /></Button>}
         </Card>
         {imageUri ? (
@@ -177,9 +197,9 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
             </div>
         ) : (
             <div className="grid grid-cols-2 gap-4">
-                <Button onClick={() => { if (videoRef.current && canvasRef.current) { const v = videoRef.current; const c = canvasRef.current; c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d')?.drawImage(v,0,0,v.videoWidth,v.videoHeight); setImageUri(c.toDataURL('image/jpeg'));}}} disabled={!hasCameraPermission || isLoading}><Camera className="mr-2 h-4 w-4" />Capture Photo</Button>
+                <Button onClick={handleCapture} disabled={!hasCameraPermission || isLoading}><Camera className="mr-2 h-4 w-4" />Capture Photo</Button>
                 <Button onClick={() => fileInputRef.current?.click()} variant="secondary" disabled={isLoading}><Upload className="mr-2 h-4 w-4" />Upload Image</Button>
-                <input type="file" ref={fileInputRef} onChange={(e) => { const f = e.target.files?.[0]; if(f){const r = new FileReader(); r.onload=ev=>setImageUri(ev.target?.result as string); r.readAsDataURL(f)}}} className="hidden" accept="image/*" />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
             </div>
         )}
     </div>
@@ -193,7 +213,7 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
         </CardHeader>
         <ScrollArea className="h-80 w-full pr-4">
             <div className="space-y-4">
-            {parsedTxs.map((tx, txIndex) => (
+            {parsedTxs.map((tx) => (
                 <Card key={tx.id} className={cn(!tx.include && "opacity-50 bg-muted/50")}>
                     <CardHeader className="p-4 flex flex-row items-start gap-4">
                         <Checkbox checked={tx.include} onCheckedChange={checked => handleItemChange(tx.id, 'include', !!checked)} className="mt-1" />
@@ -205,7 +225,7 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
                              <div className="space-y-1.5">
                                 <Label>Date</Label>
                                 <Popover><PopoverTrigger asChild>
-                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-8", !tx.transactionDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{tx.transactionDate ? format(new Date(tx.transactionDate), "PPP") : <span>Pick a date</span>}</Button>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-8", !tx.transactionDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{tx.transactionDate && isValid(new Date(tx.transactionDate)) ? format(new Date(tx.transactionDate), "PPP") : <span>Pick a date</span>}</Button>
                                 </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={new Date(tx.transactionDate || new Date())} onSelect={(d) => handleItemChange(tx.id, 'transactionDate', d?.toISOString().split('T')[0])} initialFocus /></PopoverContent></Popover>
                             </div>
                             <div className="space-y-1.5">
@@ -217,7 +237,7 @@ export function ReceiptScanner({ onTransactionsAdded }: ReceiptScannerProps) {
                             </div>
                              <div className="space-y-1.5">
                                 <Label>Total</Label>
-                                <Input type="number" value={tx.totalAmount || 0} onChange={e => handleItemChange(tx.id, 'totalAmount', e.target.value)} className="h-8 text-right"/>
+                                <Input type="number" value={tx.totalAmount || 0} onChange={e => handleItemChange(tx.id, 'totalAmount', parseFloat(e.target.value) || 0)} className="h-8 text-right"/>
                             </div>
                         </div>
                     </CardHeader>
