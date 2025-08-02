@@ -59,12 +59,25 @@ export function TaxAnalysisFilters({ onAnalyze, isAnalyzing }: TaxAnalysisFilter
   };
 
   const isReadyToAnalyze = canRunTaxAnalysis && !!taxRules;
+  const isRulesLoading = !taxRules;
 
   const RunAnalysisButton = (
     <Button onClick={handleAnalyzeClick} disabled={isAnalyzing || !isReadyToAnalyze}>
-        {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Analyzing...</> : 'Run AI Analysis'}
+        {isAnalyzing && <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Analyzing...</>}
+        {isRulesLoading && !isAnalyzing && <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Loading Rules...</>}
+        {!isAnalyzing && !isRulesLoading && 'Run AI Analysis'}
     </Button>
   );
+
+  const getTooltipContent = () => {
+    if (isRulesLoading) {
+      return "Loading tax rules for your region...";
+    }
+    if (!canRunTaxAnalysis) {
+      return "You have used your free tax analysis for this month. Upgrade for more.";
+    }
+    return "";
+  };
 
   return (
     <Card>
@@ -110,7 +123,7 @@ export function TaxAnalysisFilters({ onAnalyze, isAnalyzing }: TaxAnalysisFilter
                 <Tooltip>
                     <TooltipTrigger asChild>{RunAnalysisButton}</TooltipTrigger>
                     <TooltipContent>
-                        <p>{!taxRules ? "Loading tax rules..." : "You have used your free tax analysis for this month."}</p>
+                        <p>{getTooltipContent()}</p>
                     </TooltipContent>
                 </Tooltip>
             ) : RunAnalysisButton}
