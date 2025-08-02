@@ -1,0 +1,63 @@
+# QA Test Plan: AI-Powered Tax Analysis Feature
+
+## 1. Introduction
+
+This document outlines the comprehensive Quality Assurance (QA) test plan for the **AI Tax Analysis** feature in the FiscalFlow application. The purpose is to ensure the feature is functionally correct, provides an intuitive user experience, and handles various scenarios and edge cases robustly.
+
+---
+
+## 2. Feature Overview & Core Logic
+
+The feature allows a user to click a button ("Run AI Analysis") in the Tax Center, which triggers a Genkit flow. This flow analyzes all un-analyzed expense transactions, determines the item-wise tax breakdown, and displays the results in a collapsible table.
+
+### Core AI Logic to Verify:
+1.  **Origin Detection**: The AI must determine if an item is **Imported** or **Local** based on its description.
+2.  **Tax Calculation**: The AI calculates four key values for each item:
+    *   **Tariff**: Customs duty, applied only to imported goods based on category.
+    *   **Excise Duty**: Special tax for specific categories like 'Fuel'.
+    *   **VAT**: Standard 18% tax.
+    *   **Shop Fee**: The base price of the item after all taxes are subtracted. The formula is `Shop Fee = Total Price / (1 + VAT Rate + Tariff Rate + Excise Rate)`.
+3.  **Special Transport Logic**: For ride-sharing services (Uber, PickMe), if a distance is mentioned in the transaction notes, the AI should break down the cost into `Ride Company Fee` and `Fuel Cost` (which itself is broken down into base fuel + excise).
+4.  **Idempotency**: The AI should only process transactions that have not been analyzed before (`isTaxAnalyzed` flag).
+
+---
+
+## 3. Test Cases
+
+### 3.1. UI/UX Testing
+
+| Test Case ID    | Test Scenario                                       | Steps                                                                                                                                                             | Expected Result                                                                                                                                                           |
+| :-------------- | :-------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **TC-UI-001**   | Initial State                                       | 1. Navigate to the Tax Center page. 2. Ensure no previous analysis has been run.                                                                                  | The page displays a message prompting the user to run the analysis. The "Run AI Analysis" button is visible and enabled (assuming the user has analysis credits).    |
+| **TC-UI-002**   | Loading State                                       | 1. Click the "Run AI Analysis" button.                                                                                                                            | The button becomes disabled and shows a loading spinner with the text "Analyzing...". A loading indicator (spinner) appears in the content area where the table will be. |
+| **TC-UI-003**   | Successful Analysis & Result Display                | 1. Run the analysis with valid transactions.                                                                                                                      | The loading indicators disappear. A collapsible table appears, showing each analyzed transaction. The header indicates the number of transactions analyzed.           |
+| **TC-UI-004**   | Expanding a Transaction                             | 1. In the results table, click on a transaction row.                                                                                                              | The row expands downwards to reveal a nested section titled "Itemized Tax Breakdown". The chevron icon next to the transaction rotates.                               |
+| **TC-UI-005**   | Viewing Itemized Breakdown                          | 1. Expand a transaction row.                                                                                                                                      | The breakdown shows each line item from the transaction. For each item, it clearly labels and displays the **Shop Fee**, **VAT**, **Tariff**, and **Other** taxes.      |
+| **TC-UI-006**   | No New Transactions                                 | 1. Run an analysis. 2. Without adding new transactions, click "Run AI Analysis" again.                                                                            | An informational message appears stating "No new transactions required analysis." The button does not enter a loading state.                                          |
+| **TC-UI-007**   | Analysis with Custom Docs                           | 1. Expand the "Provide Custom Tax Documentation" section. 2. Paste custom rules (e.g., "VAT is 25% on electronics"). 3. Run analysis.                              | The analysis should complete successfully. The AI's calculations should reflect the custom rules provided.                                                              |
+| **TC-UI-008**   | Error State                                         | 1. Simulate an AI API failure (if possible) or run with invalid data.                                                                                             | An error alert box appears with a clear message (e.g., "Analysis Failed"). The loading state stops.                                                                   |
+
+### 3.2. Functional & Logic Testing
+
+| Test Case ID     | Test Scenario                                             | Steps & Input Data                                                                                                                                                              | Expected AI Logic & Calculation Breakdown                                                                                                                                                                                                                                                            |
+| :--------------- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TC-FUNC-001**  | **Basic Local Item (Groceries)**                          | 1. Create a new expense: `Source: "Keells Super", Amount: 590, Category: "Groceries", Notes: "Local Milk 1L"`                                                                   | - **Origin**: Local<br>- **Tariff**: 0<br>- **Excise**: 0<br>- **VAT**: `590 * (18 / 118)` = 90 LKR<br>- **Shop Fee**: `590 - 90` = 500 LKR                                                                                                                                                                   |
+| **TC-FUNC-002**  | **Basic Imported Item (Electronics)**                     | 1. Create a new expense: `Source: "Electronics Store", Amount: 150000, Category: "Electronics", Notes: "Samsung TV"`                                                           | - **Origin**: Imported<br>- **Tariff (10%)**: `150000 * (10 / (100+10+18)) * 1` = ~11,718 LKR<br>- **VAT (18%)**: `(Base + Tariff) * 0.18` = ~23,200 LKR<br>- **Shop Fee**: ~115,082 LKR                                                                                                                    |
+| **TC-FUNC-003**  | **Fuel with Excise Duty**                                 | 1. Create a new expense: `Source: "Ceypetco", Amount: 5000, Category: "Fuel"`                                                                                                   | - **Origin**: Local<br>- **Tariff**: 0<br>- **Excise (20%)**: `5000 * (20 / (100+20+18))` = ~725 LKR<br>- **VAT (18%)**: `(Base + Excise) * 0.18` = ~773 LKR<br>- **Shop Fee**: ~3,502 LKR                                                                                                               |
+| **TC-FUNC-004**  | **Rideshare with Distance**                               | 1. Create a new expense: `Source: "Uber", Amount: 850, Category: "Transport", Notes: "Trip to office, 15km"`                                                                   | - **Logic**: AI must use the 15km distance.<br>- **Fuel Cost**: `(15km / 12kmpl) * 370 LKR/L` = 462.50 LKR<br>- **Fuel Excise**: `462.50 * (20/120)` = 77.08 LKR<br>- **Ride Company Fee**: `850 - 462.50` = 387.50 LKR<br>- **Final Breakdown**: `shopFee`=387.50, `otherTaxes`=77.08, `vat`=0, `tariff`=0 |
+| **TC-FUNC-005**  | **Transaction with Multiple Line Items**                  | 1. Create a single expense with `items`: <br> - Item 1: `description: "Imported Chocolate", amount: 1000` <br> - Item 2: `description: "Local Rice Packet", amount: 500`         | The expanded view must show two separate item breakdowns. "Imported Chocolate" should have a tariff, "Local Rice Packet" should not. Taxes for each should be calculated independently.                                                                                                                           |
+| **TC-FUNC-006**  | **Income Transaction**                                    | 1. Create a new income transaction. 2. Run analysis.                                                                                                                          | The income transaction should be correctly skipped and not appear in the analysis results table.                                                                                                                                                                                                               |
+
+### 3.3. Edge Case Testing
+
+| Test Case ID      | Test Scenario                             | Steps                                                                                                 | Expected Result                                                                                                                                      |
+| :---------------- | :---------------------------------------- | :---------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **TC-EDGE-001**   | No Transactions to Analyze                | 1. Ensure user has no expense transactions. 2. Run analysis.                                          | The UI should display a "No new transactions required analysis" message. No error should occur.                                                      |
+| **TC-EDGE-002**   | Ambiguous Item Description                | 1. Create an expense: `Source: "Corner Shop", Amount: 200, Notes: "Snacks"`                               | The AI should default to `Origin: Local` and apply only VAT. The system should not crash.                                                          |
+| **TC-EDGE-003**   | Zero/Negative Amount Transaction          | 1. Create an expense with amount `0` or `-50`.                                                        | The AI should ignore these transactions as they are not valid expenses for tax calculation. They should not appear in the analysis results.              |
+| **TC-EDGE-004**   | Premium Feature Limit (Free Tier)         | 1. As a free-tier user, use up the monthly analysis credits. 2. Click "Run AI Analysis" again.          | The button should be disabled. A tooltip or message should clearly state that the limit has been reached and prompt the user to upgrade.                 |
+| **TC-EDGE-005**   | Multiple Analysis Runs                    | 1. Run analysis. 2. Add 2 new expense transactions. 3. Run analysis again.                              | The results table should only show the 2 new transactions. Previously analyzed transactions should not be re-processed or displayed.                 |
+
+---
+
+This comprehensive test plan ensures that the AI Tax Analysis feature is reliable, accurate, and provides a seamless user experience.
