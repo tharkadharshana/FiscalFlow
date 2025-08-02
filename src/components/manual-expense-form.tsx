@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -112,9 +113,22 @@ export function ManualExpenseForm({ onFormSubmit, transactionToEdit, itemToConve
       form.reset({
         ...defaultValues,
         tripId: activeTrip?.id,
-      });
-    }
-  }, [transactionToEdit, itemToConvert, form, activeTrip]);
+    };
+};
+
+
+export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
+  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
+  
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: getInitialValues(transactionToEdit, itemToConvert, activeTrip),
+  });
+  
+  useEffect(() => {
+    form.reset(getInitialValues(transactionToEdit, itemToConvert, activeTrip));
+  }, [transactionToEdit, itemToConvert, activeTrip, form]);
+
 
   const selectedTripId = form.watch('tripId');
 
@@ -328,6 +342,7 @@ export function ManualExpenseForm({ onFormSubmit, transactionToEdit, itemToConve
                       field.onChange(value === 'none' ? undefined : value);
                       form.setValue('tripItemId', undefined);
                     }} 
+                    value={field.value ?? 'none'}
                     value={field.value ?? 'none'}
                   >
                     <FormControl>
