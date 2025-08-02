@@ -113,22 +113,9 @@ export function ManualExpenseForm({ onFormSubmit, transactionToEdit, itemToConve
       form.reset({
         ...defaultValues,
         tripId: activeTrip?.id,
-    };
-};
-
-
-export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert }: ManualEntryFormProps) {
-  const { addTransaction, updateTransaction, tripPlans = [], expenseCategories, isPremium, deductibleTransactionsCount, activeTrip } = useAppContext();
-  
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: getInitialValues(transactionToEdit, itemToConvert, activeTrip),
-  });
-  
-  useEffect(() => {
-    form.reset(getInitialValues(transactionToEdit, itemToConvert, activeTrip));
-  }, [transactionToEdit, itemToConvert, activeTrip, form]);
-
+      });
+    }
+  }, [transactionToEdit, itemToConvert, form, activeTrip]);
 
   const selectedTripId = form.watch('tripId');
 
@@ -342,7 +329,6 @@ export function ManualEntryForm({ onFormSubmit, transactionToEdit, itemToConvert
                       field.onChange(value === 'none' ? undefined : value);
                       form.setValue('tripItemId', undefined);
                     }} 
-                    value={field.value ?? 'none'}
                     value={field.value ?? 'none'}
                   >
                     <FormControl>
