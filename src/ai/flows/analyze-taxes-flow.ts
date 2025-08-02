@@ -9,6 +9,7 @@
 import { ai } from '@/ai/genkit';
 import { AnalyzeTaxesInputSchema, AnalyzeTaxesOutputSchema } from '@/types/schemas';
 import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/types/schemas';
+import { z } from 'zod';
 
 // Main Flow Definition
 export async function analyzeTaxes(
