@@ -13,11 +13,10 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
+import { useAppContext } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles, AlertCircle, ShoppingBasket, Info } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,28 +32,16 @@ import type { AnalyzeTaxesOutput, Transaction as AnalyzedTransaction } from '@/t
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/contexts/translation-context';
 
 export default function TaxPage() {
+    const { t } = useTranslation();
     const { userProfile, transactions, formatCurrency, isPremium, canRunTaxAnalysis, analyzeTaxesWithLimit } = useAppContext();
     const [analysisResult, setAnalysisResult] = useState<AnalyzeTaxesOutput | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisError, setAnalysisError] = useState<string | null>(null);
     const [taxDocument, setTaxDocument] = useState<string>('');
     const [isDocsOpen, setIsDocsOpen] = useState(false);
-
-    const taxData = useMemo(() => {
-        const taxRelatedTransactions = transactions.filter(t => t.isTaxDeductible).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        const taxableIncome = taxRelatedTransactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
-
-        const deductibleExpenses = taxRelatedTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
-
-        return { taxableIncome, deductibleExpenses, taxRelatedTransactions };
-    }, [transactions]);
     
     const handleAnalyzeTaxes = async () => {
         setIsAnalyzing(true);
@@ -94,7 +81,7 @@ export default function TaxPage() {
   return (
     <>
       <div className="flex flex-1 flex-col">
-        <Header title="Tax Center" />
+        <Header title={t('sidebar.tax')} />
         <main className="flex-1 space-y-6 p-4 md:p-6">
           <Tabs defaultValue="overview">
             <div className='flex justify-between items-center mb-4'>
@@ -106,9 +93,6 @@ export default function TaxPage() {
             </div>
             
             <TabsContent value="overview">
-                <div className="grid gap-6 md:grid-cols-3 mb-6">
-                    {/* Summary Cards */}
-                </div>
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -238,55 +222,59 @@ function AnalyzedTransactionsTable({ result }: { result: AnalyzeTaxesOutput }) {
     }
 
     return (
-        <Collapsible>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
-                        <TableHead>Transaction</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead className="text-right">Total Amount</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {result.analyzedTransactions.map(tx => (
-                        <Collapsible key={tx.id} asChild>
-                            <>
-                                <CollapsibleTrigger asChild>
-                                    <TableRow className="cursor-pointer hover:bg-muted/50">
-                                        <TableCell><ChevronDown className="h-4 w-4" /></TableCell>
-                                        <TableCell className="font-medium">{tx.source}</TableCell>
-                                        <TableCell><Badge variant="outline">{tx.category}</Badge></TableCell>
-                                        <TableCell className="text-right font-mono">{formatCurrency(tx.amount)}</TableCell>
-                                    </TableRow>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent asChild>
-                                    <tr className="bg-muted/50">
-                                        <td colSpan={4} className="p-0">
-                                            <div className="p-4">
-                                                <h4 className="font-semibold mb-2 ml-4">Itemized Tax Breakdown</h4>
-                                                <div className="space-y-2 pl-8">
-                                                    {tx.items?.map(item => (
-                                                        <div key={item.id} className="p-2 border rounded-md bg-background">
-                                                            <p className="font-semibold">{item.description}</p>
-                                                            <div className="grid grid-cols-2 gap-x-4 text-sm font-mono mt-1">
-                                                                <p>Shop Fee: <span className="float-right">{formatCurrency(item.taxDetails?.shopFee || 0)}</span></p>
-                                                                <p>VAT: <span className="float-right">{formatCurrency(item.taxDetails?.vat || 0)}</span></p>
-                                                                <p>Tariff: <span className="float-right">{formatCurrency(item.taxDetails?.tariff || 0)}</span></p>
-                                                                <p>Other: <span className="float-right">{formatCurrency(item.taxDetails?.otherTaxes || 0)}</span></p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </CollapsibleContent>
-                            </>
-                        </Collapsible>
-                    ))}
-                </TableBody>
-            </Table>
-        </Collapsible>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">Analysis complete. Found {result.analyzedTransactions.length} transactions to analyze. Click a row to expand.</p>
+          <Collapsible>
+              <Table>
+                  <TableHeader>
+                      <TableRow>
+                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead>Transaction</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead className="text-right">Total Amount</TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {result.analyzedTransactions.map(tx => (
+                          <Collapsible key={tx.id} asChild>
+                              <>
+                                  <CollapsibleTrigger asChild>
+                                      <TableRow className="cursor-pointer hover:bg-muted/50">
+                                          <TableCell><ChevronDown className="h-4 w-4" /></TableCell>
+                                          <TableCell className="font-medium">{tx.source}</TableCell>
+                                          <TableCell><Badge variant="outline">{tx.category}</Badge></TableCell>
+                                          <TableCell className="text-right font-mono">{formatCurrency(tx.amount)}</TableCell>
+                                      </TableRow>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent asChild>
+                                      <tr className="bg-muted/50">
+                                          <td colSpan={4} className="p-0">
+                                              <div className="p-4">
+                                                  <h4 className="font-semibold mb-2 ml-4">Itemized Tax Breakdown</h4>
+                                                  <div className="space-y-2 pl-8">
+                                                      {tx.items?.map(item => (
+                                                          <div key={item.id} className="p-2 border rounded-md bg-background">
+                                                              <p className="font-semibold">{item.description}</p>
+                                                              <div className="grid grid-cols-2 gap-x-4 text-sm font-mono mt-1">
+                                                                  <p>Shop Fee: <span className="float-right">{formatCurrency(item.taxDetails?.shopFee || 0)}</span></p>
+                                                                  <p>VAT: <span className="float-right">{formatCurrency(item.taxDetails?.vat || 0)}</span></p>
+                                                                  <p>Tariff: <span className="float-right">{formatCurrency(item.taxDetails?.tariff || 0)}</span></p>
+                                                                  <p>Other: <span className="float-right">{formatCurrency(item.taxDetails?.otherTaxes || 0)}</span></p>
+                                                              </div>
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                              </div>
+                                          </td>
+                                      </tr>
+                                  </CollapsibleContent>
+                              </>
+                          </Collapsible>
+                      ))}
+                  </TableBody>
+              </Table>
+          </Collapsible>
+        </div>
     );
 }
+

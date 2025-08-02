@@ -47,7 +47,7 @@ export interface Transaction {
   icon: React.ComponentType<{ className?: string }>;
   isRecurring?: boolean;
   isTaxDeductible?: boolean;
-  isTaxAnalyzed?: boolean; // New flag for the whole transaction
+  isTaxAnalyzed?: boolean;
   checklistId?: string | null;
   checklistItemId?: string | null;
   tripId?: string | null;

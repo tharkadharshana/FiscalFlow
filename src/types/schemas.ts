@@ -1,4 +1,5 @@
 
+
 // src/types/schemas.ts
 
 /**
@@ -41,24 +42,11 @@ export const TransactionSchema = z.object({
 });
 export type Transaction = z.infer<typeof TransactionSchema>;
 
-export const SimplifiedInvestmentSchema = z.object({
-  name: z.string(),
-  assetType: z.string(),
-  marketValue: z.number(),
-});
-export type SimplifiedInvestment = z.infer<typeof SimplifiedInvestmentSchema>;
-
-export const SimplifiedSavingsGoalSchema = z.object({
-  title: z.string(),
-  currentAmount: z.number(),
-});
-export type SimplifiedSavingsGoal = z.infer<typeof SimplifiedSavingsGoalSchema>;
-
-
 // --- Analyze Taxes Schemas ---
 export const AnalyzeTaxesInputSchema = z.object({
   transactions: z.array(TransactionSchema).describe("An array of transactions that have not been analyzed yet (isTaxAnalyzed is false or missing)."),
   countryCode: z.string().describe("The user's country code (e.g., LK for Sri Lanka). This is the primary context for determining tax rules."),
+  taxDocument: z.string().optional().describe("Optional custom tax rules provided by the user. The AI should prioritize these rules over its internal knowledge.")
 });
 export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
 
