@@ -413,34 +413,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Fetch tax rules based on user's country
     useEffect(() => {
         if (user && userProfile?.countryCode) {
-            
-            // Ensure default rules exist before trying to fetch anything
-            seedDefaultTaxRules().then(() => {
+            const fetchAndSetRules = async () => {
+                await seedDefaultTaxRules();
+                
                 const countryCode = userProfile.countryCode || 'LK';
                 const taxRulesRef = doc(db, 'taxRules', countryCode);
-                
-                const unsubscribe = onSnapshot(taxRulesRef, (docSnap) => {
+
+                const unsubscribe = onSnapshot(taxRulesRef, async (docSnap) => {
                     if (docSnap.exists()) {
                         setTaxRules(docSnap.data() as TaxSettings);
                     } else {
                         logger.warn(`No tax rules found for country ${countryCode}. Falling back to default (LK).`);
-                        // Fallback to LK rules if the selected country has no document
                         const defaultTaxRulesRef = doc(db, 'taxRules', 'LK');
-                        getDoc(defaultTaxRulesRef).then(fallbackSnap => {
+                        try {
+                            const fallbackSnap = await getDoc(defaultTaxRulesRef);
                             if (fallbackSnap.exists()) {
                                 setTaxRules(fallbackSnap.data() as TaxSettings);
                             } else {
                                 logger.error("Default tax rules (LK) not found after attempting to seed.");
                                 setTaxRules(null);
                             }
-                        });
+                        } catch (error) {
+                             logger.error("Error fetching fallback tax rules", error as Error);
+                             setTaxRules(null);
+                        }
                     }
                 }, (error) => {
                     logger.error(`Error fetching tax rules for ${countryCode}`, error);
+                    setTaxRules(null);
                 });
 
                 return () => unsubscribe();
-            });
+            };
+
+            fetchAndSetRules();
         }
     }, [user, userProfile?.countryCode]);
 
