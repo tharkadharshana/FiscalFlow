@@ -1,8 +1,17 @@
 
+// src/types/index.ts
+
 export interface TransactionItem {
   id: string;
   description: string;
   amount: number;
+  taxDetails?: {
+    tariff: number;
+    vat: number;
+    excise: number;
+    other: number;
+    totalTax: number;
+  }
 }
 
 export interface BudgetItem {
@@ -40,6 +49,7 @@ export interface Transaction {
   paymentMethod?: string;
   invoiceNumber?: string;
   isTaxDeductible?: boolean;
+  isTaxAnalyzed?: boolean;
   carbonFootprint?: number; // in kg CO2e
   checklistId?: string | null;
   checklistItemId?: string | null;
@@ -202,4 +212,38 @@ export interface CoinGeckoMarketData {
   market_cap_rank: number;
   price_change_percentage_24h: number;
   total_volume: number;
+}
+
+export interface TaxSettings {
+  countryCode: string;
+  vatRate: number;
+  palRate: number; // Port and Airport Levy
+  sslRate: number; // Social Security Contribution Levy
+  tariffs: {
+    food: number;
+    fuel: number;
+    vehicles: number;
+    clothing: number;
+    electronics: number;
+    medical: number;
+    other: number;
+  };
+  exciseDuties: {
+    fuelPerLiter: number; // For petrol/diesel
+    alcoholPerLiter: number;
+    tobaccoPerStick: number;
+  };
+  vehicleImport: {
+    cidRate: number;
+    luxuryTax: {
+      petrol: { threshold: number; rate: number };
+      hybrid: { threshold: number; rate: number };
+      electric: { threshold: number; rate: number };
+    };
+  };
+  incomeTaxBrackets: { limit: number; rate: number }[];
+  constants: {
+    avgFuelConsumptionPerKm: number;
+    defaultFuelPricePerLiter: number;
+  };
 }

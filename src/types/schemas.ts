@@ -9,8 +9,26 @@
 
 import { z } from 'zod';
 import { defaultCategories, defaultExpenseCategories } from '@/data/mock-data';
+import type { TaxSettings } from './index';
 
 // --- Transaction & Financial Data Schemas ---
+export const TaxDetailsSchema = z.object({
+  tariff: z.number().describe('The calculated customs tariff/duty for the item.'),
+  vat: z.number().describe('The calculated Value Added Tax for the item.'),
+  excise: z.number().describe('The calculated excise duty for the item.'),
+  other: z.number().describe('Any other taxes like Social Security Levy (SSL).'),
+  totalTax: z.number().describe('The sum of all indirect taxes for this item.'),
+});
+export type TaxDetails = z.infer<typeof TaxDetailsSchema>;
+
+export const TransactionItemSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  amount: z.number(),
+  taxDetails: TaxDetailsSchema.optional(),
+});
+export type TransactionItem = z.infer<typeof TransactionItemSchema>;
+
 export const TransactionSchema = z.object({
   id: z.string(),
   type: z.enum(['income', 'expense']),
@@ -18,6 +36,8 @@ export const TransactionSchema = z.object({
   category: z.string(),
   source: z.string(),
   date: z.string(),
+  isTaxAnalyzed: z.boolean().optional(),
+  items: z.array(TransactionItemSchema).optional(),
 });
 export type Transaction = z.infer<typeof TransactionSchema>;
 
@@ -36,25 +56,14 @@ export type SimplifiedSavingsGoal = z.infer<typeof SimplifiedSavingsGoalSchema>;
 
 
 // --- Analyze Taxes Schemas ---
-export const TaxLiabilitySchema = z.object({
-  taxType: z.string().describe('The official name of the tax, e.g., "Value Added Tax (VAT)", "Goods and Services Tax (GST)", "PAYE (Income Tax)", "Capital Gains Tax".'),
-  description: z.string().describe('A brief, helpful description of how the tax was calculated (e.g., "Calculated on total income based on 2025 brackets.").'),
-  amount: z.number().describe('The calculated tax amount. The AI must perform the calculation and return the final number.'),
-  sourceTransactionIds: z.array(z.string()).optional().describe('IDs of source transactions, if applicable.'),
-});
-export type TaxLiability = z.infer<typeof TaxLiabilitySchema>;
-
 export const AnalyzeTaxesInputSchema = z.object({
-  transactions: z.array(TransactionSchema),
-  investments: z.array(SimplifiedInvestmentSchema).optional().describe("A list of the user's current investment holdings."),
-  savingsGoals: z.array(SimplifiedSavingsGoalSchema).optional().describe("A list of the user's savings goals, which may generate interest income."),
-  countryCode: z.string().describe("The user's country code (e.g., US, LK, GB). This is the primary context for determining tax rules."),
-  taxDocument: z.string().optional().describe('User-provided text describing tax rules. This should be treated as the highest priority source of truth.'),
+  transactions: z.array(TransactionSchema).describe('The list of transactions to be analyzed.'),
+  taxRules: z.any().describe('A JSON object containing all the tax rules for the selected country.'),
 });
 export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
 
 export const AnalyzeTaxesOutputSchema = z.object({
-    liabilities: z.array(TaxLiabilitySchema),
+    analyzedTransactions: z.array(TransactionSchema),
 });
 export type AnalyzeTaxesOutput = z.infer<typeof AnalyzeTaxesOutputSchema>;
 
