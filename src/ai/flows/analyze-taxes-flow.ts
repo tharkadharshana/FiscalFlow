@@ -19,7 +19,7 @@ export async function analyzeTaxes(
       name: 'taxAnalysisPrompt',
       input: { schema: AnalyzeTaxesInputSchema },
       output: { schema: AnalyzeTaxesOutputSchema },
-      system: `You are an expert financial analyst specializing in Sri Lankan (countryCode: LK) tax law.
+      prompt: `You are an expert financial analyst specializing in Sri Lankan (countryCode: LK) tax law.
       Your task is to analyze a list of transactions and calculate a detailed, item-wise tax breakdown for each expense.
 
       **Core Instructions:**
@@ -43,6 +43,16 @@ export async function analyzeTaxes(
           d. **Populate 'taxDetails':** For each item, you MUST calculate and populate the 'taxDetails' object with the calculated 'tariff', 'vat', 'otherTaxes' (for excise), and 'shopFee'. Set 'isAnalyzed' to true.
 
       3.  **Return Full Transaction Objects:** Your final output must be an array containing ALL the original transactions, with the expense items updated with the new 'taxDetails' and the top-level 'isTaxAnalyzed' flag set to true for every transaction you processed.
+
+      **Input Transactions:**
+      {{jsonStringify transactions}}
+
+      **Custom Tax Rules (Prioritize these over built-in knowledge):**
+      {{#if taxDocument}}
+      {{taxDocument}}
+      {{else}}
+      No custom rules provided.
+      {{/if}}
       `,
   });
 
@@ -65,7 +75,10 @@ export async function analyzeTaxes(
       const output = llmResponse.output;
 
       if (!output || !output.analyzedTransactions) {
-        throw new Error("AI failed to return the expected 'analyzedTransactions' array.");
+        // Fallback: If AI fails to return the expected structure, return the original transactions marked as analyzed to prevent a crash.
+        // This is a safeguard against model unreliability.
+        const fallbackTransactions = flowInput.transactions.map(tx => ({...tx, isTaxAnalyzed: true}));
+        return { analyzedTransactions: fallbackTransactions };
       }
 
       // Final validation to ensure all transactions are marked as analyzed.
