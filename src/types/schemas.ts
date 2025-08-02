@@ -10,7 +10,46 @@
 
 import { z } from 'zod';
 import { defaultCategories, defaultExpenseCategories } from '@/data/mock-data';
-import type { TaxSettings } from './index';
+
+// --- Tax Settings Schemas ---
+export const TaxSettingsSchema = z.object({
+  countryCode: z.string(),
+  vatRate: z.coerce.number(),
+  palRate: z.coerce.number(),
+  sslRate: z.coerce.number(),
+  stampDutyRate: z.coerce.number(),
+  tariffs: z.object({
+    food: z.coerce.number(),
+    fuel: z.coerce.number(),
+    vehicles: z.coerce.number(),
+    clothing: z.coerce.number(),
+    electronics: z.coerce.number(),
+    medical: z.coerce.number(),
+    other: z.coerce.number(),
+  }),
+  exciseDuties: z.object({
+    fuelPerLiter: z.coerce.number(),
+    alcoholPerLiter: z.coerce.number(),
+    tobaccoPerStick: z.coerce.number(),
+  }),
+  vehicleImport: z.object({
+    cidRate: z.coerce.number(),
+    luxuryTax: z.object({
+      petrol: z.object({ threshold: z.coerce.number(), rate: z.coerce.number() }),
+      hybrid: z.object({ threshold: z.coerce.number(), rate: z.coerce.number() }),
+      electric: z.object({ threshold: z.coerce.number(), rate: z.coerce.number() }),
+    }),
+  }),
+  incomeTaxBrackets: z.array(z.object({
+    limit: z.coerce.number(),
+    rate: z.coerce.number(),
+  })),
+  constants: z.object({
+    avgFuelConsumptionPerKm: z.coerce.number(),
+    defaultFuelPricePerLiter: z.coerce.number(),
+  }),
+});
+export type TaxSettings = z.infer<typeof TaxSettingsSchema>;
 
 // --- Transaction & Financial Data Schemas ---
 export const TaxDetailsSchema = z.object({

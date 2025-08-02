@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Loader2, Trash2, Sparkles, Star, Mail } from 'lucide-react';
+import { Loader2, Trash2, Sparkles, Star, Mail, Shield } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { defaultExpenseCategories, defaultIncomeCategories } from '@/data/mock-data';
@@ -24,6 +24,7 @@ import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { countries } from '@/data/countries';
 import { GmailConnect } from '@/components/dashboard/settings/gmail-connect';
+import { TaxRuleEditor } from '@/components/dashboard/settings/tax-rule-editor';
 
 const settingsSchema = z.object({
   displayName: z.string().min(2, 'Display name must be at least 2 characters.'),
@@ -379,6 +380,18 @@ export default function SettingsPage() {
                 />
               </CardContent>
             </Card>
+
+            {isPremium && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Shield className="h-6 w-6 text-primary" /> Tax Rule Editor</CardTitle>
+                        <CardDescription>Advanced: Modify the tax logic used by the AI analysis engine. Changes here affect all tax calculations.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <TaxRuleEditor />
+                    </CardContent>
+                </Card>
+            )}
 
             {CustomCategoryUI}
 

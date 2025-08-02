@@ -1,5 +1,11 @@
 
+
 // src/types/index.ts
+
+import type { TaxSettingsSchema } from './schemas';
+import type { z } from 'zod';
+
+export type TaxSettings = z.infer<typeof TaxSettingsSchema>;
 
 export interface TransactionItem {
   id: string;
@@ -213,39 +219,4 @@ export interface CoinGeckoMarketData {
   market_cap_rank: number;
   price_change_percentage_24h: number;
   total_volume: number;
-}
-
-export interface TaxSettings {
-  countryCode: string;
-  vatRate: number;
-  palRate: number; // Port and Airport Levy
-  sslRate: number; // Social Security Contribution Levy
-  stampDutyRate: number; // For leases, etc.
-  tariffs: {
-    food: number;
-    fuel: number;
-    vehicles: number;
-    clothing: number;
-    electronics: number;
-    medical: number;
-    other: number;
-  };
-  exciseDuties: {
-    fuelPerLiter: number; // For petrol/diesel
-    alcoholPerLiter: number;
-    tobaccoPerStick: number;
-  };
-  vehicleImport: {
-    cidRate: number;
-    luxuryTax: {
-      petrol: { threshold: number; rate: number };
-      hybrid: { threshold: number; rate: number };
-      electric: { threshold: number; rate: number };
-    };
-  };
-  incomeTaxBrackets: { limit: number; rate: number }[];
-  constants: {
-    avgFuelConsumptionPerKm: number;
-    defaultFuelPricePerLiter: number;
-  };
 }
