@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -30,10 +31,10 @@ export function TaxRuleEditor() {
     });
 
     useEffect(() => {
-        if (taxRules && taxRules.countryCode === selectedCountry) {
+        if (taxRules) {
             form.reset(taxRules);
         }
-    }, [taxRules, selectedCountry, form]);
+    }, [taxRules, form]);
 
     const onSubmit = async (data: TaxSettings) => {
         await updateTaxRules(selectedCountry, data);
