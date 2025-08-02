@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -15,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles, AlertCircle } from 'lucide-react';
+import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles, AlertCircle, ShoppingBasket } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +27,9 @@ import { VehicleImportCalculator } from '@/components/dashboard/tax/vehicle-impo
 import { IncomeTaxCalculator } from '@/components/dashboard/tax/income-tax-calculator';
 import { VatCalculator } from '@/components/dashboard/tax/vat-calculator';
 import { StampDutyCalculator } from '@/components/dashboard/tax/stamp-duty-calculator';
-import type { AnalyzeTaxesOutput } from '@/ai/flows/analyze-taxes-flow';
+import { CostBreakdownCalculator } from '@/components/dashboard/tax/cost-breakdown-calculator';
+import type { AnalyzeTaxesOutput } from '@/types/schemas';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { UpgradeCard } from '@/components/ui/upgrade-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function TaxPage() {
@@ -73,6 +72,8 @@ export default function TaxPage() {
                 date: t.date,
             })),
             taxDocument: taxDocument,
+            investments: [], // Pass empty arrays for now
+            savingsGoals: []
         });
         
         if (result && 'error' in result) {
@@ -160,7 +161,7 @@ export default function TaxPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {analysisResult.liabilities?.length > 0 ? (
-                                        analysisResult.liabilities.map((liability: any, index: number) => (
+                                        analysisResult.liabilities.map((liability, index) => (
                                             <TableRow key={index}>
                                                 <TableCell className="font-medium">{liability.taxType}</TableCell>
                                                 <TableCell>{liability.description}</TableCell>
@@ -279,11 +280,12 @@ export default function TaxPage() {
                             </Alert>
                         )}
                        <Tabs defaultValue="income" className="w-full">
-                           <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+                           <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 h-auto">
                                <TabsTrigger value="income"><Wallet className="mr-2 h-4 w-4" />Income Tax</TabsTrigger>
                                <TabsTrigger value="vehicle"><Car className="mr-2 h-4 w-4" />Vehicle Import</TabsTrigger>
                                <TabsTrigger value="vat"><Percent className="mr-2 h-4 w-4" />VAT</TabsTrigger>
                                <TabsTrigger value="stamp"><Landmark className="mr-2 h-4 w-4" />Stamp Duty</TabsTrigger>
+                               <TabsTrigger value="breakdown"><ShoppingBasket className="mr-2 h-4 w-4" />Cost Breakdown</TabsTrigger>
                            </TabsList>
                            <TabsContent value="income" className="pt-6">
                                 <IncomeTaxCalculator />
@@ -296,6 +298,9 @@ export default function TaxPage() {
                            </TabsContent>
                            <TabsContent value="stamp" className="pt-6">
                                 <StampDutyCalculator />
+                           </TabsContent>
+                           <TabsContent value="breakdown" className="pt-6">
+                                <CostBreakdownCalculator />
                            </TabsContent>
                        </Tabs>
                     </CardContent>
