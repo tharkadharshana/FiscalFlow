@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -14,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles, AlertCircle, ShoppingBasket } from 'lucide-react';
+import { FileDown, Calculator, FileText, Car, Percent, Landmark, Wallet, Loader2, ChevronDown, BookOpen, Sparkles, AlertCircle, ShoppingBasket, Info } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +29,10 @@ import { IncomeTaxCalculator } from '@/components/dashboard/tax/income-tax-calcu
 import { VatCalculator } from '@/components/dashboard/tax/vat-calculator';
 import { StampDutyCalculator } from '@/components/dashboard/tax/stamp-duty-calculator';
 import { CostBreakdownCalculator } from '@/components/dashboard/tax/cost-breakdown-calculator';
-import type { AnalyzeTaxesOutput } from '@/types/schemas';
+import type { AnalyzeTaxesOutput, Transaction as AnalyzedTransaction } from '@/types/schemas';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 export default function TaxPage() {
     const { userProfile, transactions, formatCurrency, isPremium, canRunTaxAnalysis, analyzeTaxesWithLimit } = useAppContext();
@@ -51,10 +53,7 @@ export default function TaxPage() {
             .filter(t => t.type === 'expense')
             .reduce((sum, t) => sum + t.amount, 0);
 
-        // Placeholder for tax calculation logic
-        const estimatedTaxLiability = (taxableIncome - deductibleExpenses) * 0.15; // Simplified 15% rate
-
-        return { taxableIncome, deductibleExpenses, taxRelatedTransactions, estimatedTaxLiability: Math.max(0, estimatedTaxLiability) };
+        return { taxableIncome, deductibleExpenses, taxRelatedTransactions };
     }, [transactions]);
     
     const handleAnalyzeTaxes = async () => {
@@ -63,30 +62,32 @@ export default function TaxPage() {
         setAnalysisError(null);
 
         const result = await analyzeTaxesWithLimit({
-            transactions: transactions.map(t => ({
+            transactions: transactions.filter(t => !t.isTaxAnalyzed).map(t => ({ // Only send un-analyzed transactions
                 id: t.id,
                 type: t.type,
                 amount: t.amount,
                 category: t.category,
                 source: t.source,
                 date: t.date,
+                items: t.items || [{id: t.id, description: t.notes || t.source, amount: t.amount }],
+                notes: t.notes,
             })),
             taxDocument: taxDocument,
-            investments: [], // Pass empty arrays for now
-            savingsGoals: []
         });
         
         if (result && 'error' in result) {
             setAnalysisError(result.error);
         } else if (result) {
             setAnalysisResult(result);
+            // Here you would typically update the transactions in your main state
+            // For now, we just display the result.
         }
         setIsAnalyzing(false);
     }
 
   const RunAnalysisButton = (
     <Button onClick={handleAnalyzeTaxes} disabled={isAnalyzing || !canRunTaxAnalysis}>
-        {isAnalyzing ? 'Analyzing...' : 'Run AI Analysis'}
+        {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing...</> : 'Run AI Analysis'}
     </Button>
   );
 
@@ -98,7 +99,7 @@ export default function TaxPage() {
           <Tabs defaultValue="overview">
             <div className='flex justify-between items-center mb-4'>
                 <TabsList className="grid grid-cols-2 h-auto">
-                    <TabsTrigger value="overview"><FileText className="mr-2 h-4 w-4"/>Overview & Reports</TabsTrigger>
+                    <TabsTrigger value="overview"><FileText className="mr-2 h-4 w-4"/>Overview & AI Analysis</TabsTrigger>
                     <TabsTrigger value="calculators"><Calculator className="mr-2 h-4 w-4"/>Calculators</TabsTrigger>
                 </TabsList>
                 <Button variant="outline" disabled={!isPremium}><FileDown className="mr-2 h-4 w-4"/>Export Tax Report</Button>
@@ -106,33 +107,7 @@ export default function TaxPage() {
             
             <TabsContent value="overview">
                 <div className="grid gap-6 md:grid-cols-3 mb-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Taxable Income</CardTitle>
-                            <CardDescription>Total income marked as taxable.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{formatCurrency(taxData.taxableIncome)}</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Deductible Expenses</CardTitle>
-                            <CardDescription>Total expenses marked as deductible.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{formatCurrency(taxData.deductibleExpenses)}</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Flagged Transactions</CardTitle>
-                            <CardDescription>Count of manually flagged items.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{taxData.taxRelatedTransactions.length}</p>
-                        </CardContent>
-                    </Card>
+                    {/* Summary Cards */}
                 </div>
                 <Card>
                     <CardHeader>
@@ -141,7 +116,7 @@ export default function TaxPage() {
                             {!isPremium && <Sparkles className="h-5 w-5 text-amber-500" />}
                         </CardTitle>
                         <CardDescription>
-                            Automatically detect potential tax liabilities based on your transaction history and selected country.
+                            Automatically detect and break down indirect taxes on your expense transactions based on your country's regulations.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -151,30 +126,7 @@ export default function TaxPage() {
                                 <p className="ml-4 text-muted-foreground">AI is analyzing your transactions...</p>
                             </div>
                         ) : analysisResult ? (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tax Type</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead className="text-right">Estimated Amount</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {analysisResult.liabilities?.length > 0 ? (
-                                        analysisResult.liabilities.map((liability, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">{liability.taxType}</TableCell>
-                                                <TableCell>{liability.description}</TableCell>
-                                                <TableCell className="text-right font-mono">{formatCurrency(liability.amount)}</TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="text-center h-24">No tax liabilities detected.</TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                            <AnalyzedTransactionsTable result={analysisResult} />
                         ) : analysisError ? (
                             <Alert variant="destructive">
                                 <AlertTitle>Analysis Failed</AlertTitle>
@@ -182,7 +134,7 @@ export default function TaxPage() {
                             </Alert>
                         ) : (
                             <div className="text-center text-muted-foreground py-10">
-                                <p>Click the button below to start the analysis.</p>
+                                <p>Click the button below to start the item-wise tax analysis.</p>
                             </div>
                         )}
                     </CardContent>
@@ -218,46 +170,6 @@ export default function TaxPage() {
                             </TooltipProvider>
                         )}
                     </CardFooter>
-                </Card>
-                <Card className="mt-6">
-                    <CardHeader>
-                        <CardTitle>Manually Flagged Transactions</CardTitle>
-                        <CardDescription>
-                            This table shows all income and expenses you've manually flagged as tax-related. Free users can flag up to {FREE_TIER_LIMITS.taxDeductibleFlags} items.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Source/Vendor</TableHead>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {taxData.taxRelatedTransactions.length > 0 ? (
-                                    taxData.taxRelatedTransactions.map(t => (
-                                        <TableRow key={t.id}>
-                                            <TableCell>{format(parseISO(t.date), 'MMM d, yyyy')}</TableCell>
-                                            <TableCell className="font-medium">{t.source}</TableCell>
-                                            <TableCell><Badge variant="outline">{t.category}</Badge></TableCell>
-                                            <TableCell>
-                                                <Badge variant={t.type === 'income' ? 'secondary' : 'default'} className={t.type === 'income' ? 'bg-green-100 text-green-700' : ''}>{t.type}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(t.amount)}</TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="text-center h-24">No tax-related transactions recorded.</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
                 </Card>
             </TabsContent>
 
@@ -311,4 +223,70 @@ export default function TaxPage() {
       </div>
     </>
   );
+}
+
+function AnalyzedTransactionsTable({ result }: { result: AnalyzeTaxesOutput }) {
+    const { formatCurrency } = useAppContext();
+
+    if (!result.analyzedTransactions || result.analyzedTransactions.length === 0) {
+        return (
+            <div className="text-center text-muted-foreground py-10">
+                <Info className="mx-auto h-8 w-8 mb-2"/>
+                <p>No new transactions required analysis.</p>
+            </div>
+        )
+    }
+
+    return (
+        <Collapsible>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead>Transaction</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Total Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {result.analyzedTransactions.map(tx => (
+                        <Collapsible key={tx.id} asChild>
+                            <>
+                                <CollapsibleTrigger asChild>
+                                    <TableRow className="cursor-pointer hover:bg-muted/50">
+                                        <TableCell><ChevronDown className="h-4 w-4" /></TableCell>
+                                        <TableCell className="font-medium">{tx.source}</TableCell>
+                                        <TableCell><Badge variant="outline">{tx.category}</Badge></TableCell>
+                                        <TableCell className="text-right font-mono">{formatCurrency(tx.amount)}</TableCell>
+                                    </TableRow>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent asChild>
+                                    <tr className="bg-muted/50">
+                                        <td colSpan={4} className="p-0">
+                                            <div className="p-4">
+                                                <h4 className="font-semibold mb-2 ml-4">Itemized Tax Breakdown</h4>
+                                                <div className="space-y-2 pl-8">
+                                                    {tx.items?.map(item => (
+                                                        <div key={item.id} className="p-2 border rounded-md bg-background">
+                                                            <p className="font-semibold">{item.description}</p>
+                                                            <div className="grid grid-cols-2 gap-x-4 text-sm font-mono mt-1">
+                                                                <p>Shop Fee: <span className="float-right">{formatCurrency(item.taxDetails?.shopFee || 0)}</span></p>
+                                                                <p>VAT: <span className="float-right">{formatCurrency(item.taxDetails?.vat || 0)}</span></p>
+                                                                <p>Tariff: <span className="float-right">{formatCurrency(item.taxDetails?.tariff || 0)}</span></p>
+                                                                <p>Other: <span className="float-right">{formatCurrency(item.taxDetails?.otherTaxes || 0)}</span></p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </CollapsibleContent>
+                            </>
+                        </Collapsible>
+                    ))}
+                </TableBody>
+            </Table>
+        </Collapsible>
+    );
 }

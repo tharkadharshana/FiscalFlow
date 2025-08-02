@@ -109,7 +109,7 @@ interface AppContextType {
   upgradeToPremium: (plan: 'monthly' | 'yearly') => Promise<void>;
   downgradeFromPremium: () => Promise<void>;
   canRunTaxAnalysis: boolean;
-  analyzeTaxesWithLimit: (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'investments' | 'savingsGoals'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
+  analyzeTaxesWithLimit: (input: Omit<AnalyzeTaxesInput, 'countryCode'>) => Promise<AnalyzeTaxesOutput | { error: string } | undefined>;
   canGenerateReport: boolean;
   generateReportWithLimit: () => Promise<boolean>;
   canGenerateInsights: boolean;
@@ -956,7 +956,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
     }
   }
 
-  const analyzeTaxesWithLimit = async (input: Omit<AnalyzeTaxesInput, 'countryCode' | 'investments' | 'savingsGoals'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
+  const analyzeTaxesWithLimit = async (input: Omit<AnalyzeTaxesInput, 'countryCode'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
     if (!user || !userProfile || !userProfile.countryCode) { 
       const errorMsg = 'Country code is not set in user profile.';
       showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
@@ -970,9 +970,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
 
     const fullInput: AnalyzeTaxesInput = {
       ...input,
-      countryCode: userProfile.countryCode,
-      investments: investments.map(i => ({ name: i.name, assetType: i.assetType, marketValue: i.quantity * i.currentPrice })),
-      savingsGoals: savingsGoals.map(s => ({ title: s.title, currentAmount: s.currentAmount })),
+      countryCode: userProfile.countryCode
     };
     const result = await analyzeTaxesAction(fullInput);
 
@@ -1184,4 +1182,5 @@ export function useAppContext() {
   }
   return context;
 }
+
 
