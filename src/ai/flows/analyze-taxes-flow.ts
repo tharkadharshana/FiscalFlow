@@ -7,8 +7,16 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { AnalyzeTaxesInputSchema, AnalyzeTaxesOutputSchema } from '@/types/schemas';
-import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, TransactionItem } from '@/types/schemas';
+import { AnalyzeTaxesInputSchema, AnalyzeTaxesOutputSchema, TransactionSchema } from '@/types/schemas';
+import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/types/schemas';
+import { z } from 'zod';
+
+// Define the schema for the data being passed *into the prompt itself*.
+// It's different from the overall flow's input schema.
+const PromptInputSchema = z.object({
+  transactionsJson: z.string().describe("A JSON string representing the array of transactions to be analyzed."),
+  taxDocument: z.string().optional().describe("Optional custom tax rules provided by the user. The AI should prioritize these rules over its internal knowledge.")
+});
 
 // Main Flow Definition
 export async function analyzeTaxes(
@@ -17,7 +25,7 @@ export async function analyzeTaxes(
   
   const taxAnalysisPrompt = ai.definePrompt({
       name: 'taxAnalysisPrompt',
-      input: { schema: AnalyzeTaxesInputSchema },
+      input: { schema: PromptInputSchema },
       output: { schema: AnalyzeTaxesOutputSchema },
       prompt: `You are an expert financial analyst specializing in Sri Lankan (countryCode: LK) tax law.
       Your task is to analyze a list of transactions and calculate a detailed, item-wise tax breakdown for each expense.
@@ -44,8 +52,8 @@ export async function analyzeTaxes(
 
       3.  **Return Full Transaction Objects:** Your final output must be an array containing ALL the original transactions, with the expense items updated with the new 'taxDetails' and the top-level 'isTaxAnalyzed' flag set to true for every transaction you processed.
 
-      **Input Transactions:**
-      {{jsonStringify transactions}}
+      **Input Transactions (JSON String):**
+      {{{transactionsJson}}}
 
       **Custom Tax Rules (Prioritize these over built-in knowledge):**
       {{#if taxDocument}}
@@ -69,8 +77,14 @@ export async function analyzeTaxes(
       if (!flowInput.transactions || flowInput.transactions.length === 0) {
         return { analyzedTransactions: [] };
       }
+      
+      // Manually stringify the transactions before passing them to the prompt.
+      const transactionsJson = JSON.stringify(flowInput.transactions);
 
-      const llmResponse = await taxAnalysisPrompt(flowInput);
+      const llmResponse = await taxAnalysisPrompt({
+        transactionsJson,
+        taxDocument: flowInput.taxDocument,
+      });
       
       const output = llmResponse.output;
 
