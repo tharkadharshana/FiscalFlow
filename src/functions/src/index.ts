@@ -1,3 +1,4 @@
+
 //
 // File: functions/src/index.ts
 //
@@ -83,31 +84,39 @@ export const updateBudgetOnTransactionChange = functions.firestore
     const transactionBefore = change.before.exists ? change.before.data() : null;
     const transactionAfter = change.after.exists ? change.after.data() : null;
     
-    // If new transaction is linked to a trip, do not update monthly budget.
-    // If old transaction was linked, it's already been handled, so we can exit.
-    if (transactionAfter?.tripId || transactionBefore?.tripId) {
-        functions.logger.info(`Transaction ${context.params.transactionId} is linked to a trip. Skipping monthly budget update.`);
-        return null;
-    }
+    // If a new transaction is linked to a trip, do not update monthly budget.
+    // Also, if the transaction was updated to be linked to a trip, we need to revert its previous contribution.
+    const beforeIsTrip = transactionBefore?.tripId;
+    const afterIsTrip = transactionAfter?.tripId;
 
-    // Step 1: Revert the old transaction amount if it was an expense
-    if (transactionBefore && transactionBefore.type === 'expense') {
-        const amountBefore = transactionBefore.amount;
-        const categoryBefore = transactionBefore.category;
-        const dateBefore = (transactionBefore.date as Timestamp).toDate();
-        const monthBefore = dateBefore.toISOString().slice(0, 7);
-        await updateBudget(userId, categoryBefore, -amountBefore, monthBefore);
+    // Case 1: Transaction created
+    if (!transactionAfter?.isRecurring && !afterIsTrip && transactionAfter?.type === 'expense') {
+        const date = (transactionAfter.date as Timestamp).toDate();
+        const month = date.toISOString().slice(0, 7);
+        await updateBudget(userId, transactionAfter.category, transactionAfter.amount, month);
+    } 
+    // Case 2: Transaction deleted
+    else if (!beforeIsTrip && transactionBefore?.type === 'expense') {
+        const date = (transactionBefore.date as Timestamp).toDate();
+        const month = date.toISOString().slice(0, 7);
+        await updateBudget(userId, transactionBefore.category, -transactionBefore.amount, month);
     }
-
-    // Step 2: Apply the new transaction amount if it is an expense
-    if (transactionAfter && transactionAfter.type === 'expense') {
-        const amountAfter = transactionAfter.amount;
-        const categoryAfter = transactionAfter.category;
-        const dateAfter = (transactionAfter.date as Timestamp).toDate();
-        const monthAfter = dateAfter.toISOString().slice(0, 7);
-        await updateBudget(userId, categoryAfter, amountAfter, monthAfter);
+    // Case 3: Transaction updated
+    else if (transactionBefore && transactionAfter) {
+        // Revert old transaction's impact if it was a non-trip expense
+        if (transactionBefore.type === 'expense' && !beforeIsTrip) {
+            const oldDate = (transactionBefore.date as Timestamp).toDate();
+            const oldMonth = oldDate.toISOString().slice(0, 7);
+            await updateBudget(userId, transactionBefore.category, -transactionBefore.amount, oldMonth);
+        }
+        // Add new transaction's impact if it is now a non-trip expense
+        if (transactionAfter.type === 'expense' && !afterIsTrip) {
+            const newDate = (transactionAfter.date as Timestamp).toDate();
+            const newMonth = newDate.toISOString().slice(0, 7);
+            await updateBudget(userId, transactionAfter.category, transactionAfter.amount, newMonth);
+        }
     }
-
+    
     return null;
   });
 

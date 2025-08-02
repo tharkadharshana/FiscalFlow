@@ -444,7 +444,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const { date, ...restOfTransaction } = transaction;
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         
-        // Sanitize the object to remove undefined values
+        // Sanitize the object to remove undefined values, converting them to null
         const sanitizedTransactionData = Object.fromEntries(
             Object.entries({
                 ...restOfTransaction,
@@ -1182,6 +1182,3 @@ export function useAppContext() {
   }
   return context;
 }
-
-
-

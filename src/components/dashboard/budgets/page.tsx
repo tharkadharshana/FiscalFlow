@@ -15,9 +15,9 @@ import { useAppContext, FREE_TIER_LIMITS } from '@/contexts/app-context';
 import { PlusCircle, DraftingCompass, Sparkles } from 'lucide-react';
 import { MonthlyBudgets } from '@/components/dashboard/monthly-budgets';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CreatePlanDialog } from '@/components/dashboard/create-plan-dialog';
-import type { FinancialPlan, Budget } from '@/types';
-import { FinancialPlanCard } from '@/components/dashboard/financial-plan-card';
+import { CreateTripPlanDialog } from '@/components/dashboard/create-trip-plan-dialog';
+import type { TripPlan, Budget } from '@/types';
+import { TripPlanCard } from '@/components/dashboard/trip-plan-card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,38 +31,46 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BudgetDetailsDialog } from '@/components/dashboard/budget-details-dialog';
 import { AddBudgetDialog } from '@/components/dashboard/add-budget-dialog';
+import { AllocationPieChart } from '@/components/dashboard/allocation-pie-chart';
+import { TripReportDialog } from '@/components/dashboard/trip-report-dialog';
 
 export default function BudgetsPage() {
-  const { financialPlans, deleteFinancialPlan, isPremium, budgets, deleteBudget } = useAppContext();
+  const { tripPlans, deleteTripPlan, restartTrip, isPremium, budgets, deleteBudget } = useAppContext();
   
   // Dialog states
   const [isAddBudgetDialogOpen, setIsAddBudgetDialogOpen] = useState(false);
   const [isCreatePlanDialogOpen, setIsCreatePlanDialogOpen] = useState(false);
   const [isBudgetDetailsOpen, setIsBudgetDetailsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isTripReportOpen, setIsTripReportOpen] = useState(false);
   
   // Data for dialogs
-  const [planToEdit, setPlanToEdit] = useState<FinancialPlan | null>(null);
-  const [planToDelete, setPlanToDelete] = useState<FinancialPlan | null>(null);
+  const [planToEdit, setPlanToEdit] = useState<TripPlan | null>(null);
+  const [planToDelete, setPlanToDelete] = useState<TripPlan | null>(null);
   const [budgetToEdit, setBudgetToEdit] = useState<Budget | null>(null);
   const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
+  const [tripForReport, setTripForReport] = useState<TripPlan | null>(null);
 
 
   const canAddBudget = isPremium || budgets.length < FREE_TIER_LIMITS.budgets;
-  const canAddPlan = isPremium || financialPlans.length < FREE_TIER_LIMITS.financialPlans;
+  const canAddPlan = isPremium || (tripPlans && tripPlans.length < FREE_TIER_LIMITS.financialPlans);
 
   // Plan handlers
-  const handleEditPlan = (plan: FinancialPlan) => {
+  const handleEditPlan = (plan: TripPlan) => {
     setPlanToEdit(plan);
     setIsCreatePlanDialogOpen(true);
   };
   
-  const handleDeletePlan = (plan: FinancialPlan) => {
+  const handleDeletePlan = (plan: TripPlan) => {
     setPlanToDelete(plan);
     setBudgetToDelete(null);
     setIsDeleteDialogOpen(true);
   };
+  
+  const handleRestartTrip = (planId: string) => {
+    restartTrip(planId);
+  }
 
   const handlePlanDialogClose = (open: boolean) => {
     if (!open) {
@@ -70,6 +78,11 @@ export default function BudgetsPage() {
     }
     setIsCreatePlanDialogOpen(open);
   }
+
+  const handleViewTripReport = (trip: TripPlan) => {
+    setTripForReport(trip);
+    setIsTripReportOpen(true);
+  };
 
   // Budget handlers
   const handleAddBudget = () => {
@@ -102,7 +115,7 @@ export default function BudgetsPage() {
 
   const confirmDelete = async () => {
     if (planToDelete) {
-      await deleteFinancialPlan(planToDelete.id);
+      await deleteTripPlan(planToDelete.id);
     }
     if (budgetToDelete) {
       await deleteBudget(budgetToDelete.id);
@@ -122,65 +135,72 @@ export default function BudgetsPage() {
   const CreatePlanButton = (
      <Button onClick={() => setIsCreatePlanDialogOpen(true)} disabled={!canAddPlan}>
         <PlusCircle className="mr-2 h-4 w-4" />
-        Create Plan
+        Create Trip Plan
       </Button>
   );
 
   return (
     <>
       <div className="flex flex-1 flex-col">
-        <Header title="Budgets & Plans" />
+        <Header title="Budgets & Trips" />
         <main className="flex-1 space-y-6 p-4 md:p-6">
           <Tabs defaultValue="monthly">
             <div className='flex justify-between items-center mb-4'>
                 <TabsList>
                     <TabsTrigger value="monthly">Monthly Budgets</TabsTrigger>
                     <TabsTrigger value="plans">
-                      Financial Plans
+                      Trip Plans
                       {!isPremium && <Sparkles className="ml-2 h-4 w-4 text-amber-500" />}
                     </TabsTrigger>
                 </TabsList>
             </div>
             
             <TabsContent value="monthly">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Category Budgets</CardTitle>
-                    <CardDescription>
-                      Set and track your monthly spending limits for each category.
-                    </CardDescription>
+              <div className="grid gap-6 lg:grid-cols-3">
+                  <div className="lg:col-span-2 space-y-6">
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Category Budgets</CardTitle>
+                          <CardDescription>
+                            Set and track your monthly spending limits for each category.
+                          </CardDescription>
+                        </div>
+                        {canAddBudget ? (
+                          AddBudgetButton
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>{AddBudgetButton}</TooltipTrigger>
+                              <TooltipContent>
+                                <p>Upgrade to Premium for unlimited budgets.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                          <MonthlyBudgets 
+                            onEditBudget={handleEditBudget}
+                            onDeleteBudget={handleDeleteBudget}
+                            onShowDetails={handleShowBudgetDetails}
+                          />
+                      </CardContent>
+                    </Card>
                   </div>
-                  {canAddBudget ? (
-                    AddBudgetButton
-                  ) : (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>{AddBudgetButton}</TooltipTrigger>
-                        <TooltipContent>
-                          <p>Upgrade to Premium for unlimited budgets.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </CardHeader>
-                <CardContent>
-                    <MonthlyBudgets 
-                      onEditBudget={handleEditBudget}
-                      onDeleteBudget={handleDeleteBudget}
-                      onShowDetails={handleShowBudgetDetails}
-                    />
-                </CardContent>
-              </Card>
+                  <div className="lg:col-span-1">
+                      <AllocationPieChart />
+                  </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="plans">
               <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
                       <div>
-                          <CardTitle>Financial Plans</CardTitle>
+                          <CardTitle>Trip Plans</CardTitle>
                           <CardDescription>
-                              Plan for trips, savings goals, and large purchases with AI assistance.
+                              Plan for trips and large purchases with AI assistance.
                           </CardDescription>
                       </div>
                       {canAddPlan ? (
@@ -197,22 +217,24 @@ export default function BudgetsPage() {
                       )}
                   </CardHeader>
                   <CardContent>
-                      {financialPlans.length > 0 ? (
+                      {tripPlans && tripPlans.length > 0 ? (
                           <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                              {financialPlans.map((plan) => (
-                                  <FinancialPlanCard 
+                              {tripPlans.map((plan) => (
+                                  <TripPlanCard 
                                       key={plan.id} 
-                                      plan={plan} 
+                                      trip={plan} 
                                       onEdit={() => handleEditPlan(plan)}
                                       onDelete={() => handleDeletePlan(plan)}
+                                      onRestart={() => handleRestartTrip(plan.id)}
+                                      onViewReport={() => handleViewTripReport(plan)}
                                   />
                               ))}
                           </div>
                       ) : (
                           <div className="py-16 text-center text-muted-foreground flex flex-col items-center">
                               <DraftingCompass className="h-12 w-12 mb-4" />
-                              <p className="text-lg font-semibold">No financial plans created yet.</p>
-                              <p>Click "Create Plan" to plan your next big goal with AI.</p>
+                              <p className="text-lg font-semibold">No trip plans created yet.</p>
+                              <p>Click "Create Trip Plan" to plan your next adventure with AI.</p>
                           </div>
                       )}
                   </CardContent>
@@ -228,15 +250,16 @@ export default function BudgetsPage() {
         onOpenChange={handleBudgetDialogClose} 
         budgetToEdit={budgetToEdit}
       />
-      <CreatePlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} planToEdit={planToEdit} />
+      <CreateTripPlanDialog open={isCreatePlanDialogOpen} onOpenChange={handlePlanDialogClose} tripToEdit={planToEdit} />
       <BudgetDetailsDialog open={isBudgetDetailsOpen} onOpenChange={setIsBudgetDetailsOpen} budget={selectedBudget} />
+      <TripReportDialog open={isTripReportOpen} onOpenChange={setIsTripReportOpen} trip={tripForReport} />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your financial plan for "{planToDelete?.title || budgetToDelete?.category}".
+                This action cannot be undone. This will permanently delete your data for "{planToDelete?.title || budgetToDelete?.category}".
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
