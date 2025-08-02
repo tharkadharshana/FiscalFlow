@@ -88,6 +88,7 @@ export interface UserProfile {
   showOnboardingOnLogin?: boolean;
   activeTripId?: string | null;
   gmailConnected?: boolean;
+  taxSettings?: TaxSettings;
 }
 
 export interface ChecklistItem {
@@ -219,6 +220,7 @@ export interface TaxSettings {
   vatRate: number;
   palRate: number; // Port and Airport Levy
   sslRate: number; // Social Security Contribution Levy
+  stampDutyRate: number; // For leases, etc.
   tariffs: {
     food: number;
     fuel: number;

@@ -1,25 +1,28 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAppContext } from '@/contexts/app-context';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function StampDutyCalculator() {
+  const { formatCurrency, taxRules } = useAppContext();
   const [leaseAmount, setLeaseAmount] = useState<number | string>('');
 
-  const STAMP_DUTY_RATE = 0.02; // 2%
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR' }).format(value);
-  };
-
   const calculation = useMemo(() => {
+    if (!taxRules) return null;
     const amount = typeof leaseAmount === 'number' ? leaseAmount : 0;
     if (amount <= 0) return null;
-    const stampDuty = amount * STAMP_DUTY_RATE;
+    const stampDuty = amount * taxRules.stampDutyRate;
     return { stampDuty };
-  }, [leaseAmount]);
+  }, [leaseAmount, taxRules]);
+
+  if (!taxRules) {
+    return <Skeleton className="h-48 w-full" />;
+  }
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -47,7 +50,7 @@ export function StampDutyCalculator() {
                 </div>
                 <hr />
                 <div className="flex justify-between items-center font-bold text-xl text-primary">
-                  <span>Stamp Duty (2%):</span>
+                  <span>Stamp Duty ({taxRules.stampDutyRate * 100}%):</span>
                   <span>{formatCurrency(calculation.stampDuty)}</span>
                 </div>
               </div>

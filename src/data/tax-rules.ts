@@ -7,6 +7,7 @@ export const sriLankaTaxRules: TaxSettings = {
   vatRate: 0.18, // 18% as of latest changes
   palRate: 0.10, // 10% Port and Airport Levy
   sslRate: 0.025, // 2.5% Social Security Contribution Levy
+  stampDutyRate: 0.02, // 2% on applicable instruments
   tariffs: {
     food: 0.15, // Average tariff for imported food items
     fuel: 0.05, // Specific tariffs on fuel imports

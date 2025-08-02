@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -5,20 +6,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useAppContext } from '@/contexts/app-context';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function VatCalculator() {
+  const { formatCurrency, taxRules } = useAppContext();
   const [amount, setAmount] = useState<number | string>('');
   const [calcType, setCalcType] = useState<'add' | 'remove'>('add');
 
-  const VAT_RATE = 0.18; // 18%
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR' }).format(value);
-  };
-
   const calculation = useMemo(() => {
+    if (!taxRules) return null;
     const numAmount = typeof amount === 'number' ? amount : 0;
     if (numAmount <= 0) return null;
+    
+    const VAT_RATE = taxRules.vatRate;
 
     if (calcType === 'add') {
       const vatAmount = numAmount * VAT_RATE;
@@ -29,7 +30,11 @@ export function VatCalculator() {
       const vatAmount = numAmount - baseAmount;
       return { base: baseAmount, vat: vatAmount, total: numAmount };
     }
-  }, [amount, calcType]);
+  }, [amount, calcType, taxRules]);
+  
+  if (!taxRules) {
+    return <Skeleton className="h-48 w-full" />;
+  }
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -69,7 +74,7 @@ export function VatCalculator() {
                   <span>{formatCurrency(calculation.base)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">VAT (18%):</span>
+                  <span className="text-muted-foreground">VAT ({taxRules.vatRate * 100}%):</span>
                   <span>{formatCurrency(calculation.vat)}</span>
                 </div>
                 <hr />
