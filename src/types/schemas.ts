@@ -1,3 +1,4 @@
+
 // src/types/schemas.ts
 
 /**
@@ -10,6 +11,23 @@ import { z } from 'zod';
 import { defaultCategories, defaultExpenseCategories } from '@/data/mock-data';
 
 // --- Transaction & Financial Data Schemas ---
+export const TaxDetailsSchema = z.object({
+  tariff: z.number().describe('Calculated tariff/customs duty for the item.'),
+  vat: z.number().describe('Calculated Value Added Tax (VAT) for the item.'),
+  otherTaxes: z.number().describe('Any other applicable duties like Excise.'),
+  shopFee: z.number().describe('The remaining base price of the item after all taxes are subtracted. P - T - V.'),
+  isAnalyzed: z.boolean().describe('A flag to indicate the AI has processed this item.'),
+});
+export type TaxDetails = z.infer<typeof TaxDetailsSchema>;
+
+export const TransactionItemSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  amount: z.number(),
+  taxDetails: TaxDetailsSchema.optional(),
+});
+export type TransactionItem = z.infer<typeof TransactionItemSchema>;
+
 export const TransactionSchema = z.object({
   id: z.string(),
   type: z.enum(['income', 'expense']),
@@ -17,6 +35,9 @@ export const TransactionSchema = z.object({
   category: z.string(),
   source: z.string(),
   date: z.string(),
+  notes: z.string().optional(),
+  items: z.array(TransactionItemSchema).optional(),
+  isTaxAnalyzed: z.boolean().optional(),
 });
 export type Transaction = z.infer<typeof TransactionSchema>;
 
@@ -35,25 +56,14 @@ export type SimplifiedSavingsGoal = z.infer<typeof SimplifiedSavingsGoalSchema>;
 
 
 // --- Analyze Taxes Schemas ---
-export const TaxLiabilitySchema = z.object({
-  taxType: z.string().describe('The official name of the tax, e.g., "Value Added Tax (VAT)", "Goods and Services Tax (GST)", "PAYE (Income Tax)", "Capital Gains Tax".'),
-  description: z.string().describe('A brief, helpful description of how the tax was calculated (e.g., "Calculated on total income based on 2025 brackets.").'),
-  amount: z.number().describe('The calculated tax amount. The AI must perform the calculation and return the final number.'),
-  sourceTransactionIds: z.array(z.string()).optional().describe('IDs of source transactions, if applicable.'),
-});
-export type TaxLiability = z.infer<typeof TaxLiabilitySchema>;
-
 export const AnalyzeTaxesInputSchema = z.object({
-  transactions: z.array(TransactionSchema),
-  investments: z.array(SimplifiedInvestmentSchema).optional().describe("A list of the user's current investment holdings."),
-  savingsGoals: z.array(SimplifiedSavingsGoalSchema).optional().describe("A list of the user's savings goals, which may generate interest income."),
-  countryCode: z.string().describe("The user's country code (e.g., US, LK, GB). This is the primary context for determining tax rules."),
-  taxDocument: z.string().optional().describe('User-provided text describing tax rules. This should be treated as the highest priority source of truth.'),
+  transactions: z.array(TransactionSchema).describe("An array of transactions that have not been analyzed yet (isTaxAnalyzed is false or missing)."),
+  countryCode: z.string().describe("The user's country code (e.g., LK for Sri Lanka). This is the primary context for determining tax rules."),
 });
 export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
 
 export const AnalyzeTaxesOutputSchema = z.object({
-    liabilities: z.array(TaxLiabilitySchema),
+    analyzedTransactions: z.array(TransactionSchema).describe("The same array of transactions, but with the 'items.taxDetails' and 'isTaxAnalyzed' fields populated with the analysis results."),
 });
 export type AnalyzeTaxesOutput = z.infer<typeof AnalyzeTaxesOutputSchema>;
 
@@ -196,7 +206,7 @@ export const ParsedBillSchema = z.object({
     description: z.string().describe('The description of the item purchased.'),
     quantity: z.number().optional().describe('The quantity of the item.'),
     unitPrice: z.number().optional().describe('The price of a single unit of the item.'),
-    totalPrice: z.number().describe('The total price for this line item (quantity * unit price).'),
+    totalPrice: z.number().describe('The final price for this line item (quantity * unit price).'),
   })).optional().describe('An array of all line items from the receipt.'),
   subtotal: z.number().optional().describe('The total amount before taxes and discounts.'),
   taxes: z.array(z.object({

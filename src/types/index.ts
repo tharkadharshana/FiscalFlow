@@ -2,10 +2,19 @@
 
 import type { ParsedBill } from './schemas';
 
+export interface TaxDetails {
+  tariff: number;
+  vat: number;
+  otherTaxes: number;
+  shopFee: number;
+  isAnalyzed: boolean; // Flag to show this item has been processed by the tax AI
+}
+
 export interface TransactionItem {
   id: string;
   description: string;
   amount: number;
+  taxDetails?: TaxDetails;
 }
 
 export interface BudgetItem {
@@ -38,6 +47,7 @@ export interface Transaction {
   icon: React.ComponentType<{ className?: string }>;
   isRecurring?: boolean;
   isTaxDeductible?: boolean;
+  isTaxAnalyzed?: boolean; // New flag for the whole transaction
   checklistId?: string | null;
   checklistItemId?: string | null;
   tripId?: string | null;

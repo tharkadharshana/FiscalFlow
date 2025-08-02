@@ -1,14 +1,14 @@
 
 'use server';
 /**
- * @fileOverview A generic AI flow to analyze transactions and identify tax liabilities for any country.
+ * @fileOverview A sophisticated AI flow to analyze transactions and calculate a detailed, item-wise tax breakdown.
  *
- * - analyzeTaxes - A function that handles the tax analysis process.
+ * - analyzeTaxes - A function that handles the detailed tax analysis process for Sri Lanka.
  */
 
 import { ai } from '@/ai/genkit';
 import { AnalyzeTaxesInputSchema, AnalyzeTaxesOutputSchema } from '@/types/schemas';
-import type { AnalyzeTaxesInput, AnalyzeTaxesOutput } from '@/types/schemas';
+import type { AnalyzeTaxesInput, AnalyzeTaxesOutput, TransactionItem } from '@/types/schemas';
 
 // Main Flow Definition
 export async function analyzeTaxes(
@@ -19,26 +19,30 @@ export async function analyzeTaxes(
       name: 'taxAnalysisPrompt',
       input: { schema: AnalyzeTaxesInputSchema },
       output: { schema: AnalyzeTaxesOutputSchema },
-      system: `You are an expert global financial analyst specializing in tax law. Your task is to analyze a user's complete financial picture for the specified country ({{countryCode}}) and identify all potential tax liabilities.
+      system: `You are an expert financial analyst specializing in Sri Lankan (countryCode: LK) tax law.
+      Your task is to analyze a list of transactions and calculate a detailed, item-wise tax breakdown for each expense.
 
       **Core Instructions:**
-      1.  **Analyze All Data Sources:** You will be given transactions, investments, and savings goals. You must consider all of them.
-      2.  **Calculate Liabilities:**
-          -   **Income Tax (e.g., PAYE):** Sum all 'income' type transactions to get the gross annual income. Based on the tax laws for {{countryCode}}, calculate the personal income tax liability.
-          -   **Consumption Tax (e.g., VAT/GST):** For each 'expense' transaction, determine if it is subject to VAT/GST in {{countryCode}}. Calculate the tax paid on applicable items and sum them for a total.
-          -   **Capital Gains Tax:** Review the list of investments. While you don't know if they were sold, mention a potential capital gains tax liability if the country has one. You DO NOT need to calculate an amount, but you should create a liability item with amount 0 and a description explaining it.
-          -   **Interest Income Tax:** Review the list of savings goals. If the country taxes interest on savings, calculate a potential tax based on the saved amount. Assume a conservative interest rate (e.g., 2%) if not specified.
-          -   **Other Taxes:** Identify any other relevant taxes based on all the provided data and country context.
-      3.  **Perform Calculations:** You are responsible for the calculations. Do not use placeholder text (except for Capital Gains). You must return a final, calculated number for the 'amount' field in each liability.
-      4.  **Prioritize User Document:** If the user provides custom tax documentation in the 'taxDocument' field, you MUST prioritize it over your internal knowledge. Your 'description' for the liability should mention that you are using the custom rules provided.
-      5.  **Return Structured Output:** Format your entire response as a single JSON object that strictly adheres to the 'AnalyzeTaxesOutput' schema. If no liabilities are found, return an empty 'liabilities' array.
 
-      {{#if taxDocument}}
-      **User-Provided Tax Documentation (Highest Priority Source of Truth):**
-      ---
-      {{{taxDocument}}}
-      ---
-      {{/if}}
+      1.  **Iterate Through Transactions:** Process each transaction in the input array. If a transaction is an 'income' type, or if it has no 'items', return it unchanged but with 'isTaxAnalyzed' set to true.
+
+      2.  **Analyze Each Item:** For each item within an expense transaction's 'items' array:
+          a. **Determine Origin:** Based on the item's description (e.g., "Samsung TV", "Local Rice"), determine if it is 'Imported' or 'Local'. If unsure, default to 'Local'.
+          b. **Apply Tax Logic (LK):**
+              - **VAT (Value Added Tax):** Assume a standard rate of 18% on the base price (Shop Fee).
+              - **Tariff (Customs Duty):** If the item is 'Imported', apply a category-specific tariff. Use these estimates: Electronics (10%), Clothing (25%), Vehicles (100%), Other (15%). If 'Local', the tariff is 0.
+              - **Excise Duty:** If the category is 'Fuel', apply a 20% excise duty on the base price. For all other categories, this is 0.
+              - **Shop Fee Calculation:** The total price of the item is the sum of Shop Fee + VAT + Tariff + Excise. You must reverse-calculate the 'shopFee'. The formula is: Shop Fee = Item Price / (1 + VAT Rate + Tariff Rate + Excise Rate).
+          c. **Special Logic for Transport/Rideshare:**
+              - If an item description contains 'Uber', 'PickMe', or similar, and the transaction 'notes' field contains a distance (e.g., "15km trip"), use this logic:
+              - Assume: Fuel Price = 370 LKR/litre, Avg. Consumption = 12 km/litre.
+              - Fuel Cost = (Distance / Avg. Consumption) * Fuel Price.
+              - The fuel cost itself is subject to taxes. Break it down: Base Fuel = Fuel Cost / 1.20; Fuel Excise = Base Fuel * 0.20.
+              - The company's fee is the remaining amount: Ride Company Fee = Item Price - Fuel Cost.
+              - For this item, set: shopFee = Ride Company Fee, tariff = 0, vat = 0, otherTaxes = Fuel Excise.
+          d. **Populate 'taxDetails':** For each item, you MUST calculate and populate the 'taxDetails' object with the calculated 'tariff', 'vat', 'otherTaxes' (for excise), and 'shopFee'. Set 'isAnalyzed' to true.
+
+      3.  **Return Full Transaction Objects:** Your final output must be an array containing ALL the original transactions, with the expense items updated with the new 'taxDetails' and the top-level 'isTaxAnalyzed' flag set to true for every transaction you processed.
       `,
   });
 
@@ -51,12 +55,31 @@ export async function analyzeTaxes(
     },
     async (flowInput) => {
       
+      // If there are no transactions to analyze, return an empty array.
+      if (!flowInput.transactions || flowInput.transactions.length === 0) {
+        return { analyzedTransactions: [] };
+      }
+
       const llmResponse = await taxAnalysisPrompt(flowInput);
       
-      // The structured output is now fully reliant on the LLM.
-      // The Zod schema validation on the prompt output will ensure the structure is correct.
-      // If the LLM fails to produce a valid output, Genkit will throw an error which is caught by the server action.
-      return llmResponse.output!;
+      const output = llmResponse.output;
+
+      if (!output || !output.analyzedTransactions) {
+        throw new Error("AI failed to return the expected 'analyzedTransactions' array.");
+      }
+
+      // Final validation to ensure all transactions are marked as analyzed.
+      // The AI should do this, but this is a safeguard.
+      output.analyzedTransactions.forEach(tx => {
+        tx.isTaxAnalyzed = true;
+        tx.items?.forEach(item => {
+            if (item.taxDetails) {
+                item.taxDetails.isAnalyzed = true;
+            }
+        })
+      });
+      
+      return output;
     }
   );
 
