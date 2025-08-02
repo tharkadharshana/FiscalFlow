@@ -398,16 +398,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (user && userProfile?.countryCode) {
             const countryCode = userProfile.countryCode;
             const taxRulesRef = doc(db, 'taxRules', countryCode);
+            
             const unsubscribe = onSnapshot(taxRulesRef, (docSnap) => {
                 if (docSnap.exists()) {
                     setTaxRules(docSnap.data() as TaxSettings);
                 } else {
-                    logger.warn(`No tax rules found for country ${countryCode}.`);
-                    setTaxRules(null); // Or set to a default
+                    logger.warn(`No tax rules found for country ${countryCode}. Falling back to default (LK).`);
+                    // Fallback to LK rules if the selected country has no document
+                    const defaultTaxRulesRef = doc(db, 'taxRules', 'LK');
+                    getDocs(query(collection(db, 'taxRules'), where('__name__', '==', 'LK'))).then(fallbackSnap => {
+                        if (!fallbackSnap.empty) {
+                            setTaxRules(fallbackSnap.docs[0].data() as TaxSettings);
+                        } else {
+                            logger.error("Default tax rules (LK) not found in Firestore.");
+                            setTaxRules(null);
+                        }
+                    });
                 }
             }, (error) => {
                 logger.error(`Error fetching tax rules for ${countryCode}`, error);
             });
+
             return () => unsubscribe();
         }
     }, [user, userProfile?.countryCode]);

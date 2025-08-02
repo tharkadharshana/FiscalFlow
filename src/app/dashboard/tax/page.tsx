@@ -65,6 +65,8 @@ export default function TaxPage() {
         }
         setIsAnalyzing(false);
     }
+    
+    const isUsingDefaultRules = taxRules?.countryCode === 'LK' && userProfile?.countryCode !== 'LK';
 
   return (
     <div className="flex flex-1 flex-col">
@@ -79,6 +81,15 @@ export default function TaxPage() {
         </div>
         
         <TabsContent value="overview" className="space-y-6">
+             {isUsingDefaultRules && (
+                <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 [&>svg]:text-amber-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Using Default Tax Logic</AlertTitle>
+                    <AlertDescription>
+                        No specific tax rules were found for your selected country ({userProfile?.countryCode}). The analysis is using the default rules for Sri Lanka (LK) as a demonstration.
+                    </AlertDescription>
+                </Alert>
+            )}
             <TaxAnalysisFilters 
                 onAnalyze={handleAnalyzeTaxes} 
                 isAnalyzing={isAnalyzing}
