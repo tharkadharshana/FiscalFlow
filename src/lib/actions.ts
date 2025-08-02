@@ -12,6 +12,8 @@ import { analyzeTaxes } from '@/ai/flows/analyze-taxes-flow';
 import { createSavingsGoal } from '@/ai/flows/create-savings-goal-flow';
 import { parseBankStatement } from '@/ai/flows/parse-bank-statement-flow';
 import { createChecklist } from '@/ai/flows/create-checklist-flow';
+import { calculateItemTax } from '@/ai/flows/calculate-item-tax-flow';
+
 
 import type {
     AnalyzeTaxesInput,
@@ -31,7 +33,9 @@ import type {
     ParseReceiptOutput,
     VoiceAction,
     CreateChecklistInput,
-    CreateChecklistOutput
+    CreateChecklistOutput,
+    CalculateItemTaxInput,
+    TaxDetails,
 } from '@/types/schemas';
 
 import { logger } from './logger';
@@ -49,11 +53,25 @@ type SavingsGoalResult = CreateSavingsGoalOutput | { error: string };
 type CoinGeckoResult = CoinGeckoMarketData[] | { error: string };
 type BankStatementParseResult = ParseBankStatementOutput | { error: string };
 type ChecklistResult = CreateChecklistOutput | { error: string };
+type ItemTaxResult = TaxDetails | { error: string };
 
 
 // ------------------------------
 // ACTION FUNCTIONS
 // ------------------------------
+
+export async function calculateItemTaxAction(
+    input: CalculateItemTaxInput
+): Promise<ItemTaxResult> {
+    try {
+        const result = await calculateItemTax(input);
+        return result;
+    } catch (error) {
+        console.error('Error in calculateItemTaxAction:', error);
+        return { error: 'Failed to calculate tax. Please try again later.' };
+    }
+}
+
 
 export async function getCoinGeckoMarketData(
   params: { coinIds?: string[]; page?: number; perPage?: number } = {}
@@ -90,8 +108,10 @@ export async function parseDocumentAction(
   input: ParseReceiptInput
 ): Promise<ParseDocumentResult> {
   try {
+    // This action now uses the full parseReceipt flow but only returns the text.
+    // This is a placeholder; a more optimized text extraction flow would be better.
     const result = await parseReceipt(input);
-    if (result.rawText) {
+    if ('rawText' in result && result.rawText) {
       return { text: result.rawText };
     }
     return { error: 'Could not extract any text from the document.' };

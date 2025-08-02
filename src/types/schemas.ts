@@ -18,6 +18,7 @@ export const TaxDetailsSchema = z.object({
   excise: z.number().describe('The calculated excise duty for the item.'),
   other: z.number().describe('Any other taxes like Social Security Levy (SSL).'),
   totalTax: z.number().describe('The sum of all indirect taxes for this item.'),
+  shopFee: z.number().describe("The remaining portion of the price after all taxes are subtracted. This represents the store's revenue or markup."),
 });
 export type TaxDetails = z.infer<typeof TaxDetailsSchema>;
 
@@ -59,6 +60,7 @@ export type SimplifiedSavingsGoal = z.infer<typeof SimplifiedSavingsGoalSchema>;
 export const AnalyzeTaxesInputSchema = z.object({
   transactions: z.array(TransactionSchema).describe('The list of transactions to be analyzed.'),
   taxRules: z.any().describe('A JSON object containing all the tax rules for the selected country.'),
+  countryCode: z.string(),
 });
 export type AnalyzeTaxesInput = z.infer<typeof AnalyzeTaxesInputSchema>;
 
@@ -66,6 +68,16 @@ export const AnalyzeTaxesOutputSchema = z.object({
     analyzedTransactions: z.array(TransactionSchema),
 });
 export type AnalyzeTaxesOutput = z.infer<typeof AnalyzeTaxesOutputSchema>;
+
+
+// --- Single Item Tax Calculation Schemas ---
+export const CalculateItemTaxInputSchema = z.object({
+    description: z.string(),
+    price: z.number(),
+    taxRules: z.any().describe('A JSON object containing all the tax rules for the selected country.'),
+    countryCode: z.string(),
+});
+export type CalculateItemTaxInput = z.infer<typeof CalculateItemTaxInputSchema>;
 
 
 // --- Voice Assistant Schemas ---
