@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
@@ -443,12 +444,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const { date, ...restOfTransaction } = transaction;
         const newTransactionRef = doc(collection(db, 'users', user.uid, 'transactions'));
         
-        batch.set(newTransactionRef, {
-            ...restOfTransaction,
-            date: Timestamp.fromDate(new Date(date)),
-            createdAt: serverTimestamp(),
-            userId: user.uid,
-        });
+        // Sanitize the object to remove undefined values
+        const sanitizedTransactionData = Object.fromEntries(
+            Object.entries({
+                ...restOfTransaction,
+                date: Timestamp.fromDate(new Date(date)),
+                createdAt: serverTimestamp(),
+                userId: user.uid,
+            }).map(([key, value]) => [key, value === undefined ? null : value])
+        );
+        
+        batch.set(newTransactionRef, sanitizedTransactionData);
 
         // Handle Roundup Goal
         if (transaction.type === 'expense' && !Number.isInteger(transaction.amount)) {
@@ -509,12 +515,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
         const txRef = doc(db, 'users', user.uid, 'transactions', transactionId);
         
-        const finalUpdateData: any = { ...updatedData };
-        
-        // Convert date string/object back to Timestamp for Firestore
+        let finalUpdateData: any = { ...updatedData };
         if (finalUpdateData.date && !(finalUpdateData.date instanceof Timestamp)) {
             finalUpdateData.date = Timestamp.fromDate(new Date(finalUpdateData.date));
         }
+
+        // Sanitize to remove undefined values before updating
+        finalUpdateData = Object.fromEntries(
+            Object.entries(finalUpdateData).filter(([, value]) => value !== undefined)
+        );
 
         await updateDoc(txRef, finalUpdateData);
         showNotification({ type: 'success', title: 'Transaction Updated', description: '' });
@@ -1175,3 +1184,4 @@ export function useAppContext() {
   }
   return context;
 }
+
