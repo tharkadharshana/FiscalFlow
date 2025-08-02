@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -29,7 +30,7 @@ type TaxAnalysisFiltersProps = {
 };
 
 export function TaxAnalysisFilters({ onAnalyze, isAnalyzing }: TaxAnalysisFiltersProps) {
-  const { transactions, allCategories, canRunTaxAnalysis } = useAppContext();
+  const { transactions, allCategories, canRunTaxAnalysis, taxRules } = useAppContext();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
@@ -57,8 +58,10 @@ export function TaxAnalysisFilters({ onAnalyze, isAnalyzing }: TaxAnalysisFilter
     onAnalyze(filteredTransactions);
   };
 
+  const isReadyToAnalyze = canRunTaxAnalysis && !!taxRules;
+
   const RunAnalysisButton = (
-    <Button onClick={handleAnalyzeClick} disabled={isAnalyzing || !canRunTaxAnalysis}>
+    <Button onClick={handleAnalyzeClick} disabled={isAnalyzing || !isReadyToAnalyze}>
         {isAnalyzing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Analyzing...</> : 'Run AI Analysis'}
     </Button>
   );
@@ -103,12 +106,14 @@ export function TaxAnalysisFilters({ onAnalyze, isAnalyzing }: TaxAnalysisFilter
         </div>
         <div className="flex items-end">
           <TooltipProvider>
-            {canRunTaxAnalysis ? RunAnalysisButton : (
+            {!isReadyToAnalyze ? (
                 <Tooltip>
                     <TooltipTrigger asChild>{RunAnalysisButton}</TooltipTrigger>
-                    <TooltipContent><p>You have used your free tax analysis for this month. Upgrade for more.</p></TooltipContent>
+                    <TooltipContent>
+                        <p>{!taxRules ? "Loading tax rules..." : "You have used your free tax analysis for this month."}</p>
+                    </TooltipContent>
                 </Tooltip>
-            )}
+            ) : RunAnalysisButton}
           </TooltipProvider>
         </div>
       </CardContent>

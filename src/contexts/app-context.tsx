@@ -701,7 +701,7 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
         logger.info('Recurring transaction deleted', { transactionId });
     } catch (error) {
         logger.error('Error deleting recurring transaction', error as Error, { transactionId });
-        showNotification({ type: 'error', title: 'Error updating recurring item', description: '' });
+        showNotification({ type: 'error', title: 'Error deleting recurring item', description: '' });
     }
   };
 
@@ -1023,27 +1023,36 @@ const addBudget = async (budget: Omit<Budget, 'id' | 'createdAt' | 'userId' | 'c
   }
 
   const analyzeTaxesWithLimit = async (input: Pick<AnalyzeTaxesInput, 'transactions'>): Promise<AnalyzeTaxesOutput | { error: string } | undefined> => {
-    if (!user || !userProfile || !userProfile.countryCode || !taxRules) { 
-      const errorMsg = 'Tax rules or country code not loaded for user.';
-      showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
-      return { error: errorMsg };
+    for (let i = 0; i < 5; i++) { // Retry up to 5 times
+        if (user && userProfile?.countryCode && taxRules) {
+            // If all data is ready, proceed.
+            break;
+        }
+        if (i === 4) { // If it's the last attempt and data is still not ready
+            const errorMsg = 'Tax rules or country code not loaded for user.';
+            showNotification({ type: 'error', title: 'Cannot Analyze Taxes', description: errorMsg }); 
+            return { error: errorMsg };
+        }
+        // Wait for 300ms before retrying
+        await new Promise(resolve => setTimeout(resolve, 300));
     }
+
+    if (!user || !userProfile || !taxRules) { return; } // Should not happen due to the loop above, but for type safety
 
     if (!canRunTaxAnalysis) {
         showNotification({ type: 'error', title: 'Limit Reached', description: 'You have used your free tax analysis for this month.' });
         return { error: 'Limit Reached' };
     }
     
-    // Sanitize transactions: remove non-serializable 'icon' property.
     const sanitizedTransactions = input.transactions.map(tx => {
-        const { icon, ...rest } = tx as any; // Cast to any to access icon
+        const { icon, ...rest } = tx as any;
         return rest;
     });
 
     const fullInput: AnalyzeTaxesInput = {
       transactions: sanitizedTransactions,
       taxRules: taxRules,
-      countryCode: userProfile.countryCode,
+      countryCode: userProfile.countryCode!,
     };
     const result = await analyzeTaxesAction(fullInput);
 
@@ -1252,4 +1261,3 @@ export function useAppContext() {
   }
   return context;
 }
-
